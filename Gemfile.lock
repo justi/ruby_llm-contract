@@ -4,6 +4,7 @@ PATH
     ruby_llm-contract (0.1.0)
       dry-types (~> 1.7)
       ruby_llm (~> 1.0)
+      ruby_llm-schema
 
 GEM
   remote: https://rubygems.org/

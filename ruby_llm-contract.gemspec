@@ -6,7 +6,6 @@ Gem::Specification.new do |spec|
   spec.name = "ruby_llm-contract"
   spec.version = RubyLLM::Contract::VERSION
   spec.authors = ["Justyna"]
-  spec.email = []
 
   spec.summary = "Contract-first LLM step execution for RubyLLM"
   spec.description = "Turn RubyLLM calls into contracted, validated, testable steps with schema enforcement, " \
@@ -30,4 +29,5 @@ Gem::Specification.new do |spec|
 
   spec.add_dependency "dry-types", "~> 1.7"
   spec.add_dependency "ruby_llm", "~> 1.0"
+  spec.add_dependency "ruby_llm-schema"
 end
