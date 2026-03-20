@@ -13,13 +13,22 @@ module RubyLLM
 
       def configure
         yield(configuration)
-        return unless configuration.api_key_set? && configuration.default_adapter.nil?
-
-        configuration.default_adapter = Adapters::RubyLLM.new
+        auto_create_adapter! if configuration.default_adapter.nil?
       end
 
       def reset_configuration!
         @configuration = Configuration.new
+      end
+
+      private
+
+      def auto_create_adapter!
+        require "ruby_llm"
+        # If RubyLLM has any API key configured, auto-create the adapter
+        configuration.default_adapter = Adapters::RubyLLM.new
+      rescue LoadError
+        # ruby_llm not available — user must set adapter manually
+        nil
       end
     end
   end
