@@ -97,6 +97,18 @@ RSpec.describe RubyLLM::Contract::Step::RetryPolicy do
     it "raises ArgumentError when attempts is not an integer" do
       expect { described_class.new { attempts "three" } }.to raise_error(ArgumentError, /attempts must be at least 1/)
     end
+
+    it "raises ArgumentError for keyword attempts: 0" do
+      expect {
+        described_class.new(attempts: 0)
+      }.to raise_error(ArgumentError, /attempts must be at least 1/)
+    end
+
+    it "raises ArgumentError for keyword attempts: -1" do
+      expect {
+        described_class.new(attempts: -1)
+      }.to raise_error(ArgumentError, /attempts must be at least 1/)
+    end
   end
 
   describe "keyword API" do

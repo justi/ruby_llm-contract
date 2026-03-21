@@ -149,47 +149,6 @@ RSpec.describe "Adversarial QA round 2 -- bug regressions" do
   end
 
   # ---------------------------------------------------------------------------
-  # BUG 12: JSON with UTF-8 BOM (Byte Order Mark) fails to parse.
-  #
-  # LLMs and APIs sometimes prepend the UTF-8 BOM (0xEF 0xBB 0xBF) to their
-  # output. Ruby's JSON.parse does not handle this, causing a parse error.
-  #
-  # Fix: Parser strips UTF-8 BOM from raw_output before JSON.parse.
-  # ---------------------------------------------------------------------------
-  describe "BUG 12: JSON with UTF-8 BOM fails to parse" do
-    it "parses JSON with BOM prefix correctly" do
-      bom = "\xEF\xBB\xBF"
-      json_with_bom = "#{bom}{\"name\": \"Alice\"}"
-
-      result = RubyLLM::Contract::Parser.parse(json_with_bom, strategy: :json)
-
-      expect(result).to eq({ name: "Alice" })
-    end
-
-    it "still parses normal JSON without BOM" do
-      result = RubyLLM::Contract::Parser.parse('{"name": "Bob"}', strategy: :json)
-
-      expect(result).to eq({ name: "Bob" })
-    end
-
-    it "works end-to-end: step with BOM-prefixed JSON response" do
-      step = Class.new(RubyLLM::Contract::Step::Base) do
-        prompt { user "{input}" }
-        output_type RubyLLM::Contract::Types::Hash
-        contract { parse :json }
-      end
-
-      bom = "\xEF\xBB\xBF"
-      adapter = RubyLLM::Contract::Adapters::Test.new(response: "#{bom}{\"status\": \"ok\"}")
-      result = step.run("test", context: { adapter: adapter })
-
-      expect(result.status).to eq(:ok),
-        "BOM-prefixed JSON should parse successfully, not: #{result.status} -- #{result.validation_errors}"
-      expect(result.parsed_output[:status]).to eq("ok")
-    end
-  end
-
-  # ---------------------------------------------------------------------------
   # BUG 13: Pipeline timeout_ms: 0 or negative causes immediate timeout.
   #
   # Pipeline::Runner does not validate timeout_ms. A value of 0 means

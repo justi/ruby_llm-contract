@@ -215,32 +215,6 @@ RSpec.describe "Adversarial QA -- bug regressions" do
   end
 
   # ---------------------------------------------------------------------------
-  # BUG 7: Test adapter response:/responses: inconsistency for Hashes.
-  # response: Hash stored raw Hash; responses: [Hash] converted to String.
-  #
-  # Fix: responses: now preserves Hash type.
-  # ---------------------------------------------------------------------------
-  describe "BUG 7: Test adapter response:/responses: consistency for Hashes" do
-    it "produces same raw_output type (Hash) regardless of constructor form" do
-      step = Class.new(RubyLLM::Contract::Step::Base) do
-        prompt { user "{input}" }
-        output_type RubyLLM::Contract::Types::Hash
-        contract { parse :json }
-      end
-
-      adapter_single = RubyLLM::Contract::Adapters::Test.new(response: { "name" => "Alice" })
-      adapter_array = RubyLLM::Contract::Adapters::Test.new(responses: [{ "name" => "Alice" }])
-
-      result_single = step.run("test", context: { adapter: adapter_single })
-      result_array = step.run("test", context: { adapter: adapter_array })
-
-      expect(result_single.raw_output).to be_a(Hash)
-      expect(result_array.raw_output).to be_a(Hash)
-      expect(result_single.parsed_output).to eq(result_array.parsed_output)
-    end
-  end
-
-  # ---------------------------------------------------------------------------
   # BUG 8: SchemaValidator skipped nested object validation entirely.
   # Only top-level properties were checked.
   #

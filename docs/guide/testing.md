@@ -27,7 +27,7 @@ result = MyPipeline.test("input",
 Add to your `spec_helper.rb`:
 
 ```ruby
-require "ruby_llm-contract/rspec"
+require "ruby_llm/contract/rspec"
 ```
 
 Then test your steps with clean, expressive assertions:

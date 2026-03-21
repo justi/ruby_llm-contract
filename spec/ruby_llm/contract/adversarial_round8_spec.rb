@@ -9,58 +9,6 @@ RSpec.describe "Adversarial QA round 8 -- API contract violations" do
   before { RubyLLM::Contract.reset_configuration! }
 
   # ---------------------------------------------------------------------------
-  # BUG 38: retry_policy(attempts: 0) crashes with NoMethodError on nil.
-  #
-  # When RetryPolicy is created with attempts: 0, max_attempts is 0. In
-  # run_with_retry, `policy.max_attempts.times` iterates zero times, leaving
-  # all_attempts as an empty array. Then build_retry_result calls
-  # `all_attempts.last[:result]` -- but all_attempts.last is nil, so
-  # nil[:result] raises NoMethodError.
-  #
-  # The API contract violation: retry_policy should either reject invalid
-  # attempt counts or handle the zero case gracefully.
-  #
-  # Fix: RetryPolicy validates max_attempts >= 1 in both keyword and block forms.
-  # ---------------------------------------------------------------------------
-  describe "BUG 38: retry_policy(attempts: 0) crashes with NoMethodError" do
-    it "raises ArgumentError for attempts: 0" do
-      expect do
-        RubyLLM::Contract::Step::RetryPolicy.new(attempts: 0)
-      end.to raise_error(ArgumentError, /attempts must be at least 1/i),
-             "retry_policy(attempts: 0) should be rejected, not cause a runtime crash"
-    end
-
-    it "raises ArgumentError for negative attempts" do
-      expect do
-        RubyLLM::Contract::Step::RetryPolicy.new(attempts: -1)
-      end.to raise_error(ArgumentError, /attempts must be at least 1/i),
-             "retry_policy(attempts: -1) should be rejected"
-    end
-
-    it "raises ArgumentError for attempts: 0 in block form" do
-      expect do
-        RubyLLM::Contract::Step::RetryPolicy.new do
-          attempts 0
-        end
-      end.to raise_error(ArgumentError, /attempts must be at least 1/i),
-             "retry_policy { attempts 0 } should be rejected"
-    end
-
-    it "accepts attempts: 1 (minimum valid)" do
-      policy = RubyLLM::Contract::Step::RetryPolicy.new(attempts: 1)
-      expect(policy.max_attempts).to eq(1)
-    end
-
-    it "documents the crash that occurs without the fix" do
-      # Without validation, attempts: 0 leads to a crash in run_with_retry
-      # because 0.times yields zero iterations and all_attempts is empty.
-      # This test proves the crash path exists by examining the policy directly.
-      policy = RubyLLM::Contract::Step::RetryPolicy.new(attempts: 1)
-      expect(policy.max_attempts).to be >= 1
-    end
-  end
-
-  # ---------------------------------------------------------------------------
   # BUG 39: max_input(-1) silently accepts a negative limit, then rejects ALL
   # inputs because any positive token estimate > -1 is true.
   #

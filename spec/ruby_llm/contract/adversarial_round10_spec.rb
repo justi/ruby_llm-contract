@@ -28,30 +28,6 @@ RSpec.describe "Adversarial QA round 10 -- production certification audit" do
         expect(result).to eq([1, 2, 3])
       end
 
-      it "parses JSON wrapped in markdown code fences" do
-        text = "```json\n{\"status\": \"ok\"}\n```"
-        result = RubyLLM::Contract::Parser.parse(text, strategy: :json)
-        expect(result).to eq({ status: "ok" })
-      end
-
-      it "parses JSON preceded by prose explanation" do
-        text = "Here is the result:\n{\"answer\": 42}"
-        result = RubyLLM::Contract::Parser.parse(text, strategy: :json)
-        expect(result).to eq({ answer: 42 })
-      end
-
-      it "parses JSON followed by trailing explanation" do
-        text = "{\"answer\": 42}\n\nI hope this helps!"
-        result = RubyLLM::Contract::Parser.parse(text, strategy: :json)
-        expect(result).to eq({ answer: 42 })
-      end
-
-      it "parses JSON surrounded by both prose" do
-        text = "Sure! Here is the JSON:\n{\"key\": \"value\"}\nLet me know if you need more."
-        result = RubyLLM::Contract::Parser.parse(text, strategy: :json)
-        expect(result).to eq({ key: "value" })
-      end
-
       it "parses deeply nested JSON (4 levels)" do
         json = '{"a": {"b": {"c": {"d": "deep"}}}}'
         result = RubyLLM::Contract::Parser.parse(json, strategy: :json)

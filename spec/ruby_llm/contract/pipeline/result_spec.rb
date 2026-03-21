@@ -40,6 +40,46 @@ RSpec.describe RubyLLM::Contract::Pipeline::Result do
     end
   end
 
+  describe "step_results inner hashes are frozen" do
+    it "prevents mutation of step result alias" do
+      step = Class.new(RubyLLM::Contract::Step::Base) do
+        prompt { user "{input}" }
+        output_type RubyLLM::Contract::Types::Hash
+        contract { parse :json }
+      end
+
+      pipeline = Class.new(RubyLLM::Contract::Pipeline::Base) do
+        step step, as: :analyze
+      end
+
+      adapter = RubyLLM::Contract::Adapters::Test.new(response: '{"result": "ok"}')
+      result = pipeline.run("test", context: { adapter: adapter })
+
+      expect {
+        result.step_results[0][:alias] = "hijacked"
+      }.to raise_error(FrozenError)
+    end
+
+    it "prevents injection of arbitrary keys into step results" do
+      step = Class.new(RubyLLM::Contract::Step::Base) do
+        prompt { user "{input}" }
+        output_type RubyLLM::Contract::Types::Hash
+        contract { parse :json }
+      end
+
+      pipeline = Class.new(RubyLLM::Contract::Pipeline::Base) do
+        step step, as: :analyze
+      end
+
+      adapter = RubyLLM::Contract::Adapters::Test.new(response: '{"result": "ok"}')
+      result = pipeline.run("test", context: { adapter: adapter })
+
+      expect {
+        result.step_results[0][:injected] = "malicious"
+      }.to raise_error(FrozenError)
+    end
+  end
+
   describe "failed result" do
     let(:result) do
       described_class.new(
