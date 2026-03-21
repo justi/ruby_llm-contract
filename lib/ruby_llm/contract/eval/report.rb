@@ -31,6 +31,8 @@ module RubyLLM
         end
 
         def passed?
+          return false if results.empty?
+
           results.all? { |result| result[:passed] }
         end
 

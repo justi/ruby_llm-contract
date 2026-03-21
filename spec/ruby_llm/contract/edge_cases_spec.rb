@@ -214,15 +214,12 @@ RSpec.describe "Edge cases" do
 
   describe RubyLLM::Contract::Pipeline::Base do
     describe "empty pipeline" do
-      it "returns :ok with empty outputs and step_results" do
+      it "raises ArgumentError when run with no steps defined" do
         pipeline = Class.new(described_class)
         adapter = RubyLLM::Contract::Adapters::Test.new(response: '{"v": 1}')
 
-        result = pipeline.run("test", context: { adapter: adapter })
-
-        expect(result.status).to eq(:ok)
-        expect(result.outputs_by_step).to eq({})
-        expect(result.step_results).to eq([])
+        expect { pipeline.run("test", context: { adapter: adapter }) }
+          .to raise_error(ArgumentError, /no steps defined/i)
       end
     end
   end
@@ -232,12 +229,9 @@ RSpec.describe "Edge cases" do
   # ===========================================================================
 
   describe RubyLLM::Contract::Pipeline::Runner do
-    it "returns :ok with zero usage for an empty step list" do
-      runner = described_class.new(steps: [], context: {}, timeout_ms: nil, token_budget: nil)
-      result = runner.call("test")
-
-      expect(result.status).to eq(:ok)
-      expect(result.trace.total_usage).to eq({ input_tokens: 0, output_tokens: 0 })
+    it "raises ArgumentError for an empty step list" do
+      expect { described_class.new(steps: [], context: {}, timeout_ms: nil, token_budget: nil) }
+        .to raise_error(ArgumentError, /no steps defined/i)
     end
   end
 

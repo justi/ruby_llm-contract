@@ -197,20 +197,15 @@ RSpec.describe "Adversarial QA -- bug regressions" do
   # BUG 5: Pipeline::Base.steps returns the internal mutable array.
   # External code can inject steps into a pipeline.
   # ---------------------------------------------------------------------------
-  describe "BUG 5: Pipeline.steps exposes mutable internal array" do
-    it "allows external code to push steps onto the internal array" do
+  describe "BUG 5 (FIXED): Pipeline.steps returns frozen array" do
+    it "does not allow external code to push steps onto the internal array" do
       dummy_step = Class.new(RubyLLM::Contract::Step::Base) { prompt { user "{input}" } }
 
       pipeline = Class.new(RubyLLM::Contract::Pipeline::Base)
       pipeline.step(dummy_step, as: :first)
 
-      initial_count = pipeline.steps.length
-
-      # External mutation via the returned array reference
-      pipeline.steps.push({ step_class: dummy_step, alias: :injected, depends_on: nil, model: nil })
-
-      expect(pipeline.steps.length).to eq(initial_count + 1),
-        "Pipeline.steps returns the internal mutable array -- external code can inject steps"
+      expect { pipeline.steps.push({ step_class: dummy_step, alias: :injected, depends_on: nil, model: nil }) }
+        .to raise_error(FrozenError)
     end
   end
 

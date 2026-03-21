@@ -24,16 +24,26 @@ module RubyLLM
 
         private
 
+        def all_eval_definitions
+          inherited = if superclass.respond_to?(:all_eval_definitions, true)
+                        superclass.send(:all_eval_definitions)
+                      else
+                        {}
+                      end
+          own = defined?(@eval_definitions) ? @eval_definitions : {}
+          inherited.merge(own)
+        end
+
         def run_single_eval(name, context)
-          defn = (@eval_definitions || {})[name.to_s]
-          raise ArgumentError, "No eval '#{name}' defined. Available: #{(@eval_definitions || {}).keys}" unless defn
+          defn = all_eval_definitions[name.to_s]
+          raise ArgumentError, "No eval '#{name}' defined. Available: #{all_eval_definitions.keys}" unless defn
 
           effective_context = eval_context(defn, context)
           Eval::Runner.run(step: self, dataset: defn.build_dataset, context: effective_context)
         end
 
         def run_all_evals(context)
-          (@eval_definitions || {}).transform_values do |defn|
+          all_eval_definitions.transform_values do |defn|
             effective_context = eval_context(defn, context)
             Eval::Runner.run(step: self, dataset: defn.build_dataset, context: effective_context)
           end

@@ -10,6 +10,7 @@ module RubyLLM
 
         def initialize(steps:, context:, timeout_ms: nil, token_budget: nil)
           raise ArgumentError, "timeout_ms must be positive (got #{timeout_ms})" if timeout_ms && timeout_ms <= 0
+          raise ArgumentError, "Pipeline has no steps defined" if steps.empty?
 
           @steps = steps
           @context = context
@@ -55,6 +56,13 @@ module RubyLLM
           true
         end
 
+        # NOTE: This is a cooperative timeout, not a hard deadline. The timeout is
+        # checked between steps, after each step completes. A slow step (e.g. long
+        # LLM call or multi-attempt retry) can exceed the deadline before the check
+        # runs. This is a known architectural limitation -- safely interrupting a
+        # running HTTP call in Ruby requires threads/fibers, which adds significant
+        # complexity. For most pipelines this cooperative approach is sufficient;
+        # set timeout_ms with enough headroom for your slowest expected step.
         def detect_limit_violation(execution, start_time)
           if @timeout_ms && elapsed_ms(start_time) >= @timeout_ms
             :timeout

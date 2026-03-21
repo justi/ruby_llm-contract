@@ -65,15 +65,16 @@ module RubyLLM
 
           def effective_contract
             base = contract
-            extra = @class_validates || []
+            extra = class_validates
             inferred_parse = json_compatible_type?(output_type) ? :json : nil
 
             return base if extra.empty? && inferred_parse.nil?
 
+            has_own_contract = defined?(@contract_definition) && @contract_definition
             Definition.merge(
               base,
               extra_invariants: extra,
-              parse_override: inferred_parse && !@contract_definition ? inferred_parse : nil
+              parse_override: inferred_parse && !has_own_contract ? inferred_parse : nil
             )
           end
 
