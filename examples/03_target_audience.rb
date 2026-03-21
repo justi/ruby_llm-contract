@@ -8,7 +8,7 @@
 # breaks (subreddit discovery, thread classification, comment generation).
 # =============================================================================
 
-require_relative "../lib/prompt_contract"
+require_relative "../lib/ruby_llm/contract"
 
 # =============================================================================
 # BEFORE: Legacy approach (prompt + schema in concern, ad-hoc validation)
@@ -54,7 +54,7 @@ require_relative "../lib/prompt_contract"
 # - Failure here silently poisons all 6 downstream stages
 
 # =============================================================================
-# AFTER: prompt_contract approach
+# AFTER: ruby_llm-contract approach
 # =============================================================================
 
 class GenerateTargetAudience < RubyLLM::Contract::Step::Base

@@ -1,13 +1,13 @@
 # frozen_string_literal: true
 
 # =============================================================================
-# EXAMPLE 0: From zero to prompt_contract
+# EXAMPLE 0: From zero to ruby_llm-contract
 #
 # Starting from the simplest case — a plain string prompt —
 # and adding one layer at a time.
 # =============================================================================
 
-require_relative "../lib/prompt_contract"
+require_relative "../lib/ruby_llm/contract"
 
 # Setup: test adapter returns canned responses (no real LLM needed)
 RubyLLM::Contract.configure do |config|

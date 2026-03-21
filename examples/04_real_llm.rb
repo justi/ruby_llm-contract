@@ -15,7 +15,7 @@
 #   ruby examples/04_real_llm.rb
 # =============================================================================
 
-require_relative "../lib/prompt_contract"
+require_relative "../lib/ruby_llm/contract"
 
 # =============================================================================
 # STEP 1: Configure — single block, API key auto-creates adapter

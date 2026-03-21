@@ -8,7 +8,7 @@
 # include a product link naturally, and follow strict persona rules.
 # =============================================================================
 
-require_relative "../lib/prompt_contract"
+require_relative "../lib/ruby_llm/contract"
 
 # =============================================================================
 # BEFORE: Legacy approach (200+ lines across multiple concerns)
@@ -62,7 +62,7 @@ require_relative "../lib/prompt_contract"
 # - The `.compact.join("\n\n")` pattern is fragile — easy to break structure
 
 # =============================================================================
-# AFTER: prompt_contract approach
+# AFTER: ruby_llm-contract approach
 # =============================================================================
 
 PERSONA = <<~PERSONA.strip

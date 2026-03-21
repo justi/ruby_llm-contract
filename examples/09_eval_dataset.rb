@@ -15,7 +15,7 @@
 #   - Eval detecting quality regression
 # =============================================================================
 
-require_relative "../lib/prompt_contract"
+require_relative "../lib/ruby_llm/contract"
 
 # =============================================================================
 # STEP TO EVALUATE

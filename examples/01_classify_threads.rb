@@ -8,7 +8,7 @@
 # genuine comment without product mention), or SKIP (irrelevant).
 # =============================================================================
 
-require_relative "../lib/prompt_contract"
+require_relative "../lib/ruby_llm/contract"
 
 # =============================================================================
 # BEFORE: Legacy approach (inline heredoc + ad-hoc validation)
@@ -60,7 +60,7 @@ require_relative "../lib/prompt_contract"
 # - Change one line in classify_promo_caution_rules → no idea what broke
 
 # =============================================================================
-# AFTER: prompt_contract approach
+# AFTER: ruby_llm-contract approach
 # =============================================================================
 
 class ClassifyThreads < RubyLLM::Contract::Step::Base
