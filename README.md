@@ -147,6 +147,44 @@ report.score    # => 1.0
 
 **Used in production** to replace 8 raw LLM call sites in a Rails app — eliminated ~1,000 lines of manual prompt building, JSON parsing, retry logic, and error handling. Each call site became a single Step class.
 
+## Already using ruby_llm?
+
+You might think: "I already have `RubyLLM.chat`, `with_schema`, and my own retry loop. Why do I need this?"
+
+**What you write today (per call site):**
+```ruby
+3.times do |attempt|
+  response = RubyLLM.chat(model: "gpt-4.1-mini").ask(prompt)
+  parsed = JSON.parse(response.content)
+  break if parsed["priority"].in?(%w[low medium high urgent])
+rescue JSON::ParserError
+  next
+end
+```
+Multiply by 7 call sites = ~500 lines of boilerplate. Each with its own retry logic, error handling, and validation.
+
+**What you write with this gem:**
+```ruby
+class ClassifyTicket < RubyLLM::Contract::Step::Base
+  prompt "Classify this ticket by priority.\n\n{input}"
+  validate("valid priority") { |o| %w[low medium high urgent].include?(o[:priority]) }
+  retry_policy models: %w[gpt-4.1-nano gpt-4.1-mini gpt-4.1]
+end
+```
+5 lines. Same behavior. Plus model escalation, cost tracking, and eval.
+
+**Three things you can't easily build yourself:**
+
+1. **Model escalation with quality gate.** Start every request on nano ($0.10/M tokens). When `validate` catches a bad answer, auto-retry on mini ($0.40/M), then full ($2.00/M). 90% of requests succeed on nano. At 10k requests/month: ~$40 instead of ~$200. The `validate` block is the quality gate that makes this possible — without it, you can't know if the cheap model's answer is good enough.
+
+2. **Eval in CI (zero API calls).** `expect(MyStep).to pass_eval("smoke")` verifies your contract still works after a prompt change. Uses `sample_response`, no LLM call. No other Ruby gem does this.
+
+3. **Defensive parsing.** LLM wraps JSON in ` ```json ``` `? Stripped. UTF-8 BOM? Stripped. Prose around JSON ("Here's the result: {...}")? Extracted. `null` response? Caught. 14 edge cases handled by the parser — found through 10 rounds of adversarial testing.
+
+**`output_schema` vs `with_schema`:**
+
+You already know `with_schema` from ruby_llm — it tells the provider to force a specific JSON structure. `output_schema` in this gem does the **same thing** (it calls `with_schema` under the hood) **plus** validates the response client-side after receiving it. Why both? Because cheaper models sometimes ignore schema constraints. `with_schema` is a request; `output_schema` is a request + verification.
+
 ## Installation
 
 ```ruby
