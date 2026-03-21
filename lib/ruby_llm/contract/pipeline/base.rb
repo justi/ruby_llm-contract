@@ -11,11 +11,16 @@ module RubyLLM
           # Currently, execution is always linear in declaration order.
           def step(step_class, as:, depends_on: nil, model: nil)
             validate_dependency!(depends_on) if depends_on
-            steps << { step_class: step_class, alias: as, depends_on: depends_on, model: model }
+            steps_registry << { step_class: step_class, alias: as, depends_on: depends_on, model: model }
           end
 
           def steps
-            @steps ||= []
+            steps_registry.dup.freeze
+          end
+
+          # Internal mutable steps list for registration
+          def steps_registry
+            @steps_registry ||= []
           end
 
           def token_budget(limit = nil)
@@ -37,7 +42,7 @@ module RubyLLM
           private
 
           def known_step_aliases
-            steps.map { |step_entry| step_entry[:alias] }
+            steps_registry.map { |step_entry| step_entry[:alias] }
           end
 
           def validate_dependency!(dep)

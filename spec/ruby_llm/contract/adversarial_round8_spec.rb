@@ -15,37 +15,25 @@ RSpec.describe "Adversarial QA round 8 -- API contract violations" do
   # The error message says "estimated N tokens, max -1" which is nonsensical.
   # The API contract: max_input should only accept positive token limits.
   # ---------------------------------------------------------------------------
-  describe "BUG 39: max_input with negative value rejects everything nonsensically" do
-    it "rejects all input with max_input -1, producing a nonsensical error" do
-      step = Class.new(RubyLLM::Contract::Step::Base) do
-        prompt { user "{input}" }
-        output_type String
-        max_input(-1)
-      end
-
-      adapter = RubyLLM::Contract::Adapters::Test.new(response: "ok")
-      result = step.run("hello", context: { adapter: adapter })
-
-      # This documents the current broken behavior: max_input(-1) rejects
-      # everything with a nonsensical error message
-      expect(result.status).to eq(:limit_exceeded),
-                               "max_input(-1) should cause limit_exceeded, got: #{result.status}"
-      expect(result.validation_errors.first).to include("max -1"),
-                                                "Error message should mention the nonsensical -1 limit"
+  describe "BUG 39 (FIXED): max_input with negative value raises at definition time" do
+    it "raises ArgumentError for max_input(-1) at definition time" do
+      expect do
+        Class.new(RubyLLM::Contract::Step::Base) do
+          prompt { user "{input}" }
+          output_type String
+          max_input(-1)
+        end
+      end.to raise_error(ArgumentError, /max_input must be positive/)
     end
 
-    it "max_input(0) rejects everything" do
-      step = Class.new(RubyLLM::Contract::Step::Base) do
-        prompt { user "{input}" }
-        output_type String
-        max_input(0)
-      end
-
-      adapter = RubyLLM::Contract::Adapters::Test.new(response: "ok")
-      result = step.run("hello", context: { adapter: adapter })
-
-      # Even an empty prompt has overhead; max_input(0) effectively blocks everything
-      expect(result.status).to eq(:limit_exceeded)
+    it "raises ArgumentError for max_input(0) at definition time" do
+      expect do
+        Class.new(RubyLLM::Contract::Step::Base) do
+          prompt { user "{input}" }
+          output_type String
+          max_input(0)
+        end
+      end.to raise_error(ArgumentError, /max_input must be positive/)
     end
   end
 
@@ -224,39 +212,33 @@ RSpec.describe "Adversarial QA round 8 -- API contract violations" do
   # ---------------------------------------------------------------------------
   # BUG 44: Pipeline with no steps silently succeeds.
   # ---------------------------------------------------------------------------
-  describe "BUG 44: Empty pipeline silently succeeds" do
-    it "returns :ok with empty results for pipeline with no steps" do
+  describe "BUG 44 (FIXED): Empty pipeline raises ArgumentError" do
+    it "raises ArgumentError when run with no steps" do
       pipeline = Class.new(RubyLLM::Contract::Pipeline::Base)
 
       adapter = RubyLLM::Contract::Adapters::Test.new(response: "ok")
-      result = pipeline.run("hello", context: { adapter: adapter })
-
-      expect(result.status).to eq(:ok),
-                               "Empty pipeline returns :ok, which may hide misconfiguration"
-      expect(result.step_results).to be_empty
-      expect(result.outputs_by_step).to be_empty
+      expect { pipeline.run("hello", context: { adapter: adapter }) }
+        .to raise_error(ArgumentError, /no steps defined/i)
     end
   end
 
   # ---------------------------------------------------------------------------
   # BUG 45: Report#passed? returns true for empty results (vacuous truth).
   # ---------------------------------------------------------------------------
-  describe "BUG 45: Report#passed? returns true for empty results" do
-    it "returns true for empty report (vacuous truth)" do
+  describe "BUG 45 (FIXED): Report#passed? returns false for empty results" do
+    it "returns false for empty report" do
       report = RubyLLM::Contract::Eval::Report.new(dataset_name: "empty", results: [])
 
-      # This documents the vacuous truth behavior
-      expect(report.passed?).to eq(true),
-                                "Report with zero results claims passed? == true (vacuous truth)"
+      expect(report.passed?).to eq(false),
+                                "Report with zero results should return passed? == false"
       expect(report.score).to eq(0.0),
                               "Report#score returns 0.0 for empty results"
     end
 
-    it "score and passed? are inconsistent for empty report" do
+    it "score and passed? are now consistent for empty report" do
       report = RubyLLM::Contract::Eval::Report.new(dataset_name: "empty", results: [])
 
-      # The inconsistency: passed? is true, but score is 0.0
-      expect(report.passed?).to eq(true)
+      expect(report.passed?).to eq(false)
       expect(report.score).to eq(0.0)
     end
   end
@@ -391,13 +373,12 @@ RSpec.describe "Adversarial QA round 8 -- API contract violations" do
                                     "failed_step should identify the failing step"
     end
 
-    it "step_results is always an Array, even for empty pipeline" do
+    it "empty pipeline raises ArgumentError (step_results never empty)" do
       pipeline = Class.new(RubyLLM::Contract::Pipeline::Base)
 
       adapter = RubyLLM::Contract::Adapters::Test.new(response: "ok")
-      result = pipeline.run("test", context: { adapter: adapter })
-
-      expect(result.step_results).to be_a(Array)
+      expect { pipeline.run("test", context: { adapter: adapter }) }
+        .to raise_error(ArgumentError, /no steps defined/i)
     end
   end
 
@@ -701,32 +682,30 @@ RSpec.describe "Adversarial QA round 8 -- API contract violations" do
   # ---------------------------------------------------------------------------
   # BUG 56: Step class inheritance does not carry DSL state.
   # ---------------------------------------------------------------------------
-  describe "BUG 56: Step class inheritance does not carry DSL state" do
-    it "child class does not inherit parent prompt" do
+  describe "BUG 56 (FIXED): Step class inheritance carries DSL state" do
+    it "child class inherits parent prompt" do
       parent = Class.new(RubyLLM::Contract::Step::Base) do
         prompt { user "parent prompt" }
       end
 
       child = Class.new(parent)
 
-      expect do
-        child.prompt
-      end.to raise_error(ArgumentError, /prompt has not been set/),
-             "Child class should NOT inherit parent prompt -- class instance vars do not inherit"
+      expect { child.prompt }.not_to raise_error
+      expect(child.prompt).to eq(parent.prompt)
     end
 
-    it "child class does not inherit parent input_type" do
+    it "child class inherits parent input_type" do
       parent = Class.new(RubyLLM::Contract::Step::Base) do
         input_type Hash
       end
 
       child = Class.new(parent)
 
-      expect(child.input_type).to eq(String),
-                                  "Child class should have default String input_type, not parent's Hash"
+      expect(child.input_type).to eq(Hash),
+                                  "Child class should inherit parent's Hash input_type"
     end
 
-    it "child class does not inherit parent contract" do
+    it "child class inherits parent contract" do
       parent = Class.new(RubyLLM::Contract::Step::Base) do
         contract do
           parse :json
@@ -736,10 +715,10 @@ RSpec.describe "Adversarial QA round 8 -- API contract violations" do
 
       child = Class.new(parent)
 
-      expect(child.contract.invariants).to be_empty,
-                                           "Child class should have empty invariants, not parent's"
-      expect(child.contract.parse_strategy).to eq(:text),
-                                               "Child class should have :text parse strategy, not parent's :json"
+      expect(child.contract.invariants).not_to be_empty,
+                                               "Child class should inherit parent's invariants"
+      expect(child.contract.parse_strategy).to eq(:json),
+                                               "Child class should inherit parent's :json parse strategy"
     end
   end
 
@@ -947,29 +926,15 @@ RSpec.describe "Adversarial QA round 8 -- API contract violations" do
   # ---------------------------------------------------------------------------
   # BUG 62: max_cost(0) with no pricing data -- silently ignored.
   # ---------------------------------------------------------------------------
-  describe "BUG 62: max_cost(0) with no pricing data" do
-    it "max_cost(0) is silently ignored when model has no pricing data" do
-      step = Class.new(RubyLLM::Contract::Step::Base) do
-        prompt { user "{input}" }
-        output_type String
-        max_cost(0)
-      end
-
-      adapter = RubyLLM::Contract::Adapters::Test.new(response: "ok")
-
-      # The warn in check_limits is inside Step::Runner (instance method),
-      # not the Step class. Runner is a new instance each call.
-      # We need to capture it differently -- intercept Kernel.warn at
-      # the Runner instance level by stubbing the method on the runner's class.
-      warnings = []
-      allow_any_instance_of(RubyLLM::Contract::Step::Runner).to receive(:warn) { |_inst, msg| warnings << msg }
-
-      result = step.run("test", context: { adapter: adapter })
-
-      expect(result.status).to eq(:ok),
-                               "max_cost(0) is silently ignored without pricing data, got: #{result.status}"
-      expect(warnings.join(" ")).to include("max_cost is configured but model"),
-                                    "Should warn that max_cost cannot be enforced"
+  describe "BUG 62 (FIXED): max_cost(0) raises at definition time" do
+    it "raises ArgumentError for max_cost(0)" do
+      expect do
+        Class.new(RubyLLM::Contract::Step::Base) do
+          prompt { user "{input}" }
+          output_type String
+          max_cost(0)
+        end
+      end.to raise_error(ArgumentError, /max_cost must be positive/)
     end
   end
 

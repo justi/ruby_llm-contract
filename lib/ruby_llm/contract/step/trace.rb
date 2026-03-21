@@ -8,13 +8,13 @@ module RubyLLM
 
         attr_reader :messages, :model, :latency_ms, :usage, :attempts, :cost
 
-        def initialize(messages: nil, model: nil, latency_ms: nil, usage: nil, attempts: nil)
+        def initialize(messages: nil, model: nil, latency_ms: nil, usage: nil, attempts: nil, cost: nil) # rubocop:disable Metrics/ParameterLists
           @messages = messages
           @model = model
           @latency_ms = latency_ms
           @usage = usage
           @attempts = attempts
-          @cost = CostCalculator.calculate(model_name: model, usage: usage)
+          @cost = cost || CostCalculator.calculate(model_name: model, usage: usage)
           freeze
         end
 
@@ -37,7 +37,8 @@ module RubyLLM
             model: overrides.fetch(:model, @model),
             latency_ms: overrides.fetch(:latency_ms, @latency_ms),
             usage: overrides.fetch(:usage, @usage),
-            attempts: overrides.fetch(:attempts, @attempts)
+            attempts: overrides.fetch(:attempts, @attempts),
+            cost: overrides.fetch(:cost, @cost)
           )
         end
 

@@ -873,8 +873,8 @@ RSpec.describe "Adversarial QA round 9 -- multi-component interaction bugs" do
   #
   # This is a silent observability bug that leads to incorrect performance metrics.
   # ---------------------------------------------------------------------------
-  describe "BUG 65: Retry trace.latency_ms only reflects last attempt, not total" do
-    it "latency_ms is only the last attempt's latency, not total retry time" do
+  describe "BUG 65 (FIXED): Retry trace.latency_ms reflects total of all attempts" do
+    it "latency_ms is the sum of all attempts' latency" do
       step = Class.new(RubyLLM::Contract::Step::Base) do
         prompt { |input| user "Process: #{input}" }
         input_type String
@@ -902,21 +902,19 @@ RSpec.describe "Adversarial QA round 9 -- multi-component interaction bugs" do
       expect(call_count).to eq(3)
 
       # Total wall clock time should be ~60ms (3 * 20ms)
-      # But the trace latency_ms only reflects the LAST attempt (~20ms)
-      last_attempt_latency = result.trace.attempts.last[:latency_ms]
       trace_latency = result.trace.latency_ms
 
-      # The trace latency should equal the last attempt's latency (the bug)
-      expect(trace_latency).to be_within(5).of(last_attempt_latency),
-                               "Trace latency_ms (#{trace_latency}) should approximately equal " \
-                               "last attempt latency (#{last_attempt_latency}) -- " \
-                               "this documents the bug: total retry time is not reflected"
-
-      # Sum of all attempt latencies should be significantly more than trace latency
+      # Sum of all attempt latencies should approximately equal trace latency
       total_attempt_latency = result.trace.attempts.sum { |a| a[:latency_ms] || 0 }
-      expect(total_attempt_latency).to be > trace_latency,
-                                       "Total attempt latency (#{total_attempt_latency}) should be greater " \
-                                       "than trace latency (#{trace_latency}) since retries took time"
+      expect(trace_latency).to be_within(5).of(total_attempt_latency),
+                               "Trace latency_ms (#{trace_latency}) should approximately equal " \
+                               "total attempt latency (#{total_attempt_latency})"
+
+      # Trace latency should be significantly more than a single attempt
+      last_attempt_latency = result.trace.attempts.last[:latency_ms]
+      expect(trace_latency).to be > last_attempt_latency + 10,
+                               "Trace latency (#{trace_latency}) should be greater than " \
+                               "a single attempt latency (#{last_attempt_latency})"
     end
   end
 

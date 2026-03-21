@@ -5,27 +5,41 @@ module RubyLLM
     module Step
       # Extracted from Base to reduce class length.
       # DSL accessor methods for step definition (input_type, output_type, prompt, etc.).
-      module Dsl
+      module Dsl # rubocop:disable Metrics/ModuleLength
         def input_type(type = nil)
           return @input_type = type if type
 
-          @input_type || String
+          if defined?(@input_type)
+            @input_type
+          elsif superclass.respond_to?(:input_type)
+            superclass.input_type
+          else
+            String
+          end
         end
 
         def output_type(type = nil)
           return @output_type = type if type
-          return @output_type if @output_type
-          return RubyLLM::Contract::Types::Hash if @output_schema
 
-          Hash
+          if defined?(@output_type)
+            @output_type
+          elsif defined?(@output_schema) && @output_schema
+            RubyLLM::Contract::Types::Hash
+          elsif superclass.respond_to?(:output_type)
+            superclass.output_type
+          else
+            Hash
+          end
         end
 
         def output_schema(&block)
           if block
             require "ruby_llm/schema"
             @output_schema = ::RubyLLM::Schema.create(&block)
-          else
+          elsif defined?(@output_schema)
             @output_schema
+          elsif superclass.respond_to?(:output_schema)
+            superclass.output_schema
           end
         end
 
@@ -34,37 +48,83 @@ module RubyLLM
             @prompt_block = proc { user text }
           elsif block
             @prompt_block = block
+          elsif defined?(@prompt_block) && @prompt_block
+            @prompt_block
+          elsif superclass.respond_to?(:prompt)
+            superclass.prompt
           else
-            @prompt_block || raise(ArgumentError, "prompt has not been set")
+            raise(ArgumentError, "prompt has not been set")
           end
         end
 
         def contract(&block)
           return @contract_definition = Definition.new(&block) if block
 
-          @contract_definition || Definition.new
+          if defined?(@contract_definition) && @contract_definition
+            @contract_definition
+          elsif superclass.respond_to?(:contract)
+            superclass.contract
+          else
+            Definition.new
+          end
         end
 
         def validate(description, &block)
           (@class_validates ||= []) << Invariant.new(description, block)
         end
 
-        def max_output(tokens = nil)
-          return @max_output = tokens if tokens
+        def class_validates
+          own = defined?(@class_validates) ? @class_validates : []
+          inherited = superclass.respond_to?(:class_validates) ? superclass.class_validates : []
+          inherited + own
+        end
 
-          @max_output
+        def max_output(tokens = nil)
+          if tokens
+            unless tokens.is_a?(Numeric) && tokens.positive?
+              raise ArgumentError, "max_output must be positive, got #{tokens}"
+            end
+
+            return @max_output = tokens
+          end
+
+          if defined?(@max_output)
+            @max_output
+          elsif superclass.respond_to?(:max_output)
+            superclass.max_output
+          end
         end
 
         def max_input(tokens = nil)
-          return @max_input = tokens if tokens
+          if tokens
+            unless tokens.is_a?(Numeric) && tokens.positive?
+              raise ArgumentError, "max_input must be positive, got #{tokens}"
+            end
 
-          @max_input
+            return @max_input = tokens
+          end
+
+          if defined?(@max_input)
+            @max_input
+          elsif superclass.respond_to?(:max_input)
+            superclass.max_input
+          end
         end
 
         def max_cost(amount = nil)
-          return @max_cost = amount if amount
+          if amount
+            unless amount.is_a?(Numeric) && amount.positive?
+              raise ArgumentError, "max_cost must be positive, got #{amount}"
+            end
 
-          @max_cost
+            return @max_cost = amount
+          end
+
+          if defined?(@max_cost)
+            @max_cost
+          elsif superclass.respond_to?(:max_cost)
+            superclass.max_cost
+          end
         end
 
         def retry_policy(models: nil, attempts: nil, retry_on: nil, &block)
@@ -72,7 +132,11 @@ module RubyLLM
             return @retry_policy = RetryPolicy.new(models: models, attempts: attempts, retry_on: retry_on, &block)
           end
 
-          @retry_policy
+          if defined?(@retry_policy) && @retry_policy
+            @retry_policy
+          elsif superclass.respond_to?(:retry_policy)
+            superclass.retry_policy
+          end
         end
       end
     end
