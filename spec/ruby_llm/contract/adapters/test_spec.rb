@@ -30,6 +30,26 @@ RSpec.describe RubyLLM::Contract::Adapters::Test do
     expect(response).to be_a(RubyLLM::Contract::Adapters::Response)
   end
 
+  describe "response:/responses: consistency for Hashes" do
+    it "produces same raw_output type (Hash) regardless of constructor form" do
+      step = Class.new(RubyLLM::Contract::Step::Base) do
+        prompt { user "{input}" }
+        output_type RubyLLM::Contract::Types::Hash
+        contract { parse :json }
+      end
+
+      adapter_single = described_class.new(response: { "name" => "Alice" })
+      adapter_array = described_class.new(responses: [{ "name" => "Alice" }])
+
+      result_single = step.run("test", context: { adapter: adapter_single })
+      result_array = step.run("test", context: { adapter: adapter_array })
+
+      expect(result_single.raw_output).to be_a(Hash)
+      expect(result_array.raw_output).to be_a(Hash)
+      expect(result_single.parsed_output).to eq(result_array.parsed_output)
+    end
+  end
+
   describe "responses: array" do
     it "raises ArgumentError when responses is an empty array" do
       expect do

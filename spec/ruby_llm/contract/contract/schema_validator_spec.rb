@@ -79,6 +79,21 @@ RSpec.describe RubyLLM::Contract::SchemaValidator do
         expect(errors).not_to be_empty
         expect(errors.first).to match(/expected object/)
       end
+
+      it "rejects Array output when schema specifies type: object" do
+        errors = described_class.validate([{ intent: "sales" }], schema)
+        expect(errors).not_to be_empty
+      end
+
+      it "rejects Integer output when schema specifies type: object" do
+        errors = described_class.validate(42, schema)
+        expect(errors).not_to be_empty
+      end
+
+      it "rejects nil output when schema specifies type: object" do
+        errors = described_class.validate(nil, schema)
+        expect(errors).not_to be_empty
+      end
     end
 
     context "additionalProperties: false" do
@@ -173,6 +188,170 @@ RSpec.describe RubyLLM::Contract::SchemaValidator do
       end
     end
 
+    context "additionalProperties: false on nested objects" do
+      it "enforces additionalProperties: false on nested objects" do
+        schema = Class.new do
+          def to_json_schema
+            {
+              schema: {
+                type: "object",
+                properties: {
+                  profile: {
+                    type: "object",
+                    properties: {
+                      name: { type: "string" }
+                    },
+                    additionalProperties: false
+                  }
+                }
+              }
+            }
+          end
+        end
+
+        errors = described_class.validate(
+          { profile: { name: "Alice", secret: "leaked" } },
+          schema.new
+        )
+
+        expect(errors).not_to be_empty
+        expect(errors.join).to match(/secret/)
+      end
+
+      it "allows extra keys when additionalProperties: true" do
+        schema = Class.new do
+          def to_json_schema
+            {
+              schema: {
+                type: "object",
+                properties: {
+                  name: { type: "string" }
+                },
+                additionalProperties: true
+              }
+            }
+          end
+        end
+
+        errors = described_class.validate(
+          { name: "Alice", extra: "allowed" },
+          schema.new
+        )
+
+        expect(errors).to be_empty
+      end
+
+      it "enforces additionalProperties: false on objects inside arrays" do
+        schema = Class.new do
+          def to_json_schema
+            {
+              schema: {
+                type: "object",
+                properties: {
+                  items: {
+                    type: "array",
+                    items: {
+                      type: "object",
+                      properties: {
+                        id: { type: "integer" }
+                      },
+                      additionalProperties: false
+                    }
+                  }
+                }
+              }
+            }
+          end
+        end
+
+        errors = described_class.validate(
+          { items: [{ id: 1, leaked: true }] },
+          schema.new
+        )
+
+        expect(errors).not_to be_empty
+        expect(errors.join).to match(/leaked/)
+      end
+    end
+
+    context "nested arrays" do
+      it "validates minItems on nested arrays" do
+        schema = Class.new do
+          def to_json_schema
+            {
+              schema: {
+                type: "object",
+                properties: {
+                  matrix: {
+                    type: "array",
+                    items: {
+                      type: "array",
+                      items: { type: "integer" },
+                      minItems: 2
+                    }
+                  }
+                }
+              }
+            }
+          end
+        end
+
+        errors = described_class.validate({ matrix: [[1]] }, schema.new)
+        expect(errors).not_to be_empty
+        expect(errors.join).to match(/minItems/i)
+      end
+
+      it "validates item types in nested arrays" do
+        schema = Class.new do
+          def to_json_schema
+            {
+              schema: {
+                type: "object",
+                properties: {
+                  matrix: {
+                    type: "array",
+                    items: {
+                      type: "array",
+                      items: { type: "integer" }
+                    }
+                  }
+                }
+              }
+            }
+          end
+        end
+
+        errors = described_class.validate({ matrix: [["not_an_int"]] }, schema.new)
+        expect(errors).not_to be_empty
+        expect(errors.join).to match(/integer/i)
+      end
+
+      it "accepts valid nested arrays" do
+        schema = Class.new do
+          def to_json_schema
+            {
+              schema: {
+                type: "object",
+                properties: {
+                  matrix: {
+                    type: "array",
+                    items: {
+                      type: "array",
+                      items: { type: "integer" },
+                      minItems: 2
+                    }
+                  }
+                }
+              }
+            }
+          end
+        end
+
+        errors = described_class.validate({ matrix: [[1, 2], [3, 4]] }, schema.new)
+        expect(errors).to be_empty
+      end
+    end
+
     context "required field with nil value" do
       let(:nullable_schema) do
         double("nullable_schema").tap do |s|
@@ -192,6 +371,21 @@ RSpec.describe RubyLLM::Contract::SchemaValidator do
       it "reports type error for required field present with nil value" do
         errors = described_class.validate({ name: nil }, nullable_schema)
         expect(errors).to include(match(/name.*expected string.*got nil/))
+      end
+
+      it "works end-to-end: step rejects nil required field value" do
+        step = Class.new(RubyLLM::Contract::Step::Base) do
+          prompt { user "{input}" }
+          output_schema do
+            string :name, required: true
+            integer :count, required: true
+          end
+        end
+
+        adapter = RubyLLM::Contract::Adapters::Test.new(response: { "name" => nil, "count" => 42 })
+        result = step.run("test", context: { adapter: adapter })
+
+        expect(result.status).to eq(:validation_failed)
       end
 
       it "passes when non-required field is nil" do

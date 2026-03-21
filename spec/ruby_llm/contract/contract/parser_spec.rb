@@ -52,6 +52,21 @@ RSpec.describe RubyLLM::Contract::Parser do
         result = described_class.parse('{"key":"value"}', strategy: :json)
         expect(result).to eq({ key: "value" })
       end
+
+      it "works end-to-end: step with BOM-prefixed JSON response" do
+        step = Class.new(RubyLLM::Contract::Step::Base) do
+          prompt { user "{input}" }
+          output_type RubyLLM::Contract::Types::Hash
+          contract { parse :json }
+        end
+
+        bom = "\xEF\xBB\xBF"
+        adapter = RubyLLM::Contract::Adapters::Test.new(response: "#{bom}{\"status\": \"ok\"}")
+        result = step.run("test", context: { adapter: adapter })
+
+        expect(result.status).to eq(:ok)
+        expect(result.parsed_output[:status]).to eq("ok")
+      end
     end
 
     context "code fence stripping" do
@@ -82,6 +97,85 @@ RSpec.describe RubyLLM::Contract::Parser do
       end
     end
 
+    context "code fence stripping with non-standard language tags" do
+      it "strips ```javascript fences" do
+        fenced = "```javascript\n{\"key\": \"value\"}\n```"
+        result = described_class.parse(fenced, strategy: :json)
+        expect(result).to eq({ key: "value" })
+      end
+
+      it "strips ```js fences" do
+        fenced = "```js\n{\"key\": \"value\"}\n```"
+        result = described_class.parse(fenced, strategy: :json)
+        expect(result).to eq({ key: "value" })
+      end
+
+      it "strips ```jsonc fences" do
+        fenced = "```jsonc\n{\"count\": 42}\n```"
+        result = described_class.parse(fenced, strategy: :json)
+        expect(result).to eq({ count: 42 })
+      end
+
+      it "strips ```Json (mixed case) fences" do
+        fenced = "```Json\n{\"name\": \"Alice\"}\n```"
+        result = described_class.parse(fenced, strategy: :json)
+        expect(result).to eq({ name: "Alice" })
+      end
+
+      it "strips ```text fences containing JSON" do
+        fenced = "```text\n{\"data\": true}\n```"
+        result = described_class.parse(fenced, strategy: :json)
+        expect(result).to eq({ data: true })
+      end
+    end
+
+    context "prose extraction edge cases" do
+      it "extracts JSON from 'json' prefix without backticks" do
+        text = "json\n{\"status\": \"ok\"}"
+        result = described_class.parse(text, strategy: :json)
+        expect(result).to eq({ status: "ok" })
+      end
+
+      it "still raises ParseError when no valid JSON is present" do
+        text = "I cannot generate JSON for that request."
+        expect {
+          described_class.parse(text, strategy: :json)
+        }.to raise_error(RubyLLM::Contract::ParseError)
+      end
+    end
+
+    context "boolean and numeric raw_output" do
+      it "handles boolean false without crashing" do
+        expect {
+          described_class.parse(false, strategy: :json)
+        }.not_to raise_error(TypeError)
+      end
+
+      it "handles boolean true without crashing" do
+        expect {
+          described_class.parse(true, strategy: :json)
+        }.not_to raise_error(TypeError)
+      end
+
+      it "handles integer 0 without crashing" do
+        expect {
+          described_class.parse(0, strategy: :json)
+        }.not_to raise_error(TypeError)
+      end
+
+      it "handles integer 42 without crashing" do
+        expect {
+          described_class.parse(42, strategy: :json)
+        }.not_to raise_error(TypeError)
+      end
+
+      it "handles float 3.14 without crashing" do
+        expect {
+          described_class.parse(3.14, strategy: :json)
+        }.not_to raise_error(TypeError)
+      end
+    end
+
     context "Hash/Array passthrough" do
       it "passes through a Hash without re-parsing, symbolizing keys" do
         result = described_class.parse({ "name" => "Alice", "age" => 30 }, strategy: :json)
@@ -91,6 +185,19 @@ RSpec.describe RubyLLM::Contract::Parser do
       it "passes through an Array, symbolizing nested Hash keys" do
         result = described_class.parse([{ "id" => 1 }, { "id" => 2 }], strategy: :json)
         expect(result).to eq([{ id: 1 }, { id: 2 }])
+      end
+
+      it "handles nested Array/Hash structures" do
+        input = [{ "items" => [{ "id" => 1 }, { "id" => 2 }] }]
+        result = described_class.parse(input, strategy: :json)
+        expect(result).to be_an(Array)
+        expect(result.first[:items].first[:id]).to eq(1)
+      end
+
+      it "handles Array raw_output in :text strategy" do
+        input = [1, 2, 3]
+        result = described_class.parse(input, strategy: :text)
+        expect(result).to eq([1, 2, 3])
       end
     end
   end

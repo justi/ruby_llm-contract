@@ -63,6 +63,41 @@ RSpec.describe "Edge cases" do
       end
     end
 
+    describe "#[] does not leak internal state via Object methods" do
+      let(:trace) { described_class.new(model: "test-model", usage: { input_tokens: 10, output_tokens: 5 }) }
+
+      it "returns nil for :class instead of leaking the class constant" do
+        expect(trace[:class]).to be_nil
+      end
+
+      it "returns nil for :object_id instead of leaking internal ID" do
+        expect(trace[:object_id]).to be_nil
+      end
+
+      it "returns nil for :instance_variables instead of leaking ivar names" do
+        expect(trace[:instance_variables]).to be_nil
+      end
+
+      it "returns nil for :freeze instead of returning the object itself" do
+        expect(trace[:freeze]).to be_nil
+      end
+
+      it "still returns correct values for known attributes" do
+        expect(trace[:model]).to eq("test-model")
+        expect(trace[:usage]).to eq({ input_tokens: 10, output_tokens: 5 })
+      end
+
+      it "is consistent with key? for all lookups" do
+        dangerous_keys = %i[class object_id instance_variables freeze hash send
+                            respond_to? nil? is_a? equal? inspect to_s]
+
+        dangerous_keys.each do |key|
+          expect(trace.key?(key)).to be(false)
+          expect(trace[key]).to be_nil
+        end
+      end
+    end
+
     describe "#to_h with all-nil fields" do
       it "returns empty hash when no attributes are set" do
         expect(described_class.new.to_h).to eq({})
@@ -219,6 +254,27 @@ RSpec.describe "Edge cases" do
       it "returns nil when all step costs are nil" do
         mock_trace = double("trace", cost: nil)
         expect(described_class.new(step_traces: [mock_trace]).total_cost).to be_nil
+      end
+    end
+
+    describe "#[] does not leak internal state via Object methods" do
+      let(:trace) { described_class.new(trace_id: "abc-123") }
+
+      it "returns nil for :class" do
+        expect(trace[:class]).to be_nil
+      end
+
+      it "returns nil for :object_id" do
+        expect(trace[:object_id]).to be_nil
+      end
+
+      it "returns nil for :instance_variables" do
+        expect(trace[:instance_variables]).to be_nil
+      end
+
+      it "still returns correct values for known attributes" do
+        expect(trace[:trace_id]).to eq("abc-123")
+        expect(trace[:total_latency_ms]).to be_nil
       end
     end
 

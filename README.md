@@ -93,8 +93,9 @@ class ClassifyTicket < RubyLLM::Contract::Step::Base
   retry_policy models: %w[gpt-4.1-nano gpt-4.1-mini gpt-4.1]
 
   # STEP 5: Refuse before calling the LLM if input is too large or expensive
-  max_input 2_000
-  max_cost  0.01
+  max_input  2_000
+  max_output 4_000
+  max_cost   0.01
 end
 ```
 
@@ -285,7 +286,7 @@ RubyLLM.configure { |c| c.anthropic_api_key = ENV["ANTHROPIC_API_KEY"] }
 RubyLLM::Contract.configure { |c| c.default_model = "claude-sonnet-4-6" }
 
 # Override per call
-result = MyStep.run(input, context: { model: "gpt-4.1", temperature: 0.0 })
+result = MyStep.run(input, context: { model: "gpt-4.1", temperature: 0.0, max_tokens: 1024 })
 ```
 
 ## Common Gotchas
@@ -309,6 +310,8 @@ end
 **Schema validates shape, not meaning.** An LLM can return `{"priority": "low"}` for a critical security incident — structurally valid, logically wrong. Always add `validate` blocks for business rules.
 
 **Retry retries three failure modes by default:** `validation_failed`, `parse_error`, and `adapter_error` (network timeouts). `input_error` is never retried — bad input won't improve with a different model.
+
+**Pipeline-specific statuses:** Pipelines can return `:timeout` (step exceeded `timeout_ms`) and `:budget_exceeded` (cumulative token usage exceeded `token_budget`) in addition to the standard step statuses.
 
 ## Documentation
 

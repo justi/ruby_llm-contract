@@ -18,6 +18,8 @@ RubyLLM::Contract::Step::Base       # single contracted step
   ├── Step::Runner               # runtime flow
   ├── Step::Result               # status + outputs + errors + trace
   ├── Step::Trace                # model, latency, tokens, cost
+  ├── CostCalculator             # per-step cost estimation from model pricing
+  ├── TokenEstimator             # input token count estimation for limit checks
   └── Adapters::Base             # provider interface
         ├── Adapters::RubyLLM    # real LLM calls via ruby_llm
         └── Adapters::Test       # canned responses for specs
