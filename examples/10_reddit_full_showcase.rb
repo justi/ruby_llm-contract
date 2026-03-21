@@ -10,7 +10,7 @@
 #   ruby examples/10_reddit_full_showcase.rb
 # =============================================================================
 
-require_relative "../lib/prompt_contract"
+require_relative "../lib/ruby_llm/contract"
 
 # ===========================================================================
 # Step 1 — Analyze the product

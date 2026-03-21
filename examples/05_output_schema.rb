@@ -10,7 +10,7 @@
 # With RubyLLM adapter: schema is also enforced server-side by the provider.
 # =============================================================================
 
-require_relative "../lib/prompt_contract"
+require_relative "../lib/ruby_llm/contract"
 
 # =============================================================================
 # STEP 1: BEFORE — legacy approach with output_type + manual invariants

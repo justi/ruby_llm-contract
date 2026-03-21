@@ -17,7 +17,7 @@
 #   - retry_policy for model escalation
 # =============================================================================
 
-require_relative "../lib/prompt_contract"
+require_relative "../lib/ruby_llm/contract"
 
 # =============================================================================
 # STEP DEFINITION

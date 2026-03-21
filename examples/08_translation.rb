@@ -21,7 +21,7 @@
 #     has self-evaluation bias — step 3 should ideally use a different model
 # =============================================================================
 
-require_relative "../lib/prompt_contract"
+require_relative "../lib/ruby_llm/contract"
 
 # =============================================================================
 # STEP 1: Extract translatable segments
