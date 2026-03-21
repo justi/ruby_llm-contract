@@ -93,9 +93,19 @@ array :groups do; object do; string :who; end; end
 
 ## Roadmap
 
-- [ ] Regression baselines — snapshot comparison + CI gating
-- [ ] Prompt diffing — `prompt_a.diff(prompt_b)` on AST
-- [ ] CLI
+**v0.2 — eval that matters:**
+- [ ] Dataset eval with `add_case input:, expected:` (partial matching)
+- [ ] Online eval — real LLM calls, compare output vs expected
+- [ ] CI gate — `pass_eval("regression").with_minimum_score(0.8)`
+- [ ] Model comparison — same dataset on nano vs mini vs full
+
+**v0.3:**
+- [ ] Regression baselines — compare eval results with previous run
+- [ ] Eval persistence — store history for drift detection
+
+**v0.4:**
+- [ ] Auto-routing — learn which model works for which input patterns
+- [ ] Contract-level dashboard
 
 ## License
 
