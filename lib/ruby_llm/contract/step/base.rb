@@ -23,6 +23,41 @@ module RubyLLM
             report.results.first
           end
 
+          def estimate_cost(input:, model: nil)
+            model_name = model || RubyLLM::Contract.configuration.default_model
+            messages = build_messages(input)
+            input_tokens = TokenEstimator.estimate(messages)
+            output_tokens = max_output || 256 # conservative default
+
+            model_info = CostCalculator.send(:find_model, model_name)
+            return nil unless model_info
+
+            estimated = CostCalculator.send(:compute_cost, model_info,
+                                            { input_tokens: input_tokens, output_tokens: output_tokens })
+            {
+              model: model_name,
+              input_tokens: input_tokens,
+              output_tokens_estimate: output_tokens,
+              estimated_cost: estimated
+            }
+          end
+
+          def estimate_eval_cost(eval_name, models: nil)
+            defn = send(:all_eval_definitions)[eval_name.to_s]
+            raise ArgumentError, "No eval '#{eval_name}' defined" unless defn
+
+            model_list = models || [RubyLLM::Contract.configuration.default_model].compact
+            cases = defn.build_dataset.cases
+
+            model_list.each_with_object({}) do |model_name, result|
+              per_case = cases.sum do |c|
+                est = estimate_cost(input: c.input, model: model_name)
+                est ? est[:estimated_cost] : 0.0
+              end
+              result[model_name] = per_case.round(6)
+            end
+          end
+
           KNOWN_CONTEXT_KEYS = %i[adapter model temperature max_tokens schema provider assume_model_exists].freeze
 
           def run(input, context: {})
@@ -81,6 +116,14 @@ module RubyLLM
               extra_invariants: extra,
               parse_override: inferred_parse && !has_own_contract ? inferred_parse : nil
             )
+          end
+
+          def build_messages(input)
+            dynamic = prompt.arity >= 1
+            ast = Prompt::Builder.build(input: dynamic ? input : nil, &prompt)
+            variables = dynamic ? {} : { input: input }
+            variables.merge!(input.transform_keys(&:to_sym)) if !dynamic && input.is_a?(Hash)
+            Prompt::Renderer.render(ast, variables: variables)
           end
 
           def json_compatible_type?(type)
