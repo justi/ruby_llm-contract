@@ -14,7 +14,7 @@ module RubyLLM
         @context = {}
         @fail_on_empty = true
         @minimum_score = nil # nil = require 100%; float = threshold
-        @maximum_cost = nil  # nil = no cost limit; float = budget cap
+        @maximum_cost = nil  # nil = no cost limit; float = budget cap (suite-level)
         @eval_dirs = []      # directories to load eval files from (non-Rails)
         block&.call(self)
         define_task
@@ -41,12 +41,20 @@ module RubyLLM
           end
 
           gate_passed = true
+          suite_cost = 0.0
+
           results.each do |host, reports|
             puts "\n#{host.name || host.to_s}"
             reports.each_value do |report|
               report.print_summary
-              gate_passed = false unless report_meets_threshold?(report)
+              suite_cost += report.total_cost
+              gate_passed = false unless report_meets_score?(report)
             end
+          end
+
+          if @maximum_cost && suite_cost > @maximum_cost
+            abort "\nEval suite FAILED: total cost $#{format("%.4f", suite_cost)} " \
+                  "exceeds budget $#{format("%.4f", @maximum_cost)}"
           end
 
           abort "\nEval suite FAILED" unless gate_passed
@@ -54,14 +62,12 @@ module RubyLLM
         end
       end
 
-      def report_meets_threshold?(report)
-        score_ok = if @minimum_score
-                     report.score >= @minimum_score
-                   else
-                     report.passed?
-                   end
-        cost_ok = @maximum_cost ? report.total_cost <= @maximum_cost : true
-        score_ok && cost_ok
+      def report_meets_score?(report)
+        if @minimum_score
+          report.score >= @minimum_score
+        else
+          report.passed?
+        end
       end
 
       def task_prerequisites

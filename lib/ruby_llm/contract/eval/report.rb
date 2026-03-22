@@ -82,7 +82,7 @@ module RubyLLM
           io.puts summary
           io.puts
           results.each do |result|
-            icon = result.passed? ? "PASS" : "FAIL"
+            icon = result.label
             cost_str = result.cost ? "  #{format_cost(result.cost)}" : ""
             latency_str = result.duration_ms ? "  #{result.duration_ms}ms" : ""
             io.puts "  #{icon}  #{result.name}#{cost_str}#{latency_str}"

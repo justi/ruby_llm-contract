@@ -45,18 +45,18 @@ RSpec.describe RubyLLM::Contract::Pipeline::Base do
   end
 
   describe "define_eval duplicate name" do
-    it "raises ArgumentError when defining an eval with a duplicate name" do
+    it "replaces eval with same name (supports reload)" do
       pipeline = Class.new(described_class)
 
       pipeline.define_eval("smoke") do
         default_input "test"
       end
 
-      expect do
-        pipeline.define_eval("smoke") do
-          default_input "test again"
-        end
-      end.to raise_error(ArgumentError, /eval 'smoke' is already defined/)
+      pipeline.define_eval("smoke") do
+        default_input "test again"
+      end
+
+      expect(pipeline.eval_names).to eq(["smoke"])
     end
   end
 
