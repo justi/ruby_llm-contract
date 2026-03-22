@@ -109,7 +109,15 @@ RSpec.describe "Pretty print (to_s)" do
 
   describe "Eval::Report#to_s" do
     it "returns summary" do
-      r = RubyLLM::Contract::Eval::Report.new(dataset_name: "test", results: [{ score: 1.0, passed: true }])
+      r = RubyLLM::Contract::Eval::Report.new(
+        dataset_name: "test",
+        results: [
+          RubyLLM::Contract::Eval::CaseResult.new(
+            name: "case1", input: nil, output: nil, expected: nil,
+            step_status: :ok, score: 1.0, passed: true
+          )
+        ]
+      )
       expect(r.to_s).to eq("test: 1/1 checks passed")
     end
   end

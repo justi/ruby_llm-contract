@@ -30,6 +30,18 @@ module RubyLLM
           Adapters::Test.new(response: @sample_response.is_a?(String) ? @sample_response : @sample_response.to_json)
         end
 
+        def add_case(description, input: nil, expected: nil, evaluator: nil)
+          case_input = input || @default_input
+          raise ArgumentError, "add_case requires input (set default_input or pass input:)" unless case_input
+
+          @cases << {
+            name: description,
+            input: case_input,
+            expected: expected,
+            evaluator: evaluator
+          }
+        end
+
         def verify(description, expected_or_proc = nil, input: nil, expect: nil)
           expected_or_proc = expect if expect
           case_input = input || @default_input

@@ -974,7 +974,7 @@ RSpec.describe "Adversarial QA round 10 -- production certification audit" do
 
         expect(report.passed?).to be true
         expect(report.score).to eq(1.0)
-        expect(report.results.first[:passed]).to be true
+        expect(report.results.first.passed?).to be true
       end
     end
 
@@ -997,8 +997,8 @@ RSpec.describe "Adversarial QA round 10 -- production certification audit" do
 
         expect(report.passed?).to be false
         expect(report.score).to eq(0.0)
-        expect(report.results.first[:passed]).to be false
-        expect(report.results.first[:details]).to match(/step failed/)
+        expect(report.results.first.passed?).to be false
+        expect(report.results.first.details).to match(/step failed/)
       end
     end
 
@@ -1019,7 +1019,7 @@ RSpec.describe "Adversarial QA round 10 -- production certification audit" do
         report = RubyLLM::Contract::Eval::Runner.run(step: step, dataset: ds, context: { adapter: adapter })
 
         expect(report.passed?).to be false
-        expect(report.results.first[:passed]).to be false
+        expect(report.results.first.passed?).to be false
         # Score should be 0.0 because expected hash does not match
         expect(report.score).to eq(0.0)
       end

@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require_relative "eval/evaluation_result"
+require_relative "eval/case_result"
 require_relative "eval/evaluator/exact"
 require_relative "eval/evaluator/regex"
 require_relative "eval/evaluator/json_includes"

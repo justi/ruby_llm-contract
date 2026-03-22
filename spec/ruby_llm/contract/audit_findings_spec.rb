@@ -389,7 +389,12 @@ RSpec.describe "Technical audit findings" do
     it "returns true when all results pass" do
       report = RubyLLM::Contract::Eval::Report.new(
         dataset_name: "good",
-        results: [{ case_name: "a", passed: true, score: 1.0, details: "passed" }]
+        results: [
+          RubyLLM::Contract::Eval::CaseResult.new(
+            name: "a", input: nil, output: nil, expected: nil,
+            step_status: :ok, score: 1.0, passed: true, details: "passed"
+          )
+        ]
       )
       expect(report.passed?).to be true
     end
@@ -398,8 +403,14 @@ RSpec.describe "Technical audit findings" do
       report = RubyLLM::Contract::Eval::Report.new(
         dataset_name: "mixed",
         results: [
-          { case_name: "a", passed: true, score: 1.0, details: "passed" },
-          { case_name: "b", passed: false, score: 0.0, details: "not passed" }
+          RubyLLM::Contract::Eval::CaseResult.new(
+            name: "a", input: nil, output: nil, expected: nil,
+            step_status: :ok, score: 1.0, passed: true, details: "passed"
+          ),
+          RubyLLM::Contract::Eval::CaseResult.new(
+            name: "b", input: nil, output: nil, expected: nil,
+            step_status: :ok, score: 0.0, passed: false, details: "not passed"
+          )
         ]
       )
       expect(report.passed?).to be false

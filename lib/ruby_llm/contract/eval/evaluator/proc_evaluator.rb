@@ -16,6 +16,12 @@ module RubyLLM
                        @callable.call(output)
                      end
 
+            if result.nil?
+              warn "[ruby_llm-contract] verify/evaluator proc returned nil. " \
+                   "This usually means a key mismatch (string vs symbol). " \
+                   "Output keys are always symbols."
+            end
+
             case result
             when true
               EvaluationResult.new(score: 1.0, passed: true, details: "passed")

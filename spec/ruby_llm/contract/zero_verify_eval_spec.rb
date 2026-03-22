@@ -24,7 +24,7 @@ RSpec.describe "Zero-verify eval (ADR-0005)" do
       report = step.run_eval("smoke")
       expect(report.passed?).to be true
 
-      details = report.results.first[:details]
+      details = report.results.first.details
       expect(details).to include("schema")
       expect(details).to include("validates")
     end

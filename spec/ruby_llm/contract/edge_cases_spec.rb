@@ -303,11 +303,20 @@ RSpec.describe "Edge cases" do
       it "delegates to results array" do
         report = described_class.new(
           dataset_name: "test",
-          results: [{ passed: true }, { passed: false }]
+          results: [
+            RubyLLM::Contract::Eval::CaseResult.new(
+              name: "a", input: nil, output: nil, expected: nil,
+              step_status: :ok, score: 1.0, passed: true
+            ),
+            RubyLLM::Contract::Eval::CaseResult.new(
+              name: "b", input: nil, output: nil, expected: nil,
+              step_status: :ok, score: 0.0, passed: false
+            )
+          ]
         )
 
         collected = []
-        report.each { |r| collected << r[:passed] } # rubocop:disable Style/MapIntoArray
+        report.each { |r| collected << r.passed? } # rubocop:disable Style/MapIntoArray
         expect(collected).to eq([true, false])
       end
     end
@@ -405,7 +414,7 @@ RSpec.describe "Edge cases" do
         report = pipeline.run_eval("smoke")
 
         expect(report.passed?).to be true
-        expect(report.results.first[:output]).to eq({ v: 1 })
+        expect(report.results.first.output).to eq({ v: 1 })
       end
     end
 
@@ -450,8 +459,8 @@ RSpec.describe "Edge cases" do
         report = described_class.run(step: step, dataset: ds, context: { adapter: adapter })
 
         expect(report.passed?).to be false
-        expect(report.results.first[:details]).to include("step failed")
-        expect(report.results.first[:step_status]).to eq(:parse_error)
+        expect(report.results.first.details).to include("step failed")
+        expect(report.results.first.step_status).to eq(:parse_error)
       end
     end
 
@@ -487,8 +496,8 @@ RSpec.describe "Edge cases" do
         ds = RubyLLM::Contract::Eval::Dataset.define { add_case input: "t", expected_traits: {} }
         report = described_class.run(step: step, dataset: ds, context: { adapter: adapter })
 
-        expect(report.results.first[:score]).to eq(1.0)
-        expect(report.results.first[:passed]).to eq(true)
+        expect(report.results.first.score).to eq(1.0)
+        expect(report.results.first.passed?).to eq(true)
       end
     end
   end

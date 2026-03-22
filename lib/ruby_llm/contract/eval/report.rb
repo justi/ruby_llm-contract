@@ -15,15 +15,19 @@ module RubyLLM
         def score
           return 0.0 if results.empty?
 
-          results.sum { |result| result[:score] } / results.length
+          results.sum(&:score) / results.length
         end
 
         def passed
-          results.count { |result| result[:passed] }
+          results.count(&:passed?)
         end
 
         def failed
-          results.count { |result| !result[:passed] }
+          results.count(&:failed?)
+        end
+
+        def failures
+          results.select(&:failed?)
         end
 
         def pass_rate
@@ -33,7 +37,7 @@ module RubyLLM
         def passed?
           return false if results.empty?
 
-          results.all? { |result| result[:passed] }
+          results.all?(&:passed?)
         end
 
         def each(&)
@@ -48,7 +52,7 @@ module RubyLLM
 
         def to_s
           lines = [summary]
-          results.reject { |result| result[:passed] }.each do |result|
+          failures.each do |result|
             lines << format_failure(result)
           end
           lines.join("\n")
@@ -58,17 +62,17 @@ module RubyLLM
           io.puts summary
           io.puts
           results.each do |result|
-            icon = result[:passed] ? "PASS" : "FAIL"
-            io.puts "  #{icon}  #{result[:case_name]}"
-            io.puts "        #{result[:details]}" if !result[:passed] && useful_details?(result[:details])
+            icon = result.passed? ? "PASS" : "FAIL"
+            io.puts "  #{icon}  #{result.name}"
+            io.puts "        #{result.details}" if result.failed? && useful_details?(result.details)
           end
         end
 
         private
 
         def format_failure(result)
-          line = "  FAIL  #{result[:case_name]}"
-          line += ": #{result[:details]}" if useful_details?(result[:details])
+          line = "  FAIL  #{result.name}"
+          line += ": #{result.details}" if useful_details?(result.details)
           line
         end
 

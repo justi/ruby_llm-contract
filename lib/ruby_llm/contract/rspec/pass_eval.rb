@@ -5,24 +5,27 @@ module RubyLLM
     module RSpec
       # Helper methods for the pass_eval matcher to keep the block short.
       module PassEvalHelpers
-        def format_failure_message(eval_name, error, report)
+        def format_failure_message(eval_name, error, report, minimum_score)
           return format_error_message(eval_name, error) if error
 
-          format_report_message(eval_name, report)
+          format_report_message(eval_name, report, minimum_score)
         end
 
         def format_error_message(eval_name, error)
           "expected #{eval_name} eval to pass, but it raised an error:\n  #{error.class}: #{error.message}"
         end
 
-        def format_report_message(eval_name, report)
-          lines = ["expected #{eval_name} eval to pass, but got score: #{report.score.round(2)} (#{report.pass_rate})"]
+        def format_report_message(eval_name, report, minimum_score)
+          lines = if minimum_score
+                    ["expected #{eval_name} eval score >= #{minimum_score}, but got: #{report.score.round(2)} (#{report.pass_rate})"]
+                  else
+                    ["expected #{eval_name} eval to pass, but got score: #{report.score.round(2)} (#{report.pass_rate})"]
+                  end
           lines << ""
 
           report.results.each do |result|
-            icon = result[:passed] ? "PASS" : "FAIL"
-            lines << "  #{icon}  #{result[:case_name]} (score: #{result[:score]})"
-            lines << "        #{result[:details]}" if result[:details] && !result[:passed]
+            lines << "  #{result.label}  #{result.name} (score: #{result.score})"
+            lines << "        #{result.details}" if result.details && result.failed?
           end
 
           lines.join("\n")
@@ -39,19 +42,29 @@ RSpec::Matchers.define :pass_eval do |eval_name|
     @context = ctx
   end
 
+  chain :with_minimum_score do |score|
+    @minimum_score = score
+  end
+
   match do |step_or_pipeline|
     @eval_name = eval_name
     @context ||= {}
+    @minimum_score ||= nil
     @error = nil
     @report = step_or_pipeline.run_eval(eval_name, context: @context)
-    @report.passed?
+
+    if @minimum_score
+      @report.score >= @minimum_score
+    else
+      @report.passed?
+    end
   rescue StandardError => e
     @error = e
     false
   end
 
   failure_message do
-    format_failure_message(@eval_name, @error, @report)
+    format_failure_message(@eval_name, @error, @report, @minimum_score)
   end
 
   failure_message_when_negated do
