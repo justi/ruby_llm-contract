@@ -33,6 +33,7 @@ module RubyLLM
         end
 
         def build_case_result(test_case, step_result, eval_result)
+          trace = step_result.respond_to?(:trace) ? step_result.trace : nil
           CaseResult.new(
             name: test_case.name,
             input: test_case.input,
@@ -43,7 +44,8 @@ module RubyLLM
             passed: eval_result.passed,
             label: eval_result.label,
             details: eval_result.details,
-            duration_ms: step_result.respond_to?(:trace) ? step_result.trace[:latency_ms] : nil
+            duration_ms: trace ? trace[:latency_ms] : nil,
+            cost: trace ? trace[:cost] : nil
           )
         end
 

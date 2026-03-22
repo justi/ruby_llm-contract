@@ -5,30 +5,44 @@ module RubyLLM
     module RSpec
       # Helper methods for the pass_eval matcher to keep the block short.
       module PassEvalHelpers
-        def format_failure_message(eval_name, error, report, minimum_score)
+        def format_failure_message(eval_name, error, report, minimum_score, maximum_cost)
           return format_error_message(eval_name, error) if error
 
-          format_report_message(eval_name, report, minimum_score)
+          format_report_message(eval_name, report, minimum_score, maximum_cost)
         end
 
         def format_error_message(eval_name, error)
           "expected #{eval_name} eval to pass, but it raised an error:\n  #{error.class}: #{error.message}"
         end
 
-        def format_report_message(eval_name, report, minimum_score)
-          lines = if minimum_score
-                    ["expected #{eval_name} eval score >= #{minimum_score}, but got: #{report.score.round(2)} (#{report.pass_rate})"]
-                  else
-                    ["expected #{eval_name} eval to pass, but got score: #{report.score.round(2)} (#{report.pass_rate})"]
-                  end
+        def format_report_message(eval_name, report, minimum_score, maximum_cost)
+          lines = build_header(eval_name, report, minimum_score, maximum_cost)
           lines << ""
 
           report.results.each do |result|
-            lines << "  #{result.label}  #{result.name} (score: #{result.score})"
+            cost_str = result.cost ? " $#{format("%.4f", result.cost)}" : ""
+            lines << "  #{result.label}  #{result.name} (score: #{result.score})#{cost_str}"
             lines << "        #{result.details}" if result.details && result.failed?
           end
 
           lines.join("\n")
+        end
+
+        private
+
+        def build_header(eval_name, report, minimum_score, maximum_cost)
+          cost_str = report.total_cost > 0 ? ", cost: $#{format("%.4f", report.total_cost)}" : ""
+
+          if maximum_cost && report.total_cost > maximum_cost
+            ["expected #{eval_name} eval cost <= $#{format("%.4f", maximum_cost)}, " \
+             "but got: $#{format("%.4f", report.total_cost)} (#{report.pass_rate})"]
+          elsif minimum_score
+            ["expected #{eval_name} eval score >= #{minimum_score}, " \
+             "but got: #{report.score.round(2)} (#{report.pass_rate}#{cost_str})"]
+          else
+            ["expected #{eval_name} eval to pass, " \
+             "but got score: #{report.score.round(2)} (#{report.pass_rate}#{cost_str})"]
+          end
         end
       end
     end
@@ -46,25 +60,34 @@ RSpec::Matchers.define :pass_eval do |eval_name|
     @minimum_score = score
   end
 
+  chain :with_maximum_cost do |cost|
+    @maximum_cost = cost
+  end
+
   match do |step_or_pipeline|
     @eval_name = eval_name
     @context ||= {}
     @minimum_score ||= nil
+    @maximum_cost ||= nil
     @error = nil
     @report = step_or_pipeline.run_eval(eval_name, context: @context)
 
-    if @minimum_score
-      @report.score >= @minimum_score
-    else
-      @report.passed?
-    end
+    score_ok = if @minimum_score
+                 @report.score >= @minimum_score
+               else
+                 @report.passed?
+               end
+
+    cost_ok = @maximum_cost ? @report.total_cost <= @maximum_cost : true
+
+    score_ok && cost_ok
   rescue StandardError => e
     @error = e
     false
   end
 
   failure_message do
-    format_failure_message(@eval_name, @error, @report, @minimum_score)
+    format_failure_message(@eval_name, @error, @report, @minimum_score, @maximum_cost)
   end
 
   failure_message_when_negated do

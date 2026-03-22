@@ -5,10 +5,10 @@ module RubyLLM
     module Eval
       class CaseResult
         attr_reader :name, :input, :output, :expected, :step_status,
-                    :score, :details, :duration_ms
+                    :score, :details, :duration_ms, :cost
 
         def initialize(name:, input:, output:, expected:, step_status:,
-                       score:, passed:, label: nil, details: nil, duration_ms: nil)
+                       score:, passed:, label: nil, details: nil, duration_ms: nil, cost: nil)
           @name = name
           @input = input
           @output = output
@@ -19,6 +19,7 @@ module RubyLLM
           @label = label
           @details = details
           @duration_ms = duration_ms
+          @cost = cost
           freeze
         end
 
@@ -56,7 +57,8 @@ module RubyLLM
             passed: @passed,
             label: label,
             details: @details,
-            duration_ms: @duration_ms
+            duration_ms: @duration_ms,
+            cost: @cost
           }
         end
 
