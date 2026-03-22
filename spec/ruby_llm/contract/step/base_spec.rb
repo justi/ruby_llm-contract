@@ -163,11 +163,12 @@ RSpec.describe RubyLLM::Contract::Step::Base do
         default_input "test"
       end
 
-      expect do
-        step.define_eval("smoke") do
-          default_input "test again"
-        end
-      end.to raise_error(ArgumentError, /eval 'smoke' is already defined/)
+      # Redefining replaces the eval (supports Rails reload)
+      step.define_eval("smoke") do
+        default_input "test again"
+      end
+
+      expect(step.eval_names).to eq(["smoke"])
     end
   end
 end

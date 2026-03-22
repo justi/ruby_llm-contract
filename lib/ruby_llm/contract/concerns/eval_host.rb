@@ -7,9 +7,6 @@ module RubyLLM
         def define_eval(name, &)
           @eval_definitions ||= {}
           key = name.to_s
-          if @eval_definitions.key?(key)
-            raise ArgumentError, "eval '#{key}' is already defined on #{self}. Use a unique name."
-          end
 
           @eval_definitions[key] = Eval::EvalDefinition.new(key, step_class: self, &)
           Contract.register_eval_host(self)

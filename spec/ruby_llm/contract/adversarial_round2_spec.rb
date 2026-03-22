@@ -202,23 +202,23 @@ RSpec.describe "Adversarial QA round 2 -- bug regressions" do
   # Fix: define_eval raises ArgumentError if name already exists. Use
   # redefine_eval to explicitly override.
   # ---------------------------------------------------------------------------
-  describe "BUG 14: define_eval overwrites existing eval silently" do
-    it "raises ArgumentError when defining eval with duplicate name" do
-      expect {
-        Class.new(RubyLLM::Contract::Step::Base) do
-          prompt { user "{input}" }
+  describe "BUG 14: define_eval with duplicate name replaces (supports reload)" do
+    it "replaces existing eval with same name" do
+      step = Class.new(RubyLLM::Contract::Step::Base) do
+        prompt { user "{input}" }
 
-          define_eval :smoke do
-            default_input "test1"
-            sample_response "first"
-          end
-
-          define_eval :smoke do
-            default_input "test2"
-            sample_response "second"
-          end
+        define_eval :smoke do
+          default_input "test1"
+          sample_response({ v: "first" })
         end
-      }.to raise_error(ArgumentError, /eval 'smoke' is already defined/)
+
+        define_eval :smoke do
+          default_input "test2"
+          sample_response({ v: "second" })
+        end
+      end
+
+      expect(step.eval_names).to eq(["smoke"])
     end
 
     it "allows different eval names on the same step" do
