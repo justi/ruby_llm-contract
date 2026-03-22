@@ -13,25 +13,30 @@ module RubyLLM
         end
 
         def score
-          return 0.0 if results.empty?
+          evaluated = evaluated_results
+          return 0.0 if evaluated.empty?
 
-          results.sum(&:score) / results.length
+          evaluated.sum(&:score) / evaluated.length
         end
 
         def passed
-          results.count(&:passed?)
+          evaluated_results.count(&:passed?)
         end
 
         def failed
-          results.count(&:failed?)
+          evaluated_results.count(&:failed?)
+        end
+
+        def skipped
+          results.count { |r| r.step_status == :skipped }
         end
 
         def failures
-          results.select(&:failed?)
+          evaluated_results.select(&:failed?)
         end
 
         def pass_rate
-          "#{passed}/#{results.length}"
+          "#{passed}/#{evaluated_results.length}"
         end
 
         def total_cost
@@ -46,9 +51,10 @@ module RubyLLM
         end
 
         def passed?
-          return false if results.empty?
+          evaluated = evaluated_results
+          return false if evaluated.empty?
 
-          results.all?(&:passed?)
+          evaluated.all?(&:passed?)
         end
 
         def each(&)
@@ -57,6 +63,7 @@ module RubyLLM
 
         def summary
           parts = ["#{dataset_name}: #{pass_rate} checks passed"]
+          parts << "#{skipped} skipped" if skipped > 0
           parts << format_cost(total_cost) if total_cost > 0
           parts.join(", ")
         end
@@ -93,6 +100,10 @@ module RubyLLM
 
         def useful_details?(details)
           details && !GENERIC_DETAILS.include?(details)
+        end
+
+        def evaluated_results
+          results.reject { |r| r.step_status == :skipped }
         end
 
         def format_cost(cost)

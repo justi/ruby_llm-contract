@@ -14,9 +14,7 @@ module RubyLLM
           @eval_definitions[key] = Eval::EvalDefinition.new(key, step_class: self, &)
           Contract.register_eval_host(self)
           # Register existing subclasses that inherit this eval
-          ObjectSpace.each_object(Class) do |klass|
-            Contract.register_eval_host(klass) if klass < self
-          end
+          register_subclasses(self)
         end
 
         def eval_names
@@ -67,7 +65,8 @@ module RubyLLM
 
         def run_all_own_evals(context)
           all_eval_definitions.transform_values do |defn|
-            effective_context = eval_context(defn, context)
+            isolated_context = deep_dup_context(context)
+            effective_context = eval_context(defn, isolated_context)
             Eval::Runner.run(step: self, dataset: defn.build_dataset, context: effective_context)
           end
         end
@@ -79,6 +78,19 @@ module RubyLLM
           return context unless sample_adapter
 
           context.merge(adapter: sample_adapter)
+        end
+
+        def register_subclasses(klass)
+          if klass.respond_to?(:subclasses)
+            klass.subclasses.each do |sub|
+              Contract.register_eval_host(sub)
+              register_subclasses(sub)
+            end
+          else
+            ObjectSpace.each_object(Class) do |sub|
+              Contract.register_eval_host(sub) if sub < klass
+            end
+          end
         end
 
         def deep_dup_context(context)

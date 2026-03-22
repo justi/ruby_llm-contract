@@ -109,8 +109,8 @@ puts "Pass rate: #{report.pass_rate}"
 puts "All passed: #{report.passed?}"
 puts
 report.each do |r|
-  icon = r[:passed] ? "✓" : "✗"
-  puts "  #{icon} #{r[:case_name].ljust(30)} score=#{r[:score]}  #{r[:details]}"
+  icon = r.passed? ? "✓" : "✗"
+  puts "  #{icon} #{r.name.ljust(30)} score=#{r.score}  #{r.details}"
 end
 
 # =============================================================================
@@ -148,8 +148,8 @@ puts "Pass rate: #{bad_report.pass_rate}"
 puts "All passed: #{bad_report.passed?}"
 puts
 bad_report.each do |r|
-  icon = r[:passed] ? "✓" : "✗"
-  puts "  #{icon} #{r[:case_name].ljust(30)} score=#{r[:score]}  #{r[:details]}"
+  icon = r.passed? ? "✓" : "✗"
+  puts "  #{icon} #{r.name.ljust(30)} score=#{r.score}  #{r.details}"
 end
 
 puts "\nRegression detected:"
@@ -256,8 +256,8 @@ puts "\nPipeline eval:"
 puts "Score: #{pipeline_report.score.round(2)}"
 puts "Pass rate: #{pipeline_report.pass_rate}"
 pipeline_report.each do |r|
-  icon = r[:passed] ? "✓" : "✗"
-  puts "  #{icon} #{r[:case_name].ljust(25)} #{r[:details]}"
+  icon = r.passed? ? "✓" : "✗"
+  puts "  #{icon} #{r.name.ljust(25)} #{r.details}"
 end
 
 # =============================================================================
