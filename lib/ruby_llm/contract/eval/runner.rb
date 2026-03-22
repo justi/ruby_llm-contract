@@ -56,14 +56,22 @@ module RubyLLM
           return nil unless trace
 
           # Pipeline::Trace uses total_latency_ms, Step::Trace uses latency_ms
-          trace.respond_to?(:total_latency_ms) ? trace.total_latency_ms : trace[:latency_ms]
+          if trace.respond_to?(:total_latency_ms)
+            trace.total_latency_ms
+          else
+            trace[:latency_ms]
+          end
         end
 
         def extract_cost(trace)
           return nil unless trace
 
           # Pipeline::Trace uses total_cost, Step::Trace uses cost
-          trace.respond_to?(:total_cost) && trace.total_cost ? trace.total_cost : trace[:cost]
+          if trace.respond_to?(:total_cost)
+            trace.total_cost
+          else
+            trace[:cost]
+          end
         end
 
         def dispatch_evaluation(step_result, test_case)

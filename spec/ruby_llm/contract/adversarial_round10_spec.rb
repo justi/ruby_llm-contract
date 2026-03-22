@@ -1277,7 +1277,10 @@ RSpec.describe "Adversarial QA round 10 -- production certification audit" do
       it "report and results are frozen" do
         report = RubyLLM::Contract::Eval::Report.new(
           dataset_name: "test",
-          results: [{ case_name: "a", score: 1.0, passed: true }]
+          results: [RubyLLM::Contract::Eval::CaseResult.new(
+            name: "a", input: nil, output: nil, expected: nil,
+            step_status: :ok, score: 1.0, passed: true
+          )]
         )
         expect(report).to be_frozen
         expect(report.results).to be_frozen
