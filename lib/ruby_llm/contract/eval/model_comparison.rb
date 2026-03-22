@@ -25,7 +25,7 @@ module RubyLLM
         end
 
         def best_for(min_score: 0.0)
-          eligible = @reports.select { |_, report| report.score >= min_score }
+          eligible = @reports.select { |_, report| report.score > 0.0 && report.score >= min_score }
           return nil if eligible.empty?
 
           eligible.min_by { |_, report| report.total_cost }&.first
@@ -50,7 +50,7 @@ module RubyLLM
           lines.join("\n")
         end
 
-        def pretty_print(io = $stdout)
+        def print_summary(io = $stdout)
           io.puts "#{@eval_name} — model comparison"
           io.puts
           io.puts table

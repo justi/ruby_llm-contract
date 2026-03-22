@@ -30,7 +30,7 @@ module RubyLLM
           Adapters::Test.new(response: @sample_response.is_a?(String) ? @sample_response : @sample_response.to_json)
         end
 
-        def add_case(description, input: nil, expected: nil, evaluator: nil)
+        def add_case(description, input: nil, expected: nil, expected_traits: nil, evaluator: nil)
           case_input = input || @default_input
           raise ArgumentError, "add_case requires input (set default_input or pass input:)" unless case_input
 
@@ -38,11 +38,15 @@ module RubyLLM
             name: description,
             input: case_input,
             expected: expected,
+            expected_traits: expected_traits,
             evaluator: evaluator
           }
         end
 
         def verify(description, expected_or_proc = nil, input: nil, expect: nil)
+          if expected_or_proc && expect
+            raise ArgumentError, "verify accepts either a positional argument or expect: keyword, not both"
+          end
           expected_or_proc = expect if expect
           case_input = input || @default_input
           validate_verify_args!(expected_or_proc, case_input)
@@ -63,6 +67,7 @@ module RubyLLM
           Dataset.define(eval_name) do
             eval_cases.each do |eval_case|
               add_case(eval_case[:name], input: eval_case[:input], expected: eval_case[:expected],
+                                         expected_traits: eval_case[:expected_traits],
                                          evaluator: eval_case[:evaluator])
             end
           end

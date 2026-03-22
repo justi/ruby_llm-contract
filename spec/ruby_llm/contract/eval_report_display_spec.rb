@@ -70,10 +70,10 @@ RSpec.describe "Eval::Report display" do
     end
   end
 
-  describe "#pretty_print" do
+  describe "#print_summary" do
     it "shows all cases with PASS/FAIL" do
       output = StringIO.new
-      mixed_report.pretty_print(output)
+      mixed_report.print_summary(output)
       str = output.string
 
       expect(str).to include("PASS")
@@ -84,7 +84,7 @@ RSpec.describe "Eval::Report display" do
 
     it "hides generic details like 'not passed'" do
       output = StringIO.new
-      mixed_report.pretty_print(output)
+      mixed_report.print_summary(output)
       str = output.string
 
       expect(str).not_to include("not passed")
@@ -98,13 +98,13 @@ RSpec.describe "Eval::Report display" do
         ]
       )
       output = StringIO.new
-      report.pretty_print(output)
+      report.print_summary(output)
       expect(output.string).to include("expected 3 items, got 1")
     end
 
     it "header uses 'checks passed'" do
       output = StringIO.new
-      mixed_report.pretty_print(output)
+      mixed_report.print_summary(output)
       expect(output.string).to include("2/4 checks passed")
     end
   end

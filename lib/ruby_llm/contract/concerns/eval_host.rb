@@ -37,7 +37,9 @@ module RubyLLM
 
         def compare_models(eval_name, models:, context: {})
           reports = models.each_with_object({}) do |model, hash|
-            model_context = context.merge(model: model)
+            # Each model run gets an independent context to avoid shared mutable state
+            # (e.g., Adapters::Test with responses: advances @index across runs)
+            model_context = deep_dup_context(context).merge(model: model)
             hash[model] = run_single_eval(eval_name, model_context)
           end
           Eval::ModelComparison.new(eval_name: eval_name, reports: reports)
@@ -77,6 +79,14 @@ module RubyLLM
           return context unless sample_adapter
 
           context.merge(adapter: sample_adapter)
+        end
+
+        def deep_dup_context(context)
+          context.transform_values do |v|
+            v.respond_to?(:dup) ? v.dup : v
+          rescue TypeError
+            v # frozen / immutable values
+          end
         end
       end
     end

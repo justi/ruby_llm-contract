@@ -136,7 +136,7 @@ RSpec.describe "ADR-0008: Cost of Quality" do
       ]
       report = RubyLLM::Contract::Eval::Report.new(dataset_name: "test", results: results)
       output = StringIO.new
-      report.pretty_print(output)
+      report.print_summary(output)
       str = output.string
       expect(str).to include("$0.0008")
       expect(str).to include("342ms")
@@ -230,7 +230,7 @@ RSpec.describe "ADR-0008: Cost of Quality" do
 
     it "pretty_print shows comparison with best model" do
       output = StringIO.new
-      comparison.pretty_print(output)
+      comparison.print_summary(output)
       str = output.string
       expect(str).to include("model comparison")
       expect(str).to include("gpt-4.1-nano")
@@ -254,17 +254,10 @@ RSpec.describe "ADR-0008: Cost of Quality" do
           expected: { priority: "high" }
       end
 
-      nano_adapter = RubyLLM::Contract::Adapters::Test.new(
-        response: '{"priority": "medium"}'
-      )
-      mini_adapter = RubyLLM::Contract::Adapters::Test.new(
-        response: '{"priority": "high"}'
-      )
-
-      # compare_models needs a real adapter that tracks model — use Test adapters via context
-      # For unit test: verify the API works with a single adapter
+      # Each model gets its own adapter copy (deep_dup_context)
+      # so both start at index 0 — responses must be per-adapter
       adapter = RubyLLM::Contract::Adapters::Test.new(
-        responses: ['{"priority": "medium"}', '{"priority": "high"}']
+        response: '{"priority": "high"}'
       )
 
       comparison = step.compare_models("regression",
@@ -273,8 +266,28 @@ RSpec.describe "ADR-0008: Cost of Quality" do
 
       expect(comparison).to be_a(RubyLLM::Contract::Eval::ModelComparison)
       expect(comparison.models).to eq(%w[model-a model-b])
-      expect(comparison.score_for("model-a")).to eq(0.0)
+      # Both models get same adapter response, both should pass
+      expect(comparison.score_for("model-a")).to eq(1.0)
       expect(comparison.score_for("model-b")).to eq(1.0)
+    end
+
+    it "isolates adapter state between model runs" do
+      step.define_eval("isolation") do
+        add_case "case1", input: "a", expected: { priority: "high" }
+        add_case "case2", input: "b", expected: { priority: "high" }
+      end
+
+      # With responses: array, each dup starts at index 0
+      adapter = RubyLLM::Contract::Adapters::Test.new(
+        responses: ['{"priority": "high"}', '{"priority": "low"}']
+      )
+
+      comparison = step.compare_models("isolation",
+        models: %w[model-a model-b],
+        context: { adapter: adapter })
+
+      # Both models see same responses (high, low) — score should be identical
+      expect(comparison.score_for("model-a")).to eq(comparison.score_for("model-b"))
     end
   end
 
