@@ -107,7 +107,7 @@ module RubyLLM
         end
 
         def format_cost(cost)
-          "$#{format("%.4f", cost)}"
+          "$#{format("%.6f", cost)}"
         end
       end
     end
