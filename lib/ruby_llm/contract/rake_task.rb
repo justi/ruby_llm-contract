@@ -6,7 +6,7 @@ require "rake/tasklib"
 module RubyLLM
   module Contract
     class RakeTask < ::Rake::TaskLib
-      attr_accessor :name, :context, :fail_on_empty, :minimum_score
+      attr_accessor :name, :context, :fail_on_empty, :minimum_score, :maximum_cost
 
       def initialize(name = :"ruby_llm_contract:eval", &block)
         super()
@@ -14,6 +14,7 @@ module RubyLLM
         @context = {}
         @fail_on_empty = true
         @minimum_score = nil # nil = require 100%; float = threshold
+        @maximum_cost = nil  # nil = no cost limit; float = budget cap
         block&.call(self)
         define_task
       end
@@ -52,11 +53,13 @@ module RubyLLM
       end
 
       def report_meets_threshold?(report)
-        if @minimum_score
-          report.score >= @minimum_score
-        else
-          report.passed?
-        end
+        score_ok = if @minimum_score
+                     report.score >= @minimum_score
+                   else
+                     report.passed?
+                   end
+        cost_ok = @maximum_cost ? report.total_cost <= @maximum_cost : true
+        score_ok && cost_ok
       end
 
       def task_prerequisites

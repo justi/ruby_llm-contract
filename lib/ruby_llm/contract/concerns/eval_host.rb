@@ -35,6 +35,14 @@ module RubyLLM
           end
         end
 
+        def compare_models(eval_name, models:, context: {})
+          reports = models.each_with_object({}) do |model, hash|
+            model_context = context.merge(model: model)
+            hash[model] = run_single_eval(eval_name, model_context)
+          end
+          Eval::ModelComparison.new(eval_name: eval_name, reports: reports)
+        end
+
         private
 
         def all_eval_definitions

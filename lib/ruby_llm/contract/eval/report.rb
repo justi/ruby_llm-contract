@@ -34,6 +34,17 @@ module RubyLLM
           "#{passed}/#{results.length}"
         end
 
+        def total_cost
+          results.sum { |r| r.cost || 0.0 }
+        end
+
+        def avg_latency_ms
+          latencies = results.filter_map(&:duration_ms)
+          return nil if latencies.empty?
+
+          latencies.sum.to_f / latencies.length
+        end
+
         def passed?
           return false if results.empty?
 
@@ -45,7 +56,9 @@ module RubyLLM
         end
 
         def summary
-          "#{dataset_name}: #{pass_rate} checks passed"
+          parts = ["#{dataset_name}: #{pass_rate} checks passed"]
+          parts << format_cost(total_cost) if total_cost > 0
+          parts.join(", ")
         end
 
         GENERIC_DETAILS = ["passed", "not passed"].freeze
@@ -63,7 +76,9 @@ module RubyLLM
           io.puts
           results.each do |result|
             icon = result.passed? ? "PASS" : "FAIL"
-            io.puts "  #{icon}  #{result.name}"
+            cost_str = result.cost ? "  #{format_cost(result.cost)}" : ""
+            latency_str = result.duration_ms ? "  #{result.duration_ms}ms" : ""
+            io.puts "  #{icon}  #{result.name}#{cost_str}#{latency_str}"
             io.puts "        #{result.details}" if result.failed? && useful_details?(result.details)
           end
         end
@@ -78,6 +93,10 @@ module RubyLLM
 
         def useful_details?(details)
           details && !GENERIC_DETAILS.include?(details)
+        end
+
+        def format_cost(cost)
+          "$#{format("%.4f", cost)}"
         end
       end
     end
