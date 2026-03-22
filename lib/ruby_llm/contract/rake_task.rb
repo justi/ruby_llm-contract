@@ -6,7 +6,7 @@ require "rake/tasklib"
 module RubyLLM
   module Contract
     class RakeTask < ::Rake::TaskLib
-      attr_accessor :name, :context, :fail_on_empty, :minimum_score, :maximum_cost
+      attr_accessor :name, :context, :fail_on_empty, :minimum_score, :maximum_cost, :eval_dirs
 
       def initialize(name = :"ruby_llm_contract:eval", &block)
         super()
@@ -15,6 +15,7 @@ module RubyLLM
         @fail_on_empty = true
         @minimum_score = nil # nil = require 100%; float = threshold
         @maximum_cost = nil  # nil = no cost limit; float = budget cap
+        @eval_dirs = []      # directories to load eval files from (non-Rails)
         block&.call(self)
         define_task
       end
@@ -25,6 +26,7 @@ module RubyLLM
         desc "Run all ruby_llm-contract evals"
         task(@name => task_prerequisites) do
           require "ruby_llm/contract"
+          @eval_dirs.each { |dir| RubyLLM::Contract.load_evals!(dir) }
           RubyLLM::Contract.load_evals!
 
           results = RubyLLM::Contract.run_all_evals(context: @context)
@@ -42,7 +44,7 @@ module RubyLLM
           results.each do |host, reports|
             puts "\n#{host.name || host.to_s}"
             reports.each_value do |report|
-              report.pretty_print
+              report.print_summary
               gate_passed = false unless report_meets_threshold?(report)
             end
           end

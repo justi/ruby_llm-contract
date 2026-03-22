@@ -30,6 +30,9 @@ module RubyLLM
           eval_result = dispatch_evaluation(step_result, test_case)
 
           build_case_result(test_case, step_result, eval_result)
+        rescue RubyLLM::Contract::Error => e
+          # No adapter configured — skip this case (offline mode without sample_response)
+          skipped_result(test_case, e.message)
         end
 
         def build_case_result(test_case, step_result, eval_result)
@@ -44,9 +47,23 @@ module RubyLLM
             passed: eval_result.passed,
             label: eval_result.label,
             details: eval_result.details,
-            duration_ms: trace ? trace[:latency_ms] : nil,
-            cost: trace ? trace[:cost] : nil
+            duration_ms: extract_latency(trace),
+            cost: extract_cost(trace)
           )
+        end
+
+        def extract_latency(trace)
+          return nil unless trace
+
+          # Pipeline::Trace uses total_latency_ms, Step::Trace uses latency_ms
+          trace.respond_to?(:total_latency_ms) ? trace.total_latency_ms : trace[:latency_ms]
+        end
+
+        def extract_cost(trace)
+          return nil unless trace
+
+          # Pipeline::Trace uses total_cost, Step::Trace uses cost
+          trace.respond_to?(:total_cost) && trace.total_cost ? trace.total_cost : trace[:cost]
         end
 
         def dispatch_evaluation(step_result, test_case)
@@ -72,13 +89,14 @@ module RubyLLM
         def normalize_pipeline_result(result)
           last_result = result.step_results&.last&.dig(:result)
           is_ok = result.ok?
+          pipeline_trace = result.respond_to?(:trace) ? result.trace : nil
 
           PipelineResultAdapter.new(
             status: result.status,
             ok_flag: is_ok,
             parsed_output: is_ok ? result.outputs_by_step.values.last : nil,
             validation_errors: last_result.respond_to?(:validation_errors) ? last_result.validation_errors : [],
-            trace: last_result.respond_to?(:trace) ? last_result.trace : {}
+            trace: pipeline_trace || (last_result.respond_to?(:trace) ? last_result.trace : {})
           )
         end
 
@@ -114,6 +132,20 @@ module RubyLLM
           EvaluationResult.new(
             score: 0.0, passed: false,
             details: "step failed: #{step_result.status} — #{step_result.validation_errors.join(", ")}"
+          )
+        end
+
+        def skipped_result(test_case, reason)
+          CaseResult.new(
+            name: test_case.name,
+            input: test_case.input,
+            output: nil,
+            expected: test_case.expected,
+            step_status: :skipped,
+            score: 0.0,
+            passed: false,
+            label: "SKIP",
+            details: "skipped: #{reason}"
           )
         end
       end

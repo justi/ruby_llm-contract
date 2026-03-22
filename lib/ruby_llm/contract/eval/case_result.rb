@@ -48,7 +48,7 @@ module RubyLLM
 
         def to_h
           {
-            case_name: @name,
+            name: @name,
             input: @input,
             output: @output,
             expected: @expected,

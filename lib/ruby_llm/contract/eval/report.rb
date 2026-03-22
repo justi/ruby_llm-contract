@@ -71,7 +71,7 @@ module RubyLLM
           lines.join("\n")
         end
 
-        def pretty_print(io = $stdout)
+        def print_summary(io = $stdout)
           io.puts summary
           io.puts
           results.each do |result|

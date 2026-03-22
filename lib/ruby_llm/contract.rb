@@ -40,19 +40,6 @@ module RubyLLM
         @eval_hosts = []
       end
 
-      # Expand registry: find subclasses that inherit evals but weren't
-      # registered (e.g. parent got evals after child was defined).
-      def discover_eval_hosts
-        discovered = eval_hosts.dup
-        ObjectSpace.each_object(Class) do |klass|
-          next if discovered.include?(klass)
-          next unless klass.respond_to?(:eval_defined?) && klass.eval_defined?
-
-          discovered << klass
-        end
-        discovered
-      end
-
       def load_evals!(dir = nil)
         dirs = if dir
                  [dir]
@@ -66,7 +53,7 @@ module RubyLLM
                end
 
         dirs.each do |d|
-          Dir[File.join(d, "**", "*_eval.rb")].sort.each { |f| require f }
+          Dir[File.join(d, "**", "*_eval.rb")].sort.each { |f| load f }
         end
       end
 

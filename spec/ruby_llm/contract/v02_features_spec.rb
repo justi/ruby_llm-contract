@@ -183,7 +183,7 @@ RSpec.describe "v0.2 features (ADR-0007)" do
       h = report.results.first.to_h
 
       expect(h).to include(
-        case_name: "billing ticket",
+        name: "billing ticket",
         passed: true,
         score: 1.0,
         label: "PASS"
