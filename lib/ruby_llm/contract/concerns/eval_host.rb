@@ -12,13 +12,26 @@ module RubyLLM
           end
 
           @eval_definitions[key] = Eval::EvalDefinition.new(key, step_class: self, &)
+          Contract.register_eval_host(self)
+          # Register existing subclasses that inherit this eval
+          ObjectSpace.each_object(Class) do |klass|
+            Contract.register_eval_host(klass) if klass < self
+          end
+        end
+
+        def eval_names
+          all_eval_definitions.keys
+        end
+
+        def eval_defined?
+          !all_eval_definitions.empty?
         end
 
         def run_eval(name = nil, context: {})
           if name
             run_single_eval(name, context)
           else
-            run_all_evals(context)
+            run_all_own_evals(context)
           end
         end
 
@@ -42,7 +55,7 @@ module RubyLLM
           Eval::Runner.run(step: self, dataset: defn.build_dataset, context: effective_context)
         end
 
-        def run_all_evals(context)
+        def run_all_own_evals(context)
           all_eval_definitions.transform_values do |defn|
             effective_context = eval_context(defn, context)
             Eval::Runner.run(step: self, dataset: defn.build_dataset, context: effective_context)

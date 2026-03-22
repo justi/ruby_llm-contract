@@ -453,7 +453,7 @@ RSpec.describe "Adversarial QA round 9 -- multi-component interaction bugs" do
       expect(report).to be_a(RubyLLM::Contract::Eval::Report)
       expect(report.passed?).to be(true),
                                 "Eval should pass when sample_response satisfies schema, validate, and verify. " \
-                                "Details: #{report.results.map { |r| r[:details] }.inspect}"
+                                "Details: #{report.results.map(&:details).inspect}"
     end
 
     it "eval reports failure when sample_response passes schema but fails verify" do
@@ -479,7 +479,7 @@ RSpec.describe "Adversarial QA round 9 -- multi-component interaction bugs" do
       expect(report.passed?).to be(false),
                                 "Eval should fail when verify rejects valid sample_response"
       # ProcEvaluator wraps false return into "not passed" details
-      expect(report.results.first[:passed]).to be(false)
+      expect(report.results.first.passed?).to be(false)
     end
 
     it "eval reports failure when sample_response fails contract validate" do
@@ -501,8 +501,8 @@ RSpec.describe "Adversarial QA round 9 -- multi-component interaction bugs" do
 
       expect(report.passed?).to be(false),
                                 "Eval should fail when sample_response fails contract validate"
-      expect(report.results.first[:step_status]).to eq(:validation_failed),
-                                                    "Step status should be :validation_failed"
+      expect(report.results.first.step_status).to eq(:validation_failed),
+                                                 "Step status should be :validation_failed"
     end
   end
 
@@ -1052,8 +1052,8 @@ RSpec.describe "Adversarial QA round 9 -- multi-component interaction bugs" do
       report = step.run_eval(:string_keys)
       expect(report.passed?).to be(true),
                                 "String-keyed Hash sample_response should work end-to-end"
-      expect(report.results.first[:output]).to have_key(:name),
-                                              "Output keys should be symbolized"
+      expect(report.results.first.output).to have_key(:name),
+                                           "Output keys should be symbolized"
     end
   end
 

@@ -62,6 +62,11 @@ module RubyLLM
       def validate_invariants(parsed_output, definition, input)
         definition.invariants.each_with_object([]) do |inv, errors|
           passed = inv.call(parsed_output, input: input)
+          if passed.nil?
+            warn "[ruby_llm-contract] validate(\"#{inv.description}\") returned nil. " \
+                 "This usually means a key mismatch (string vs symbol). " \
+                 "Output keys are always symbols."
+          end
           errors << inv.description unless passed
         rescue StandardError => e
           errors << "#{inv.description} (raised #{e.class}: #{e.message})"

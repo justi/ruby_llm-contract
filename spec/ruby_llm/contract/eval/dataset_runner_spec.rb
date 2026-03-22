@@ -114,7 +114,7 @@ RSpec.describe "Eval::Dataset + Runner" do
                                                 context: { adapter: adapter })
 
       expect(report.score).to eq(0.0)
-      expect(report.results[0][:step_status]).to eq(:parse_error)
+      expect(report.results[0].step_status).to eq(:parse_error)
     end
 
     it "evaluates expected_traits" do
@@ -167,7 +167,7 @@ RSpec.describe "Eval::Dataset + Runner" do
                                                 context: { adapter: adapter })
 
       expect(report.passed?).to be true
-      expect(report.results[0][:details]).to eq("contract passed")
+      expect(report.results[0].details).to eq("contract passed")
     end
 
     it "provides summary" do
@@ -194,8 +194,8 @@ RSpec.describe "Eval::Dataset + Runner" do
         context: { adapter: adapter }
       )
 
-      expect(result[:passed]).to be true
-      expect(result[:score]).to eq(1.0)
+      expect(result.passed?).to be true
+      expect(result.score).to eq(1.0)
     end
 
     it "reports failure on mismatch" do
@@ -207,7 +207,7 @@ RSpec.describe "Eval::Dataset + Runner" do
         context: { adapter: adapter }
       )
 
-      expect(result[:passed]).to be false
+      expect(result.passed?).to be false
     end
   end
 end

@@ -59,7 +59,7 @@ Works with any ruby_llm provider (OpenAI, Anthropic, Gemini, etc).
 - **Validated responses** — `validate` blocks catch wrong answers; `output_schema` enforces JSON structure via provider AND client-side
 - **Model escalation** — `retry_policy models: %w[nano mini full]` starts cheap, auto-escalates when contract fails. 90% of requests succeed on nano. ~$40/mo instead of ~$200 at 10k requests.
 - **Cost control** — `max_input`, `max_cost` refuse before calling the LLM. Zero tokens spent on oversized input.
-- **Eval in CI** — `expect(MyStep).to pass_eval("smoke")` verifies your contract offline, zero API calls. No other Ruby gem does this.
+- **Eval in CI** — `add_case input:, expected:` defines regression tests. `pass_eval("regression").with_minimum_score(0.8)` gates merges. `rake ruby_llm_contract:eval` runs all evals. No other Ruby gem does this.
 - **Defensive parsing** — code fences, BOM, prose wrapping, `null` responses — 14 edge cases handled
 - **Pipeline** — chain steps with fail-fast. Hallucination in step 1 stops before step 2 runs.
 - **Testing** — `RubyLLM::Contract::Adapters::Test` for deterministic specs, `satisfy_contract` RSpec matcher
@@ -93,11 +93,14 @@ array :groups do; object do; string :who; end; end
 
 ## Roadmap
 
-**v0.2 — eval that matters:**
-- [ ] Dataset eval with `add_case input:, expected:` (partial matching)
-- [ ] Online eval — real LLM calls, compare output vs expected
-- [ ] CI gate — `pass_eval("regression").with_minimum_score(0.8)`
-- [ ] Model comparison — same dataset on nano vs mini vs full
+**v0.2 (current) — eval that matters:**
+- [x] Dataset eval with `add_case input:, expected:` (partial matching)
+- [x] Online eval — real LLM calls, compare output vs expected
+- [x] CI gate — `pass_eval("regression").with_minimum_score(0.8)` + Rake task
+- [x] Model comparison — same dataset on nano vs mini vs full
+- [x] `CaseResult` value objects with `.name`, `.passed?`, `.mismatches`
+- [x] `RubyLLM::Contract.run_all_evals` — discover and run all evals
+- [x] Rails Railtie — auto-load eval files from `app/steps/eval/`
 
 **v0.3:**
 - [ ] Regression baselines — compare eval results with previous run

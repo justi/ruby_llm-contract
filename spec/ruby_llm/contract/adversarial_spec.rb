@@ -31,7 +31,7 @@ RSpec.describe "Adversarial QA -- bug regressions" do
 
       report = RubyLLM::Contract::Eval::Runner.run(step: step, dataset: ds, context: { adapter: adapter })
 
-      expect(report.results.first[:passed]).to eq(true),
+      expect(report.results.first.passed?).to eq(true),
         "score 95 should be in 80..100 (numeric comparison, not string-length)"
     end
 
@@ -43,8 +43,8 @@ RSpec.describe "Adversarial QA -- bug regressions" do
 
       report = RubyLLM::Contract::Eval::Runner.run(step: step, dataset: ds, context: { adapter: adapter })
 
-      expect(report.results.first[:passed]).to eq(false)
-      expect(report.results.first[:details]).to include("score")
+      expect(report.results.first.passed?).to eq(false)
+      expect(report.results.first.details).to include("score")
     end
 
     it "falls back to string length for non-numeric values" do
@@ -56,7 +56,7 @@ RSpec.describe "Adversarial QA -- bug regressions" do
       report = RubyLLM::Contract::Eval::Runner.run(step: step, dataset: ds, context: { adapter: adapter })
 
       # "ab".length == 2, which is in 1..5
-      expect(report.results.first[:passed]).to eq(true)
+      expect(report.results.first.passed?).to eq(true)
     end
   end
 

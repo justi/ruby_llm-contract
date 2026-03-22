@@ -616,8 +616,14 @@ RSpec.describe "Adversarial QA round 8 -- API contract violations" do
   describe "BUG 54: Report score/passed edge cases" do
     it "score is 0.0 to 1.0 range with normal results" do
       results = [
-        { case_name: "a", score: 1.0, passed: true },
-        { case_name: "b", score: 0.0, passed: false }
+        RubyLLM::Contract::Eval::CaseResult.new(
+          name: "a", input: "test", output: nil, expected: nil,
+          step_status: :ok, score: 1.0, passed: true
+        ),
+        RubyLLM::Contract::Eval::CaseResult.new(
+          name: "b", input: "test", output: nil, expected: nil,
+          step_status: :ok, score: 0.0, passed: false
+        )
       ]
       report = RubyLLM::Contract::Eval::Report.new(dataset_name: "test", results: results)
 
@@ -627,8 +633,14 @@ RSpec.describe "Adversarial QA round 8 -- API contract violations" do
 
     it "passed? is false when any result fails" do
       results = [
-        { case_name: "a", score: 1.0, passed: true },
-        { case_name: "b", score: 0.0, passed: false }
+        RubyLLM::Contract::Eval::CaseResult.new(
+          name: "a", input: "test", output: nil, expected: nil,
+          step_status: :ok, score: 1.0, passed: true
+        ),
+        RubyLLM::Contract::Eval::CaseResult.new(
+          name: "b", input: "test", output: nil, expected: nil,
+          step_status: :ok, score: 0.0, passed: false
+        )
       ]
       report = RubyLLM::Contract::Eval::Report.new(dataset_name: "test", results: results)
 
@@ -637,8 +649,14 @@ RSpec.describe "Adversarial QA round 8 -- API contract violations" do
 
     it "passed? is true only when ALL results pass" do
       results = [
-        { case_name: "a", score: 1.0, passed: true },
-        { case_name: "b", score: 0.8, passed: true }
+        RubyLLM::Contract::Eval::CaseResult.new(
+          name: "a", input: "test", output: nil, expected: nil,
+          step_status: :ok, score: 1.0, passed: true
+        ),
+        RubyLLM::Contract::Eval::CaseResult.new(
+          name: "b", input: "test", output: nil, expected: nil,
+          step_status: :ok, score: 0.8, passed: true
+        )
       ]
       report = RubyLLM::Contract::Eval::Report.new(dataset_name: "test", results: results)
 
@@ -648,9 +666,18 @@ RSpec.describe "Adversarial QA round 8 -- API contract violations" do
 
     it "pass_rate returns correct format" do
       results = [
-        { case_name: "a", score: 1.0, passed: true },
-        { case_name: "b", score: 0.0, passed: false },
-        { case_name: "c", score: 1.0, passed: true }
+        RubyLLM::Contract::Eval::CaseResult.new(
+          name: "a", input: "test", output: nil, expected: nil,
+          step_status: :ok, score: 1.0, passed: true
+        ),
+        RubyLLM::Contract::Eval::CaseResult.new(
+          name: "b", input: "test", output: nil, expected: nil,
+          step_status: :ok, score: 0.0, passed: false
+        ),
+        RubyLLM::Contract::Eval::CaseResult.new(
+          name: "c", input: "test", output: nil, expected: nil,
+          step_status: :ok, score: 1.0, passed: true
+        )
       ]
       report = RubyLLM::Contract::Eval::Report.new(dataset_name: "test", results: results)
 

@@ -1,12 +1,25 @@
 # frozen_string_literal: true
 
 RSpec.describe "Eval::Report display" do
+  def build_case_result(name:, score:, passed:, details: nil)
+    RubyLLM::Contract::Eval::CaseResult.new(
+      name: name,
+      input: "test",
+      output: {},
+      expected: nil,
+      step_status: :ok,
+      score: score,
+      passed: passed,
+      details: details
+    )
+  end
+
   let(:passing_report) do
     RubyLLM::Contract::Eval::Report.new(
       dataset_name: "smoke",
       results: [
-        { case_name: "has intent", score: 1.0, passed: true, details: "all keys match" },
-        { case_name: "has confidence", score: 1.0, passed: true, details: "passed" }
+        build_case_result(name: "has intent", score: 1.0, passed: true, details: "all keys match"),
+        build_case_result(name: "has confidence", score: 1.0, passed: true, details: "passed")
       ]
     )
   end
@@ -15,10 +28,10 @@ RSpec.describe "Eval::Report display" do
     RubyLLM::Contract::Eval::Report.new(
       dataset_name: "hard",
       results: [
-        { case_name: "locale is Polish", score: 1.0, passed: true, details: "all keys match" },
-        { case_name: "who in Polish", score: 1.0, passed: true, details: "passed" },
-        { case_name: "min 2 groups", score: 0.0, passed: false, details: "not passed" },
-        { case_name: "use_cases specific", score: 0.0, passed: false, details: "expected pattern not found" }
+        build_case_result(name: "locale is Polish", score: 1.0, passed: true, details: "all keys match"),
+        build_case_result(name: "who in Polish", score: 1.0, passed: true, details: "passed"),
+        build_case_result(name: "min 2 groups", score: 0.0, passed: false, details: "not passed"),
+        build_case_result(name: "use_cases specific", score: 0.0, passed: false, details: "expected pattern not found")
       ]
     )
   end
@@ -80,7 +93,9 @@ RSpec.describe "Eval::Report display" do
     it "shows useful details" do
       report = RubyLLM::Contract::Eval::Report.new(
         dataset_name: "test",
-        results: [{ case_name: "check", score: 0.0, passed: false, details: "expected 3 items, got 1" }]
+        results: [
+          build_case_result(name: "check", score: 0.0, passed: false, details: "expected 3 items, got 1")
+        ]
       )
       output = StringIO.new
       report.pretty_print(output)

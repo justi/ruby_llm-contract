@@ -806,8 +806,8 @@ RSpec.describe "Reddit Promo Planner — 5-step linear pipeline" do
         context: { adapter: adapter }
       )
 
-      expect(eval_result[:passed]).to be true
-      expect(eval_result[:score]).to eq(1.0)
+      expect(eval_result.passed?).to be true
+      expect(eval_result.score).to eq(1.0)
     end
 
     it "returns failure for non-matching output" do
@@ -821,7 +821,7 @@ RSpec.describe "Reddit Promo Planner — 5-step linear pipeline" do
         context: { adapter: adapter }
       )
 
-      expect(eval_result[:passed]).to be false
+      expect(eval_result.passed?).to be false
     end
   end
 end

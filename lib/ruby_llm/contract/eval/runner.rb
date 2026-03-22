@@ -33,17 +33,18 @@ module RubyLLM
         end
 
         def build_case_result(test_case, step_result, eval_result)
-          {
-            case_name: test_case.name,
+          CaseResult.new(
+            name: test_case.name,
             input: test_case.input,
             output: step_result.parsed_output,
+            expected: test_case.expected,
             step_status: step_result.status,
             score: eval_result.score,
             passed: eval_result.passed,
             label: eval_result.label,
             details: eval_result.details,
             duration_ms: step_result.respond_to?(:trace) ? step_result.trace[:latency_ms] : nil
-          }
+          )
         end
 
         def dispatch_evaluation(step_result, test_case)

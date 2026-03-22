@@ -4,6 +4,11 @@ module RubyLLM
   module Contract
     module Pipeline
       class Base
+        def self.inherited(subclass)
+          super
+          Contract.register_eval_host(subclass) if respond_to?(:eval_defined?) && eval_defined?
+        end
+
         class << self
           include Concerns::EvalHost
 

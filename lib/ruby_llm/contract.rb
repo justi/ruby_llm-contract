@@ -20,6 +20,56 @@ module RubyLLM
         @configuration = Configuration.new
       end
 
+      # --- Eval host registry (P3 fix) ---
+
+      def register_eval_host(klass)
+        eval_hosts << klass unless eval_hosts.include?(klass)
+      end
+
+      def eval_hosts
+        @eval_hosts ||= []
+      end
+
+      def run_all_evals(context: {})
+        eval_hosts.select(&:eval_defined?).each_with_object({}) do |host, results|
+          results[host] = host.run_eval(context: context)
+        end
+      end
+
+      def reset_eval_hosts!
+        @eval_hosts = []
+      end
+
+      # Expand registry: find subclasses that inherit evals but weren't
+      # registered (e.g. parent got evals after child was defined).
+      def discover_eval_hosts
+        discovered = eval_hosts.dup
+        ObjectSpace.each_object(Class) do |klass|
+          next if discovered.include?(klass)
+          next unless klass.respond_to?(:eval_defined?) && klass.eval_defined?
+
+          discovered << klass
+        end
+        discovered
+      end
+
+      def load_evals!(dir = nil)
+        dirs = if dir
+                 [dir]
+               elsif defined?(::Rails)
+                 %w[app/steps/eval app/contracts/eval].filter_map do |path|
+                   full = ::Rails.root.join(path)
+                   full.to_s if full.exist?
+                 end
+               else
+                 []
+               end
+
+        dirs.each do |d|
+          Dir[File.join(d, "**", "*_eval.rb")].sort.each { |f| require f }
+        end
+      end
+
       private
 
       def auto_create_adapter!
@@ -52,3 +102,4 @@ require_relative "contract/step"
 require_relative "contract/pipeline"
 require_relative "contract/eval"
 require_relative "contract/dsl"
+require_relative "contract/railtie" if defined?(::Rails::Railtie)
