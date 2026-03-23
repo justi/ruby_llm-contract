@@ -21,13 +21,14 @@ module RubyLLM
 
         def sample_response(response)
           @sample_response = response
+          @has_sample_response = true
           pre_validate_sample! if @step_class
         end
 
         def build_adapter
-          return nil if @sample_response.nil?
+          return nil unless defined?(@has_sample_response) && @has_sample_response
 
-          Adapters::Test.new(response: @sample_response.is_a?(String) ? @sample_response : @sample_response.to_json)
+          Adapters::Test.new(response: @sample_response)
         end
 
         def add_case(description, input: nil, expected: nil, expected_traits: nil, evaluator: nil)
