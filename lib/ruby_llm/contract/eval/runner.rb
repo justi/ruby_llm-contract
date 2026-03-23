@@ -32,7 +32,8 @@ module RubyLLM
 
           build_case_result(test_case, step_result, eval_result)
         rescue RubyLLM::Contract::Error => e
-          # No adapter configured — skip this case (offline mode without sample_response)
+          raise unless e.message.include?("No adapter configured")
+
           skipped_result(test_case, e.message)
         end
 
