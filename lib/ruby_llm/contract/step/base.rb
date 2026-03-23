@@ -66,10 +66,12 @@ module RubyLLM
             default_model = context[:model] || model || RubyLLM::Contract.configuration.default_model
             policy = retry_policy
 
+            ctx_temp = context[:temperature]
             result = if policy
-                       run_with_retry(input, adapter: adapter, default_model: default_model, policy: policy)
+                       run_with_retry(input, adapter: adapter, default_model: default_model,
+                                      policy: policy, context_temperature: ctx_temp)
                      else
-                       run_once(input, adapter: adapter, model: default_model, context_temperature: context[:temperature])
+                       run_once(input, adapter: adapter, model: default_model, context_temperature: ctx_temp)
                      end
 
             invoke_around_call(input, result)
