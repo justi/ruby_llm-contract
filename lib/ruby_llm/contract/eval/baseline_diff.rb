@@ -48,7 +48,11 @@ module RubyLLM
         end
 
         def regressed?
-          regressions.any?
+          regressions.any? || removed_passing_cases.any?
+        end
+
+        def removed_passing_cases
+          removed_cases.select { |name| @baseline[name]&.dig(:passed) }
         end
 
         def improved?

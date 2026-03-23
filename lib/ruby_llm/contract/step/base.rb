@@ -68,7 +68,7 @@ module RubyLLM
             policy = retry_policy
 
             ctx_temp = context[:temperature]
-            extra = context.slice(:provider, :assume_model_exists)
+            extra = context.slice(:provider, :assume_model_exists, :max_tokens)
             result = if policy
                        run_with_retry(input, adapter: adapter, default_model: default_model,
                                       policy: policy, context_temperature: ctx_temp, extra_options: extra)

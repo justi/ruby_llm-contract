@@ -83,12 +83,18 @@ module RubyLLM
         end
 
         def build_adapter_options
+          effective_max_tokens = @extra_options[:max_tokens] || @max_output
+
           { model: @model }.tap do |opts|
             opts[:schema] = @output_schema if @output_schema
-            opts[:max_tokens] = @max_output if @max_output
+            opts[:max_tokens] = effective_max_tokens if effective_max_tokens
             opts[:temperature] = @temperature if @temperature
             @extra_options.each { |k, v| opts[k] = v unless opts.key?(k) }
           end
+        end
+
+        def effective_max_output
+          @extra_options[:max_tokens] || @max_output
         end
 
         def build_error_result(error_result, messages)
