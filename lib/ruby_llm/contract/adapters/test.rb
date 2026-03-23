@@ -4,8 +4,9 @@ module RubyLLM
   module Contract
     module Adapters
       class Test < Base
-        def initialize(response: nil, responses: nil)
+        def initialize(response: nil, responses: nil, usage: nil)
           super()
+          @usage = usage || { input_tokens: 0, output_tokens: 0 }
           if responses
             raise ArgumentError, "responses: must not be empty (use response: nil for nil content)" if responses.empty?
 
@@ -36,7 +37,7 @@ module RubyLLM
                     else
                       @response
                     end
-          Response.new(content: content, usage: { input_tokens: 0, output_tokens: 0 })
+          Response.new(content: content, usage: @usage)
         end
       end
     end
