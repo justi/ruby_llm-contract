@@ -38,6 +38,8 @@ module RubyLLM
         end
 
         def render_section_node(node, variables, messages)
+          return if node.content.nil?
+
           section_content = node.content.is_a?(Hash) || node.content.is_a?(Array) ? node.content.to_json : node.content
           return unless content_present?(section_content)
 

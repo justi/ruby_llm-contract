@@ -120,9 +120,6 @@ module RubyLLM
 
             around_call.call(self, input, result)
             result
-          rescue StandardError => e
-            warn "[ruby_llm-contract] around_call raised #{e.class}: #{e.message}"
-            result
           end
 
           def effective_contract
