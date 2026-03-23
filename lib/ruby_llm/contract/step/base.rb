@@ -58,7 +58,7 @@ module RubyLLM
             end
           end
 
-          KNOWN_CONTEXT_KEYS = %i[adapter model temperature provider assume_model_exists].freeze
+          KNOWN_CONTEXT_KEYS = %i[adapter model temperature max_tokens provider assume_model_exists].freeze
 
           def run(input, context: {})
             context = (context || {}).transform_keys { |k| k.respond_to?(:to_sym) ? k.to_sym : k }

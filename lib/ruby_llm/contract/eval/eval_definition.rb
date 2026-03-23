@@ -106,8 +106,9 @@ module RubyLLM
           return if errors.empty?
 
           raise ArgumentError, "sample_response does not satisfy step schema: #{errors.join(", ")}"
-        rescue JSON::ParserError
-          # Not JSON -- skip pre-validation
+        rescue JSON::ParserError => e
+          # Non-JSON string with a structured schema = clear error
+          raise ArgumentError, "sample_response is not valid JSON: #{e.message}"
         end
 
         def validate_sample_against_schema(schema)
