@@ -82,14 +82,12 @@ module RubyLLM
           [Result.new(status: :adapter_error, raw_output: nil, parsed_output: nil, validation_errors: [e.message]), 0]
         end
 
-        FORWARDED_CONTEXT_KEYS = %i[provider assume_model_exists].freeze
-
         def build_adapter_options
           { model: @model }.tap do |opts|
-            opts[:schema] = @extra_options[:schema] || @output_schema if @extra_options[:schema] || @output_schema
-            opts[:max_tokens] = @extra_options[:max_tokens] || @max_output if @extra_options[:max_tokens] || @max_output
+            opts[:schema] = @output_schema if @output_schema
+            opts[:max_tokens] = @max_output if @max_output
             opts[:temperature] = @temperature if @temperature
-            FORWARDED_CONTEXT_KEYS.each { |k| opts[k] = @extra_options[k] if @extra_options.key?(k) }
+            @extra_options.each { |k, v| opts[k] = v unless opts.key?(k) }
           end
         end
 

@@ -25,14 +25,14 @@ module RubyLLM
         end
 
         def build_adapter
-          return nil unless @sample_response
+          return nil if @sample_response.nil?
 
           Adapters::Test.new(response: @sample_response.is_a?(String) ? @sample_response : @sample_response.to_json)
         end
 
         def add_case(description, input: nil, expected: nil, expected_traits: nil, evaluator: nil)
-          case_input = input || @default_input
-          raise ArgumentError, "add_case requires input (set default_input or pass input:)" unless case_input
+          case_input = input.nil? ? @default_input : input
+          raise ArgumentError, "add_case requires input (set default_input or pass input:)" if case_input.nil?
 
           @cases << {
             name: description,
@@ -49,7 +49,7 @@ module RubyLLM
           end
 
           expected_or_proc = expect unless expect.nil?
-          case_input = input || @default_input
+          case_input = input.nil? ? @default_input : input
           validate_verify_args!(expected_or_proc, case_input)
 
           evaluator = expected_or_proc.is_a?(::Proc) ? expected_or_proc : nil
@@ -78,7 +78,7 @@ module RubyLLM
 
         def effective_cases
           return @cases if @cases.any?
-          return [] unless @default_input
+          return [] if @default_input.nil?
 
           # Zero-verify: auto-add a contract check case
           [{ name: "contract check", input: @default_input, expected: nil, evaluator: nil }]
@@ -86,7 +86,7 @@ module RubyLLM
 
         def validate_verify_args!(expected_or_proc, case_input)
           raise ArgumentError, "verify requires either a positional argument or expect: keyword" if expected_or_proc.nil?
-          raise ArgumentError, "verify requires input (set default_input or pass input:)" unless case_input
+          raise ArgumentError, "verify requires input (set default_input or pass input:)" if case_input.nil?
         end
 
         def pre_validate_sample!
