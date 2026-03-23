@@ -40,22 +40,18 @@ module RubyLLM
         @eval_hosts = []
       end
 
-      def load_evals!(dir = nil)
-        dirs = if dir
-                 [dir]
-               elsif defined?(::Rails)
-                 %w[app/steps/eval app/contracts/eval].filter_map do |path|
-                   full = ::Rails.root.join(path)
-                   full.to_s if full.exist?
-                 end
-               else
-                 []
-               end
+      def load_evals!(*dirs)
+        dirs = dirs.flatten.compact
+        if dirs.empty? && defined?(::Rails)
+          dirs = %w[app/steps/eval app/contracts/eval].filter_map do |path|
+            full = ::Rails.root.join(path)
+            full.to_s if full.exist?
+          end
+        end
 
         return if dirs.empty?
 
-        # Clear only file-sourced evals (not inline). Then re-load.
-        # Handles: renamed evals, deleted files, changed definitions.
+        # Clear file-sourced evals ONCE, then load ALL dirs.
         Thread.current[:ruby_llm_contract_reloading] = true
         eval_hosts.each do |host|
           host.clear_file_sourced_evals! if host.respond_to?(:clear_file_sourced_evals!)
