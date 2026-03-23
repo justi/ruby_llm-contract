@@ -5,6 +5,7 @@ module RubyLLM
     module Pipeline
       class Trace
         include Concerns::TraceEquality
+        include Concerns::DeepFreeze
 
         attr_reader :trace_id, :total_latency_ms, :total_usage, :step_traces, :total_cost
 
@@ -43,16 +44,6 @@ module RubyLLM
         end
 
         private
-
-        def deep_dup_freeze(obj)
-          case obj
-          when NilClass, Integer, Float, Symbol, TrueClass, FalseClass then obj
-          when Hash then obj.transform_values { |v| deep_dup_freeze(v) }.freeze
-          when Array then obj.map { |v| deep_dup_freeze(v) }.freeze
-          when String then obj.frozen? ? obj : obj.dup.freeze
-          else obj.frozen? ? obj : obj.dup.freeze
-          end
-        end
 
         def build_summary_parts
           parts = ["trace=#{@trace_id&.slice(0, 8)}"]
