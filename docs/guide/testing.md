@@ -62,3 +62,83 @@ RSpec.describe ClassifyIntent do
   end
 end
 ```
+
+## Eval with Test Cases
+
+v0.2 adds `add_case` inside `define_eval` for dataset-driven evaluation:
+
+```ruby
+ClassifyTicket.define_eval("regression") do
+  add_case "billing", input: "I was charged twice", expected: { priority: "high" }
+  add_case "feature", input: "Add dark mode", expected: { priority: "low" }
+end
+```
+
+Each case runs the step and compares the output against `expected`. Fields in `expected` are matched by key -- extra output keys are ignored.
+
+Set a shared input with `default_input` when all cases share the same shape:
+
+```ruby
+ClassifyTicket.define_eval("regression") do
+  default_input "I was charged twice"
+  add_case "detects billing", expected: { category: "billing" }
+  add_case "high priority",  expected: { priority: "high" }
+end
+```
+
+## Threshold-Based Gating
+
+Chain `.with_minimum_score` and `.with_maximum_cost` onto `pass_eval` to set acceptance thresholds:
+
+```ruby
+expect(ClassifyTicket).to pass_eval("regression")
+  .with_context(model: "gpt-4.1-mini")
+  .with_minimum_score(0.8)
+  .with_maximum_cost(0.01)
+```
+
+- `with_minimum_score(0.8)` -- pass if average score >= 0.8 (default requires 1.0)
+- `with_maximum_cost(0.01)` -- fail if total cost exceeds $0.01
+
+Both constraints must hold for the matcher to pass.
+
+## Rake Task
+
+Run all evals from the command line with a Rake task:
+
+```ruby
+# Rakefile
+require "ruby_llm/contract/rake_task"
+
+RubyLLM::Contract::RakeTask.new do |t|
+  t.minimum_score = 0.8
+  t.maximum_cost = 0.05
+end
+```
+
+```sh
+rake ruby_llm_contract:eval
+```
+
+The task discovers every `define_eval` across your steps, runs them, and aborts if any threshold is breached. In Rails apps it automatically depends on `:environment`.
+
+## Inspecting Failures
+
+`run_eval` returns a `Report`. Drill into failures for programmatic assertions or debugging:
+
+```ruby
+report = ClassifyTicket.run_eval("regression")
+
+report.score       # => 0.5
+report.pass_rate   # => "1/2"
+report.total_cost  # => 0.003
+
+report.failures.each do |result|
+  puts result.name       # => "feature"
+  puts result.mismatches # => { priority: { expected: "low", got: "medium" } }
+  puts result.output     # full parsed output hash
+  puts result.details    # human-readable explanation
+end
+```
+
+`mismatches` returns a hash of keys where `expected` and actual output diverge -- handy for pinpointing which field a model got wrong.
