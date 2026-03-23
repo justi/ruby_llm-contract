@@ -63,8 +63,8 @@ module RubyLLM
 
         def summary
           parts = ["#{dataset_name}: #{pass_rate} checks passed"]
-          parts << "#{skipped} skipped" if skipped > 0
-          parts << format_cost(total_cost) if total_cost > 0
+          parts << "#{skipped} skipped" if skipped.positive?
+          parts << format_cost(total_cost) if total_cost.positive?
           parts.join(", ")
         end
 

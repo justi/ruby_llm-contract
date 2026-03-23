@@ -24,7 +24,7 @@ RSpec.describe "Adversarial QA round 10 -- production certification audit" do
       end
 
       it "parses clean JSON array" do
-        result = RubyLLM::Contract::Parser.parse('[1, 2, 3]', strategy: :json)
+        result = RubyLLM::Contract::Parser.parse("[1, 2, 3]", strategy: :json)
         expect(result).to eq([1, 2, 3])
       end
 
@@ -72,12 +72,12 @@ RSpec.describe "Adversarial QA round 10 -- production certification audit" do
       end
 
       it "parses JSON with empty object" do
-        result = RubyLLM::Contract::Parser.parse('{}', strategy: :json)
+        result = RubyLLM::Contract::Parser.parse("{}", strategy: :json)
         expect(result).to eq({})
       end
 
       it "parses JSON with empty array" do
-        result = RubyLLM::Contract::Parser.parse('[]', strategy: :json)
+        result = RubyLLM::Contract::Parser.parse("[]", strategy: :json)
         expect(result).to eq([])
       end
 
@@ -454,7 +454,7 @@ RSpec.describe "Adversarial QA round 10 -- production certification audit" do
 
         # Valid
         valid_data = { users: [{ name: "Alice", email: "a@b.com", age: 30 },
-                                { name: "Bob", email: "b@b.com" }] }
+                               { name: "Bob", email: "b@b.com" }] }
         expect(RubyLLM::Contract::SchemaValidator.validate(valid_data, schema)).to be_empty
 
         # minItems violation
@@ -749,9 +749,9 @@ RSpec.describe "Adversarial QA round 10 -- production certification audit" do
 
         # Total: 100+200+300 = 600 input, 50+100+150 = 300 output
         expect(result.trace.usage[:input_tokens]).to eq(600),
-          "Expected 600 input tokens (100+200+300), got #{result.trace.usage[:input_tokens]}"
+                                                     "Expected 600 input tokens (100+200+300), got #{result.trace.usage[:input_tokens]}"
         expect(result.trace.usage[:output_tokens]).to eq(300),
-          "Expected 300 output tokens (50+100+150), got #{result.trace.usage[:output_tokens]}"
+                                                      "Expected 300 output tokens (50+100+150), got #{result.trace.usage[:output_tokens]}"
       end
     end
 

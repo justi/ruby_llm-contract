@@ -122,7 +122,7 @@ end
 # =============================================================================
 
 class ClassifyThreadsWithSchema < RubyLLM::Contract::Step::Base
-  input_type  RubyLLM::Contract::Types::Array.of(RubyLLM::Contract::Types::Hash)
+  input_type RubyLLM::Contract::Types::Array.of(RubyLLM::Contract::Types::Hash)
 
   output_schema do
     array :threads do
@@ -160,7 +160,7 @@ class ClassifyThreadsWithSchema < RubyLLM::Contract::Step::Base
 
   validate("PROMO threads must have relevance_score >= 5") do |output|
     output[:threads].select { |r| r[:classification] == "PROMO" }
-          .all? { |r| r[:relevance_score] >= 5 }
+                    .all? { |r| r[:relevance_score] >= 5 }
   end
 end
 

@@ -84,10 +84,10 @@ puts "=" * 60
 # Simulate a good model that returns correct intents
 good_responses = {
   "I need help with my invoice" => '{"intent": "billing", "confidence": 0.92}',
-  "I want to upgrade my plan"   => '{"intent": "sales", "confidence": 0.88}',
-  "My app is crashing"          => '{"intent": "support", "confidence": 0.95}',
-  "URGENT: billing error!!!"    => '{"intent": "billing", "confidence": 0.97}',
-  "random text here"            => '{"intent": "other", "confidence": 0.6}'
+  "I want to upgrade my plan" => '{"intent": "sales", "confidence": 0.88}',
+  "My app is crashing" => '{"intent": "support", "confidence": 0.95}',
+  "URGENT: billing error!!!" => '{"intent": "billing", "confidence": 0.97}',
+  "random text here" => '{"intent": "other", "confidence": 0.6}'
 }
 
 # Custom adapter that returns different responses per input
@@ -123,11 +123,11 @@ puts "=" * 60
 
 # Simulate a worse model that misclassifies some intents
 bad_responses = {
-  "I need help with my invoice" => '{"intent": "support", "confidence": 0.7}',   # WRONG: billing → support
-  "I want to upgrade my plan"   => '{"intent": "sales", "confidence": 0.88}',    # correct
-  "My app is crashing"          => '{"intent": "other", "confidence": 0.4}',     # WRONG: support → other
-  "URGENT: billing error!!!"    => '{"intent": "billing", "confidence": 0.55}',  # low confidence
-  "random text here"            => '{"intent": "other", "confidence": 0.6}'      # correct
+  "I need help with my invoice" => '{"intent": "support", "confidence": 0.7}', # WRONG: billing → support
+  "I want to upgrade my plan" => '{"intent": "sales", "confidence": 0.88}', # correct
+  "My app is crashing" => '{"intent": "other", "confidence": 0.4}', # WRONG: support → other
+  "URGENT: billing error!!!" => '{"intent": "billing", "confidence": 0.55}', # low confidence
+  "random text here" => '{"intent": "other", "confidence": 0.6}' # correct
 }
 
 bad_adapter = Object.new
@@ -153,8 +153,8 @@ bad_report.each do |r|
 end
 
 puts "\nRegression detected:"
-puts "  Score dropped: #{report.score.round(2)} → #{bad_report.score.round(2)}" \
-     " (#{((report.score - bad_report.score) * 100).round(1)}% drop)"
+puts "  Score dropped: #{report.score.round(2)} → #{bad_report.score.round(2)} " \
+     "(#{((report.score - bad_report.score) * 100).round(1)}% drop)"
 
 # =============================================================================
 # STEP 4: eval_case — quick inline check

@@ -14,14 +14,14 @@ require "ruby_llm/contract/rspec"
 
 RSpec.describe "Cost of Quality — real LLM", :online do
   before(:all) do
-    has_openai = ENV["OPENAI_API_KEY"] && !ENV["OPENAI_API_KEY"].empty?
-    has_anthropic = ENV["ANTHROPIC_API_KEY"] && !ENV["ANTHROPIC_API_KEY"].empty?
+    has_openai = ENV.fetch("OPENAI_API_KEY", nil) && !ENV["OPENAI_API_KEY"].empty?
+    has_anthropic = ENV.fetch("ANTHROPIC_API_KEY", nil) && !ENV["ANTHROPIC_API_KEY"].empty?
 
     skip "Set OPENAI_API_KEY or ANTHROPIC_API_KEY to run online tests" unless has_openai || has_anthropic
 
     RubyLLM.configure do |c|
-      c.openai_api_key = ENV["OPENAI_API_KEY"] if has_openai
-      c.anthropic_api_key = ENV["ANTHROPIC_API_KEY"] if has_anthropic
+      c.openai_api_key = ENV.fetch("OPENAI_API_KEY", nil) if has_openai
+      c.anthropic_api_key = ENV.fetch("ANTHROPIC_API_KEY", nil) if has_anthropic
     end
 
     @provider = has_openai ? :openai : :anthropic
@@ -58,12 +58,12 @@ RSpec.describe "Cost of Quality — real LLM", :online do
     it "run_eval returns report with real cost and latency" do
       classify_step.define_eval("smoke") do
         add_case "billing",
-          input: "I was charged twice on my credit card",
-          expected: { priority: "high" }
+                 input: "I was charged twice on my credit card",
+                 expected: { priority: "high" }
 
         add_case "feature",
-          input: "Can you add dark mode to the app?",
-          expected: { priority: "low" }
+                 input: "Can you add dark mode to the app?",
+                 expected: { priority: "low" }
       end
 
       report = classify_step.run_eval("smoke", context: { model: @models.first })
@@ -92,16 +92,16 @@ RSpec.describe "Cost of Quality — real LLM", :online do
     it "compares two models with real costs and real scores" do
       classify_step.define_eval("regression") do
         add_case "billing",
-          input: "I was charged twice on my credit card",
-          expected: { priority: "high" }
+                 input: "I was charged twice on my credit card",
+                 expected: { priority: "high" }
 
         add_case "feature",
-          input: "Can you add dark mode to the app?",
-          expected: { priority: "low" }
+                 input: "Can you add dark mode to the app?",
+                 expected: { priority: "low" }
 
         add_case "outage",
-          input: "The entire website is down and customers can't access anything",
-          expected: { priority: "urgent" }
+                 input: "The entire website is down and customers can't access anything",
+                 expected: { priority: "urgent" }
       end
 
       comparison = classify_step.compare_models("regression", models: @models)
@@ -139,8 +139,8 @@ RSpec.describe "Cost of Quality — real LLM", :online do
     it "pass_eval with_minimum_score works with real LLM" do
       classify_step.define_eval("ci_gate") do
         add_case "billing",
-          input: "I was double-charged",
-          expected: { priority: "high" }
+                 input: "I was double-charged",
+                 expected: { priority: "high" }
       end
 
       expect(classify_step).to pass_eval("ci_gate")

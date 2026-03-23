@@ -65,11 +65,11 @@ RSpec.describe "Step-level execution limits (GH-17)" do
       end.new
 
       # Build a step with a very long prompt to make cost estimation high
-      long_text = "x" * 40_000  # ~10,000 tokens → at $0.40/M = $0.004
+      long_text = "x" * 40_000 # ~10,000 tokens → at $0.40/M = $0.004
 
       step = Class.new(RubyLLM::Contract::Step::Base) do
         prompt "Analyze: {input}"
-        max_cost 0.0001  # very low — will be exceeded with gpt-4.1-mini pricing
+        max_cost 0.0001 # very low — will be exceeded with gpt-4.1-mini pricing
       end
 
       result = step.run(long_text, context: { adapter: spy_adapter, model: "gpt-4.1-mini" })
@@ -84,7 +84,7 @@ RSpec.describe "Step-level execution limits (GH-17)" do
 
       step = Class.new(RubyLLM::Contract::Step::Base) do
         prompt "Hi {input}"
-        max_cost 1.00  # generous
+        max_cost 1.00 # generous
       end
 
       result = step.run("test", context: { adapter: adapter, model: "gpt-4.1-mini" })
@@ -96,7 +96,7 @@ RSpec.describe "Step-level execution limits (GH-17)" do
 
       step = Class.new(RubyLLM::Contract::Step::Base) do
         prompt "Hi {input}"
-        max_cost 0.0001  # very low
+        max_cost 0.0001 # very low
       end
 
       # Unknown model — no pricing data — warn issued, call still proceeds

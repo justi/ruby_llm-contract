@@ -63,7 +63,7 @@ RSpec.describe "Eval::Dataset + Runner" do
       end
 
       report = RubyLLM::Contract::Eval::Runner.run(step: classify_step, dataset: ds,
-                                                context: { adapter: adapter })
+                                                   context: { adapter: adapter })
 
       expect(report.results.length).to eq(2)
       expect(report.dataset_name).to eq("classify")
@@ -78,7 +78,7 @@ RSpec.describe "Eval::Dataset + Runner" do
       end
 
       report = RubyLLM::Contract::Eval::Runner.run(step: classify_step, dataset: ds,
-                                                context: { adapter: adapter })
+                                                   context: { adapter: adapter })
 
       expect(report.passed).to eq(1)
       expect(report.failed).to eq(1)
@@ -96,7 +96,7 @@ RSpec.describe "Eval::Dataset + Runner" do
       end
 
       report = RubyLLM::Contract::Eval::Runner.run(step: classify_step, dataset: ds,
-                                                context: { adapter: adapter })
+                                                   context: { adapter: adapter })
 
       expect(report.score).to eq(1.0)
       expect(report.passed?).to be true
@@ -111,7 +111,7 @@ RSpec.describe "Eval::Dataset + Runner" do
       end
 
       report = RubyLLM::Contract::Eval::Runner.run(step: classify_step, dataset: ds,
-                                                context: { adapter: adapter })
+                                                   context: { adapter: adapter })
 
       expect(report.score).to eq(0.0)
       expect(report.results[0].step_status).to eq(:parse_error)
@@ -125,7 +125,7 @@ RSpec.describe "Eval::Dataset + Runner" do
       end
 
       report = RubyLLM::Contract::Eval::Runner.run(step: classify_step, dataset: ds,
-                                                context: { adapter: adapter })
+                                                   context: { adapter: adapter })
 
       expect(report.passed?).to be true
     end
@@ -138,7 +138,7 @@ RSpec.describe "Eval::Dataset + Runner" do
       end
 
       report = RubyLLM::Contract::Eval::Runner.run(step: classify_step, dataset: ds,
-                                                context: { adapter: adapter })
+                                                   context: { adapter: adapter })
 
       expect(report.passed?).to be true
     end
@@ -151,7 +151,7 @@ RSpec.describe "Eval::Dataset + Runner" do
       end
 
       report = RubyLLM::Contract::Eval::Runner.run(step: classify_step, dataset: ds,
-                                                context: { adapter: adapter })
+                                                   context: { adapter: adapter })
 
       expect(report.passed?).to be true
     end
@@ -164,7 +164,7 @@ RSpec.describe "Eval::Dataset + Runner" do
       end
 
       report = RubyLLM::Contract::Eval::Runner.run(step: classify_step, dataset: ds,
-                                                context: { adapter: adapter })
+                                                   context: { adapter: adapter })
 
       expect(report.passed?).to be true
       expect(report.results[0].details).to eq("contract passed")
@@ -178,7 +178,7 @@ RSpec.describe "Eval::Dataset + Runner" do
       end
 
       report = RubyLLM::Contract::Eval::Runner.run(step: classify_step, dataset: ds,
-                                                context: { adapter: adapter })
+                                                   context: { adapter: adapter })
 
       expect(report.summary).to eq("my_eval: 1/1 checks passed")
     end

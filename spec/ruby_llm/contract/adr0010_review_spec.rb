@@ -49,8 +49,8 @@ RSpec.describe "ADR-0010: Architecture review fixes" do
       )
 
       comparison = step.compare_models("test",
-        models: %w[model-a model-b],
-        context: { adapter: adapter })
+                                       models: %w[model-a model-b],
+                                       context: { adapter: adapter })
 
       # Both models should see same responses (index starts at 0 for each)
       expect(comparison.score_for("model-a")).to eq(comparison.score_for("model-b"))
@@ -95,8 +95,8 @@ RSpec.describe "ADR-0010: Architecture review fixes" do
 
       step.define_eval("traits") do
         add_case "regex trait",
-          input: "test",
-          expected_traits: { intent: /billing/, score: 80..100 }
+                 input: "test",
+                 expected_traits: { intent: /billing/, score: 80..100 }
       end
 
       report = step.run_eval("traits", context: { adapter: adapter })
@@ -137,12 +137,12 @@ RSpec.describe "ADR-0010: Architecture review fixes" do
         prompt { user "{input}" }
       end
 
-      expect {
+      expect do
         step.define_eval("bad") do
           default_input "test"
           verify "double arg", { foo: 1 }, expect: { bar: 2 }
         end
-      }.to raise_error(ArgumentError, /not both/)
+      end.to raise_error(ArgumentError, /not both/)
     end
   end
 

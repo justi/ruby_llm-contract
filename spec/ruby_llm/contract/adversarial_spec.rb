@@ -32,7 +32,7 @@ RSpec.describe "Adversarial QA -- bug regressions" do
       report = RubyLLM::Contract::Eval::Runner.run(step: step, dataset: ds, context: { adapter: adapter })
 
       expect(report.results.first.passed?).to eq(true),
-        "score 95 should be in 80..100 (numeric comparison, not string-length)"
+                                              "score 95 should be in 80..100 (numeric comparison, not string-length)"
     end
 
     it "fails when numeric value (50) is outside range 80..100" do
@@ -224,21 +224,22 @@ RSpec.describe "Adversarial QA -- bug regressions" do
 
     it "catches invalid enum in nested object" do
       allow(schema_obj).to receive(:to_json_schema).and_return({
-        schema: {
-          type: "object",
-          required: ["address"],
-          properties: {
-            address: {
-              type: "object",
-              required: ["city", "zip"],
-              properties: {
-                city: { type: "string" },
-                zip: { type: "string", enum: ["10001", "10002", "10003"] }
-              }
-            }
-          }
-        }
-      })
+                                                                 schema: {
+                                                                   type: "object",
+                                                                   required: ["address"],
+                                                                   properties: {
+                                                                     address: {
+                                                                       type: "object",
+                                                                       required: %w[city zip],
+                                                                       properties: {
+                                                                         city: { type: "string" },
+                                                                         zip: { type: "string",
+                                                                                enum: %w[10001 10002 10003] }
+                                                                       }
+                                                                     }
+                                                                   }
+                                                                 }
+                                                               })
 
       errors = RubyLLM::Contract::SchemaValidator.validate(
         { address: { city: "NYC", zip: "INVALID" } }, schema_obj
@@ -251,20 +252,20 @@ RSpec.describe "Adversarial QA -- bug regressions" do
 
     it "catches missing required field in nested object" do
       allow(schema_obj).to receive(:to_json_schema).and_return({
-        schema: {
-          type: "object",
-          properties: {
-            address: {
-              type: "object",
-              required: ["city", "zip"],
-              properties: {
-                city: { type: "string" },
-                zip: { type: "string" }
-              }
-            }
-          }
-        }
-      })
+                                                                 schema: {
+                                                                   type: "object",
+                                                                   properties: {
+                                                                     address: {
+                                                                       type: "object",
+                                                                       required: %w[city zip],
+                                                                       properties: {
+                                                                         city: { type: "string" },
+                                                                         zip: { type: "string" }
+                                                                       }
+                                                                     }
+                                                                   }
+                                                                 }
+                                                               })
 
       errors = RubyLLM::Contract::SchemaValidator.validate(
         { address: { city: "NYC" } }, schema_obj
@@ -276,23 +277,24 @@ RSpec.describe "Adversarial QA -- bug regressions" do
 
     it "validates array items against nested schema" do
       allow(schema_obj).to receive(:to_json_schema).and_return({
-        schema: {
-          type: "object",
-          properties: {
-            items: {
-              type: "array",
-              items: {
-                type: "object",
-                required: ["name"],
-                properties: {
-                  name: { type: "string" },
-                  score: { type: "integer", minimum: 0, maximum: 100 }
-                }
-              }
-            }
-          }
-        }
-      })
+                                                                 schema: {
+                                                                   type: "object",
+                                                                   properties: {
+                                                                     items: {
+                                                                       type: "array",
+                                                                       items: {
+                                                                         type: "object",
+                                                                         required: ["name"],
+                                                                         properties: {
+                                                                           name: { type: "string" },
+                                                                           score: { type: "integer", minimum: 0,
+                                                                                    maximum: 100 }
+                                                                         }
+                                                                       }
+                                                                     }
+                                                                   }
+                                                                 }
+                                                               })
 
       errors = RubyLLM::Contract::SchemaValidator.validate(
         { items: [{ name: "Alice", score: 95 }, { score: 150 }] }, schema_obj
@@ -300,9 +302,9 @@ RSpec.describe "Adversarial QA -- bug regressions" do
 
       expect(errors.length).to be >= 2
       expect(errors.any? { |e| e.include?("name") }).to eq(true),
-        "Expected a missing-name error for items[1], got: #{errors.inspect}"
+                                                        "Expected a missing-name error for items[1], got: #{errors.inspect}"
       expect(errors.any? { |e| e.include?("150") && e.include?("maximum") }).to eq(true),
-        "Expected a maximum violation for score 150, got: #{errors.inspect}"
+                                                                                "Expected a maximum violation for score 150, got: #{errors.inspect}"
     end
   end
 end

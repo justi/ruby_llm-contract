@@ -250,9 +250,18 @@ RSpec.describe "retry_policy integration" do
         call_count += 1
         models_used << opts[:model]
         case call_count
-        when 1 then RubyLLM::Contract::Adapters::Response.new(content: "not json", usage: { input_tokens: 10, output_tokens: 5 })
-        when 2 then RubyLLM::Contract::Adapters::Response.new(content: '{"key": ""}', usage: { input_tokens: 20, output_tokens: 10 })
-        when 3 then RubyLLM::Contract::Adapters::Response.new(content: '{"key": "good"}', usage: { input_tokens: 30, output_tokens: 15 })
+        when 1 then RubyLLM::Contract::Adapters::Response.new(content: "not json",
+                                                              usage: {
+                                                                input_tokens: 10, output_tokens: 5
+                                                              })
+        when 2 then RubyLLM::Contract::Adapters::Response.new(content: '{"key": ""}',
+                                                              usage: {
+                                                                input_tokens: 20, output_tokens: 10
+                                                              })
+        when 3 then RubyLLM::Contract::Adapters::Response.new(content: '{"key": "good"}',
+                                                              usage: {
+                                                                input_tokens: 30, output_tokens: 15
+                                                              })
         end
       end
 
@@ -373,10 +382,10 @@ RSpec.describe "retry_policy integration" do
     end
 
     it "keyword API and block API produce identical behavior" do
-      make_adapter = -> {
+      make_adapter = lambda {
         count = 0
         adapter = Object.new
-        adapter.define_singleton_method(:call) do |**opts|
+        adapter.define_singleton_method(:call) do |**_opts|
           count += 1
           content = count >= 2 ? '{"ok": true}' : '{"ok": false}'
           RubyLLM::Contract::Adapters::Response.new(content: content, usage: { input_tokens: 10, output_tokens: 5 })
@@ -384,7 +393,7 @@ RSpec.describe "retry_policy integration" do
         adapter
       }
 
-      make_step = ->(policy_config) {
+      make_step = lambda { |policy_config|
         Class.new(RubyLLM::Contract::Step::Base) do
           input_type RubyLLM::Contract::Types::String
           output_type RubyLLM::Contract::Types::Hash

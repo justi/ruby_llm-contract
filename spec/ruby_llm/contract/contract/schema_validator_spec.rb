@@ -101,15 +101,15 @@ RSpec.describe RubyLLM::Contract::SchemaValidator do
         double("strict_schema").tap do |s|
           allow(s).to receive(:respond_to?).with(:to_json_schema).and_return(true)
           allow(s).to receive(:to_json_schema).and_return({
-            schema: {
-              type: "object",
-              properties: {
-                name: { type: "string" }
-              },
-              required: ["name"],
-              additionalProperties: false
-            }
-          })
+                                                            schema: {
+                                                              type: "object",
+                                                              properties: {
+                                                                name: { type: "string" }
+                                                              },
+                                                              required: ["name"],
+                                                              additionalProperties: false
+                                                            }
+                                                          })
         end
       end
 
@@ -129,14 +129,14 @@ RSpec.describe RubyLLM::Contract::SchemaValidator do
         double("strlen_schema").tap do |s|
           allow(s).to receive(:respond_to?).with(:to_json_schema).and_return(true)
           allow(s).to receive(:to_json_schema).and_return({
-            schema: {
-              type: "object",
-              properties: {
-                code: { type: "string", minLength: 2, maxLength: 5 }
-              },
-              required: ["code"]
-            }
-          })
+                                                            schema: {
+                                                              type: "object",
+                                                              properties: {
+                                                                code: { type: "string", minLength: 2, maxLength: 5 }
+                                                              },
+                                                              required: ["code"]
+                                                            }
+                                                          })
         end
       end
 
@@ -161,14 +161,15 @@ RSpec.describe RubyLLM::Contract::SchemaValidator do
         double("arrlen_schema").tap do |s|
           allow(s).to receive(:respond_to?).with(:to_json_schema).and_return(true)
           allow(s).to receive(:to_json_schema).and_return({
-            schema: {
-              type: "object",
-              properties: {
-                tags: { type: "array", items: { type: "string" }, minItems: 1, maxItems: 3 }
-              },
-              required: ["tags"]
-            }
-          })
+                                                            schema: {
+                                                              type: "object",
+                                                              properties: {
+                                                                tags: { type: "array", items: { type: "string" },
+                                                                        minItems: 1, maxItems: 3 }
+                                                              },
+                                                              required: ["tags"]
+                                                            }
+                                                          })
         end
       end
 
@@ -357,14 +358,14 @@ RSpec.describe RubyLLM::Contract::SchemaValidator do
         double("nullable_schema").tap do |s|
           allow(s).to receive(:respond_to?).with(:to_json_schema).and_return(true)
           allow(s).to receive(:to_json_schema).and_return({
-            schema: {
-              type: "object",
-              properties: {
-                name: { type: "string" }
-              },
-              required: ["name"]
-            }
-          })
+                                                            schema: {
+                                                              type: "object",
+                                                              properties: {
+                                                                name: { type: "string" }
+                                                              },
+                                                              required: ["name"]
+                                                            }
+                                                          })
         end
       end
 
@@ -392,15 +393,15 @@ RSpec.describe RubyLLM::Contract::SchemaValidator do
         optional_schema = double("opt_schema").tap do |s|
           allow(s).to receive(:respond_to?).with(:to_json_schema).and_return(true)
           allow(s).to receive(:to_json_schema).and_return({
-            schema: {
-              type: "object",
-              properties: {
-                name: { type: "string" },
-                bio: { type: "string" }
-              },
-              required: ["name"]
-            }
-          })
+                                                            schema: {
+                                                              type: "object",
+                                                              properties: {
+                                                                name: { type: "string" },
+                                                                bio: { type: "string" }
+                                                              },
+                                                              required: ["name"]
+                                                            }
+                                                          })
         end
         errors = described_class.validate({ name: "Alice", bio: nil }, optional_schema)
         expect(errors).to be_empty

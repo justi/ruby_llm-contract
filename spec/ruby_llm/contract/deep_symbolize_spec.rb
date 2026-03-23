@@ -45,8 +45,8 @@ RSpec.describe "Parser.symbolize_keys (deep)" do
     end
 
     it "leaves array of strings unchanged" do
-      input = { "tags" => ["ruby", "llm"] }
-      expect(parser.symbolize_keys(input)).to eq({ tags: ["ruby", "llm"] })
+      input = { "tags" => %w[ruby llm] }
+      expect(parser.symbolize_keys(input)).to eq({ tags: %w[ruby llm] })
     end
 
     it "leaves array of integers unchanged" do

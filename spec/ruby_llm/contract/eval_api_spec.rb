@@ -11,7 +11,7 @@ RSpec.describe "define_eval / run_eval API (GH-13)" do
       input_type String
       output_type Hash
       prompt { user "{input}" }
-      validate("has intent") { |o| o[:intent].to_s.size > 0 }
+      validate("has intent") { |o| !o[:intent].to_s.empty? }
     end
   end
 

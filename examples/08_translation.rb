@@ -113,7 +113,7 @@ class TranslateSegments < RubyLLM::Contract::Step::Base
   end
 
   validate("translations within max_length") do |output, input|
-    segments_by_key = (input[:segments] || []).each_with_object({}) { |s, h| h[s[:key]] = s }
+    segments_by_key = (input[:segments] || []).to_h { |s| [s[:key], s] }
     output[:translations].all? do |t|
       max = segments_by_key.dig(t[:key], :max_length)
       max.nil? || t[:translated].to_s.length <= max
@@ -171,13 +171,13 @@ class ReviewTranslations < RubyLLM::Contract::Step::Base
   end
 
   validate("failed reviews have issues") do |o|
-    o[:reviews].select { |r| r[:verdict] != "pass" }.all? do |r|
+    o[:reviews].reject { |r| r[:verdict] == "pass" }.all? do |r|
       !r[:issue].to_s.strip.empty?
     end
   end
 
   validate("fail verdict for over-limit translations") do |output, input|
-    translations_by_key = (input[:translations] || []).each_with_object({}) { |t, h| h[t[:key]] = t }
+    translations_by_key = (input[:translations] || []).to_h { |t| [t[:key], t] }
     output[:reviews].all? do |r|
       t = translations_by_key[r[:key]]
       next true unless t && t[:max_length] && t[:translated_length]
@@ -221,23 +221,34 @@ extract_response = {
   source_lang: "en", target_lang: "fr",
   segments: [
     { key: "hero_headline", text: "Ship faster with Acme Deploy", context: "headline", max_length: 40, tone: "punchy" },
-    { key: "hero_sub", text: "The deployment platform built for modern engineering teams", context: "subheadline", max_length: 80, tone: "professional" },
-    { key: "feature_1", text: "Push to production in seconds, not hours", context: "description", max_length: 60, tone: "punchy" },
-    { key: "feature_2", text: "Zero-downtime deploys, instant rollbacks, and real-time logs", context: "description", max_length: 80, tone: "technical" },
-    { key: "cta_primary", text: "Start free — no credit card required", context: "cta", max_length: 50, tone: "punchy" },
-    { key: "testimonial", text: "Acme Deploy cut our deployment time from 45 minutes to 30 seconds.", context: "testimonial", max_length: 100, tone: "formal" }
+    { key: "hero_sub", text: "The deployment platform built for modern engineering teams", context: "subheadline",
+      max_length: 80, tone: "professional" },
+    { key: "feature_1", text: "Push to production in seconds, not hours", context: "description", max_length: 60,
+      tone: "punchy" },
+    { key: "feature_2", text: "Zero-downtime deploys, instant rollbacks, and real-time logs", context: "description",
+      max_length: 80, tone: "technical" },
+    { key: "cta_primary", text: "Start free — no credit card required", context: "cta", max_length: 50,
+      tone: "punchy" },
+    { key: "testimonial", text: "Acme Deploy cut our deployment time from 45 minutes to 30 seconds.",
+      context: "testimonial", max_length: 100, tone: "formal" }
   ]
 }.to_json
 
 translate_response = {
   source_lang: "en", target_lang: "fr",
   translations: [
-    { key: "hero_headline", original: "Ship faster with Acme Deploy", translated: "Déployez plus vite avec Acme Deploy", context: "headline", max_length: 40, original_length: 29, translated_length: 36 },
-    { key: "hero_sub", original: "The deployment platform built for modern engineering teams", translated: "La plateforme de déploiement pour les équipes d'ingénierie modernes", context: "subheadline", max_length: 80, original_length: 57, translated_length: 67 },
-    { key: "feature_1", original: "Push to production in seconds, not hours", translated: "En production en secondes, pas en heures", context: "description", max_length: 60, original_length: 41, translated_length: 41 },
-    { key: "feature_2", original: "Zero-downtime deploys, instant rollbacks, and real-time logs", translated: "Déploiements sans interruption, rollbacks instantanés et logs en temps réel", context: "description", max_length: 80, original_length: 60, translated_length: 75 },
-    { key: "cta_primary", original: "Start free — no credit card required", translated: "Essai gratuit — sans carte bancaire", context: "cta", max_length: 50, original_length: 36, translated_length: 36 },
-    { key: "testimonial", original: "Acme Deploy cut our deployment time from 45 minutes to 30 seconds.", translated: "Acme Deploy a réduit notre temps de déploiement de 45 minutes à 30 secondes.", context: "testimonial", max_length: 100, original_length: 66, translated_length: 76 }
+    { key: "hero_headline", original: "Ship faster with Acme Deploy",
+      translated: "Déployez plus vite avec Acme Deploy", context: "headline", max_length: 40, original_length: 29, translated_length: 36 },
+    { key: "hero_sub", original: "The deployment platform built for modern engineering teams",
+      translated: "La plateforme de déploiement pour les équipes d'ingénierie modernes", context: "subheadline", max_length: 80, original_length: 57, translated_length: 67 },
+    { key: "feature_1", original: "Push to production in seconds, not hours",
+      translated: "En production en secondes, pas en heures", context: "description", max_length: 60, original_length: 41, translated_length: 41 },
+    { key: "feature_2", original: "Zero-downtime deploys, instant rollbacks, and real-time logs",
+      translated: "Déploiements sans interruption, rollbacks instantanés et logs en temps réel", context: "description", max_length: 80, original_length: 60, translated_length: 75 },
+    { key: "cta_primary", original: "Start free — no credit card required",
+      translated: "Essai gratuit — sans carte bancaire", context: "cta", max_length: 50, original_length: 36, translated_length: 36 },
+    { key: "testimonial", original: "Acme Deploy cut our deployment time from 45 minutes to 30 seconds.",
+      translated: "Acme Deploy a réduit notre temps de déploiement de 45 minutes à 30 secondes.", context: "testimonial", max_length: 100, original_length: 66, translated_length: 76 }
   ]
 }.to_json
 
@@ -266,7 +277,8 @@ r1.parsed_output[:segments].each do |s|
 end
 
 puts "\n--- Step 2: Translate ---"
-r2 = TranslateSegments.run(r1.parsed_output, context: { adapter: RubyLLM::Contract::Adapters::Test.new(response: translate_response) })
+r2 = TranslateSegments.run(r1.parsed_output,
+                           context: { adapter: RubyLLM::Contract::Adapters::Test.new(response: translate_response) })
 puts "Status: #{r2.status}"
 r2.parsed_output[:translations].each do |t|
   len_ok = t[:translated_length] <= 80 ? "✓" : "⚠"
@@ -274,7 +286,8 @@ r2.parsed_output[:translations].each do |t|
 end
 
 puts "\n--- Step 3: Review ---"
-r3 = ReviewTranslations.run(r2.parsed_output, context: { adapter: RubyLLM::Contract::Adapters::Test.new(response: review_response) })
+r3 = ReviewTranslations.run(r2.parsed_output,
+                            context: { adapter: RubyLLM::Contract::Adapters::Test.new(response: review_response) })
 puts "Status: #{r3.status} | Passed: #{r3.parsed_output[:passed_segments]}/#{r3.parsed_output[:total_segments]}"
 r3.parsed_output[:reviews].each do |r|
   icon = { "pass" => "✓", "warning" => "⚠", "fail" => "✗" }[r[:verdict]]
@@ -296,7 +309,8 @@ incomplete = {
   ]
 }.to_json
 
-r_bad = TranslateSegments.run(r1.parsed_output, context: { adapter: RubyLLM::Contract::Adapters::Test.new(response: incomplete) })
+r_bad = TranslateSegments.run(r1.parsed_output,
+                              context: { adapter: RubyLLM::Contract::Adapters::Test.new(response: incomplete) })
 puts "Status: #{r_bad.status}"
 puts "Errors: #{r_bad.validation_errors}"
 
@@ -305,13 +319,15 @@ too_long = translate_response.gsub(
   "Déployez plus vite avec Acme Deploy",
   "Déployez beaucoup plus rapidement et efficacement avec la plateforme Acme Deploy"
 )
-r_long = TranslateSegments.run(r1.parsed_output, context: { adapter: RubyLLM::Contract::Adapters::Test.new(response: too_long) })
+r_long = TranslateSegments.run(r1.parsed_output,
+                               context: { adapter: RubyLLM::Contract::Adapters::Test.new(response: too_long) })
 puts "Status: #{r_long.status}"
 puts "Errors: #{r_long.validation_errors}"
 
 puts "\n--- Invariant catches: untranslated (echoed back) ---"
 echoed = translate_response.gsub("Essai gratuit — sans carte bancaire", "Start free — no credit card required")
-r_echo = TranslateSegments.run(r1.parsed_output, context: { adapter: RubyLLM::Contract::Adapters::Test.new(response: echoed) })
+r_echo = TranslateSegments.run(r1.parsed_output,
+                               context: { adapter: RubyLLM::Contract::Adapters::Test.new(response: echoed) })
 puts "Status: #{r_echo.status}"
 puts "Errors: #{r_echo.validation_errors}"
 

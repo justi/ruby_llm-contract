@@ -8,7 +8,7 @@ RSpec.describe "Validate block crash should return validation_failed, not raise"
       prompt "test {input}"
       # This validate expects output[:items] to be an Array of Hashes
       # but the LLM returns items as an Array of Strings
-      validate("items have name") { |o| o[:items].all? { |i| i[:name].to_s.size > 0 } }
+      validate("items have name") { |o| o[:items].all? { |i| !i[:name].to_s.empty? } }
     end
 
     # LLM returns items as strings, not hashes — g[:name] raises TypeError
@@ -23,7 +23,7 @@ RSpec.describe "Validate block crash should return validation_failed, not raise"
   it "returns :validation_failed when validate block raises NoMethodError" do
     step = Class.new(RubyLLM::Contract::Step::Base) do
       prompt "test {input}"
-      validate("has nested field") { |o| o[:deep][:nested].size > 0 }
+      validate("has nested field") { |o| !o[:deep][:nested].empty? }
     end
 
     # LLM returns deep as string, not hash — [:nested] raises NoMethodError

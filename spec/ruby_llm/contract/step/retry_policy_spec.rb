@@ -99,15 +99,15 @@ RSpec.describe RubyLLM::Contract::Step::RetryPolicy do
     end
 
     it "raises ArgumentError for keyword attempts: 0" do
-      expect {
+      expect do
         described_class.new(attempts: 0)
-      }.to raise_error(ArgumentError, /attempts must be at least 1/)
+      end.to raise_error(ArgumentError, /attempts must be at least 1/)
     end
 
     it "raises ArgumentError for keyword attempts: -1" do
-      expect {
+      expect do
         described_class.new(attempts: -1)
-      }.to raise_error(ArgumentError, /attempts must be at least 1/)
+      end.to raise_error(ArgumentError, /attempts must be at least 1/)
     end
   end
 

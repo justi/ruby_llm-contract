@@ -271,5 +271,4 @@ RSpec.describe "Adversarial QA round 3 -- bug regressions" do
       end
     end
   end
-
 end

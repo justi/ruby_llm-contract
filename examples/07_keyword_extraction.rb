@@ -193,9 +193,12 @@ end
 
 topics_response = {
   topics: [
-    { title: "Building LLM-Powered Ruby Gems", angle: "How to structure a Ruby gem that wraps LLM APIs with type safety" },
-    { title: "Contract-First AI Development", angle: "Why treating LLM outputs like API responses improves reliability" },
-    { title: "Testing AI Features Without API Calls", angle: "Deterministic testing patterns for LLM integrations using canned adapters" }
+    { title: "Building LLM-Powered Ruby Gems",
+      angle: "How to structure a Ruby gem that wraps LLM APIs with type safety" },
+    { title: "Contract-First AI Development",
+      angle: "Why treating LLM outputs like API responses improves reliability" },
+    { title: "Testing AI Features Without API Calls",
+      angle: "Deterministic testing patterns for LLM integrations using canned adapters" }
   ]
 }.to_json
 

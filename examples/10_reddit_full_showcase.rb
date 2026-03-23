@@ -186,7 +186,7 @@ class GenerateComment < RubyLLM::Contract::Step::Base
 
     example input: '{"approach":"share experience","tone":"casual"}',
             output: '{"comment":"I switched to Acme Invoice last year and it cut my invoicing time ' \
-                    'in half. The automatic reminders are a lifesaver. https://acme-invoice.com if ' \
+                    "in half. The automatic reminders are a lifesaver. https://acme-invoice.com if " \
                     'you want to check it out.","word_count":30}'
 
     user "{input}"
@@ -194,7 +194,7 @@ class GenerateComment < RubyLLM::Contract::Step::Base
 
   validate("comment long enough") { |o| o[:comment].to_s.strip.size > 30 }
   validate("no markdown headers") { |o| !o[:comment].to_s.match?(/^\#{2,}/) }
-  validate("has word count") { |o| o[:word_count].is_a?(Integer) && o[:word_count] > 0 }
+  validate("has word count") { |o| o[:word_count].is_a?(Integer) && o[:word_count].positive? }
   validate("contains product link") { |o| o[:comment].to_s.include?("acme-invoice.com") }
   validate("no spam phrases") do |o|
     spam = ["buy now", "limited offer", "click here", "act fast", "discount"]
@@ -205,7 +205,7 @@ class GenerateComment < RubyLLM::Contract::Step::Base
     banned.none? { |b| o[:comment].to_s.start_with?(b) }
   end
 
-  max_output 300  # tokens — don't let the model ramble
+  max_output 300 # tokens — don't let the model ramble
 
   retry_policy models: %w[gpt-4.1-nano gpt-4.1-mini gpt-4.1]
 end
@@ -219,9 +219,9 @@ class RedditPromoPipeline < RubyLLM::Contract::Pipeline::Base
   step IdentifySubreddits, as: :subreddits, model: "gpt-4.1-mini"
   step ClassifyThread,     as: :classify,   model: "gpt-4.1-nano"
   step PlanComment,        as: :plan,       model: "gpt-4.1-nano"
-  step GenerateComment,    as: :comment  # uses retry_policy escalation
+  step GenerateComment,    as: :comment # uses retry_policy escalation
 
-  token_budget 15_000  # max tokens across all steps — halt if exceeded
+  token_budget 15_000 # max tokens across all steps — halt if exceeded
 end
 
 # ===========================================================================
@@ -231,22 +231,22 @@ end
 
 GenerateComment.define_eval("smoke") do
   default_input({
-    approach: "Share personal experience with invoicing frustration, then mention Acme Invoice",
-    tone: "casual",
-    key_points: '["empathize","mention recurring invoices","highlight reminders"]',
-    link_strategy: "Drop link naturally after mentioning the tool",
-    thread_title: "What invoicing tool do you use?"
-  })
+                  approach: "Share personal experience with invoicing frustration, then mention Acme Invoice",
+                  tone: "casual",
+                  key_points: '["empathize","mention recurring invoices","highlight reminders"]',
+                  link_strategy: "Drop link naturally after mentioning the tool",
+                  thread_title: "What invoicing tool do you use?"
+                })
 
   sample_response({
-    comment: "I was in the exact same boat — spreadsheets worked until I had more than " \
-             "10 clients, then tracking who paid became a nightmare. I switched to Acme " \
-             "Invoice about a year ago and it's been great. Recurring invoices are " \
-             "set-and-forget, and the automatic payment reminders saved me so many awkward " \
-             "follow-up emails. It's affordable too. https://acme-invoice.com if you want " \
-             "to check it out.",
-    word_count: 62
-  })
+                    comment: "I was in the exact same boat — spreadsheets worked until I had more than " \
+                             "10 clients, then tracking who paid became a nightmare. I switched to Acme " \
+                             "Invoice about a year ago and it's been great. Recurring invoices are " \
+                             "set-and-forget, and the automatic payment reminders saved me so many awkward " \
+                             "follow-up emails. It's affordable too. https://acme-invoice.com if you want " \
+                             "to check it out.",
+                    word_count: 62
+                  })
 
   # Zero verify needed — step's validate blocks already check:
   # comment long enough, no markdown headers, has word count,
@@ -263,7 +263,8 @@ RESPONSES = {
     locale: "en",
     audience_group_1: "freelance designers and developers",
     audience_group_2: "small business owners under 10 employees",
-    audience_group_3: "accountants serving freelance clients" },
+    audience_group_3: "accountants serving freelance clients"
+  },
 
   subreddits: {
     product_description: "Simple invoicing and billing platform for freelancers",
@@ -273,13 +274,15 @@ RESPONSES = {
     thread_selftext: "I've been using spreadsheets but it's getting out of hand. " \
                      "Need something for recurring invoices and payment reminders.",
     thread_subreddit: "freelance",
-    thread_language: "en" },
+    thread_language: "en"
+  },
 
   classify: {
     classification: "PROMO", relevance_score: 9,
     reasoning: "Thread directly asks for invoicing tool — perfect fit",
     thread_title: "What invoicing tool do you use for your freelance business?",
-    thread_language: "en" },
+    thread_language: "en"
+  },
 
   plan: {
     approach: "Share personal experience with invoicing frustration, then mention Acme Invoice",
@@ -287,7 +290,8 @@ RESPONSES = {
     key_points: '["empathize with spreadsheet pain","mention recurring invoices",' \
                 '"highlight payment reminders","note affordability"]',
     link_strategy: "Drop link naturally after mentioning the tool by name",
-    thread_title: "What invoicing tool do you use for your freelance business?" },
+    thread_title: "What invoicing tool do you use for your freelance business?"
+  },
 
   comment: {
     comment: "I was in the exact same boat — spreadsheets worked until I had more than " \
@@ -296,7 +300,8 @@ RESPONSES = {
              "set-and-forget, and the automatic payment reminders saved me so many awkward " \
              "follow-up emails. It's affordable too. https://acme-invoice.com if you want " \
              "to check it out.",
-    word_count: 62 }
+    word_count: 62
+  }
 }.freeze
 
 # ===========================================================================

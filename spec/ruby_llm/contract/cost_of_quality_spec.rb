@@ -250,8 +250,8 @@ RSpec.describe "ADR-0008: Cost of Quality" do
     it "runs eval across models and returns ModelComparison" do
       step.define_eval("regression") do
         add_case "billing",
-          input: "charged twice",
-          expected: { priority: "high" }
+                 input: "charged twice",
+                 expected: { priority: "high" }
       end
 
       # Each model gets its own adapter copy (deep_dup_context)
@@ -261,8 +261,8 @@ RSpec.describe "ADR-0008: Cost of Quality" do
       )
 
       comparison = step.compare_models("regression",
-        models: %w[model-a model-b],
-        context: { adapter: adapter })
+                                       models: %w[model-a model-b],
+                                       context: { adapter: adapter })
 
       expect(comparison).to be_a(RubyLLM::Contract::Eval::ModelComparison)
       expect(comparison.models).to eq(%w[model-a model-b])
@@ -283,8 +283,8 @@ RSpec.describe "ADR-0008: Cost of Quality" do
       )
 
       comparison = step.compare_models("isolation",
-        models: %w[model-a model-b],
-        context: { adapter: adapter })
+                                       models: %w[model-a model-b],
+                                       context: { adapter: adapter })
 
       # Both models see same responses (high, low) — score should be identical
       expect(comparison.score_for("model-a")).to eq(comparison.score_for("model-b"))

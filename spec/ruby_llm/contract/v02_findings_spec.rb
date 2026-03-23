@@ -171,7 +171,7 @@ RSpec.describe "v0.2 review findings" do
       # ProcEvaluator with numeric return sets label based on threshold
       step.define_eval("custom_label") do
         default_input "test"
-        verify "partial match", ->(o) { 0.75 }
+        verify "partial match", ->(_o) { 0.75 }
       end
 
       report = step.run_eval("custom_label", context: { adapter: adapter })

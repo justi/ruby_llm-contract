@@ -43,7 +43,7 @@ RSpec.describe RubyLLM::Contract::Parser do
 
     context "BOM stripping" do
       it "strips UTF-8 BOM from the beginning of JSON" do
-        bom_json = "\xEF\xBB\xBF" + '{"key":"value"}'
+        bom_json = "﻿{\"key\":\"value\"}"
         result = described_class.parse(bom_json, strategy: :json)
         expect(result).to eq({ key: "value" })
       end
@@ -138,41 +138,41 @@ RSpec.describe RubyLLM::Contract::Parser do
 
       it "still raises ParseError when no valid JSON is present" do
         text = "I cannot generate JSON for that request."
-        expect {
+        expect do
           described_class.parse(text, strategy: :json)
-        }.to raise_error(RubyLLM::Contract::ParseError)
+        end.to raise_error(RubyLLM::Contract::ParseError)
       end
     end
 
     context "boolean and numeric raw_output" do
       it "handles boolean false without crashing" do
-        expect {
+        expect do
           described_class.parse(false, strategy: :json)
-        }.not_to raise_error(TypeError)
+        end.not_to raise_error(TypeError)
       end
 
       it "handles boolean true without crashing" do
-        expect {
+        expect do
           described_class.parse(true, strategy: :json)
-        }.not_to raise_error(TypeError)
+        end.not_to raise_error(TypeError)
       end
 
       it "handles integer 0 without crashing" do
-        expect {
+        expect do
           described_class.parse(0, strategy: :json)
-        }.not_to raise_error(TypeError)
+        end.not_to raise_error(TypeError)
       end
 
       it "handles integer 42 without crashing" do
-        expect {
+        expect do
           described_class.parse(42, strategy: :json)
-        }.not_to raise_error(TypeError)
+        end.not_to raise_error(TypeError)
       end
 
       it "handles float 3.14 without crashing" do
-        expect {
+        expect do
           described_class.parse(3.14, strategy: :json)
-        }.not_to raise_error(TypeError)
+        end.not_to raise_error(TypeError)
       end
     end
 

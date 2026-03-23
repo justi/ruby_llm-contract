@@ -28,8 +28,8 @@ RSpec.describe "v0.2 features (ADR-0007)" do
     it "defines cases with input + expected (partial match)" do
       classify_step.define_eval("regression") do
         add_case "billing ticket",
-          input: "I was charged twice",
-          expected: { priority: "high", category: "billing" }
+                 input: "I was charged twice",
+                 expected: { priority: "high", category: "billing" }
       end
 
       report = classify_step.run_eval("regression", context: { adapter: adapter })
@@ -40,8 +40,8 @@ RSpec.describe "v0.2 features (ADR-0007)" do
     it "partial match ignores extra keys in output" do
       classify_step.define_eval("partial") do
         add_case "check priority only",
-          input: "Invoice problem",
-          expected: { priority: "high" }
+                 input: "Invoice problem",
+                 expected: { priority: "high" }
       end
 
       report = classify_step.run_eval("partial", context: { adapter: adapter })
@@ -51,8 +51,8 @@ RSpec.describe "v0.2 features (ADR-0007)" do
     it "fails when expected key mismatches" do
       classify_step.define_eval("mismatch") do
         add_case "wrong priority",
-          input: "Can you add dark mode?",
-          expected: { priority: "low" }
+                 input: "Can you add dark mode?",
+                 expected: { priority: "low" }
       end
 
       report = classify_step.run_eval("mismatch", context: { adapter: adapter })
@@ -66,12 +66,12 @@ RSpec.describe "v0.2 features (ADR-0007)" do
 
       classify_step.define_eval("multi") do
         add_case "billing",
-          input: "I was charged twice",
-          expected: { priority: "high", category: "billing" }
+                 input: "I was charged twice",
+                 expected: { priority: "high", category: "billing" }
 
         add_case "feature request",
-          input: "Can you add dark mode?",
-          expected: { priority: "low", category: "feature" }
+                 input: "Can you add dark mode?",
+                 expected: { priority: "low", category: "feature" }
       end
 
       report = classify_step.run_eval("multi", context: { adapter: multi_adapter })
@@ -82,8 +82,8 @@ RSpec.describe "v0.2 features (ADR-0007)" do
     it "works alongside verify in the same eval" do
       classify_step.define_eval("mixed") do
         add_case "check billing",
-          input: "Invoice problem",
-          expected: { category: "billing" }
+                 input: "Invoice problem",
+                 expected: { category: "billing" }
 
         verify "has confidence", ->(o) { o[:confidence] > 0.5 }, input: "test"
       end
@@ -103,11 +103,11 @@ RSpec.describe "v0.2 features (ADR-0007)" do
     end
 
     it "raises when add_case has no input and no default_input" do
-      expect {
+      expect do
         classify_step.define_eval("bad") do
           add_case "no input", expected: { priority: "high" }
         end
-      }.to raise_error(ArgumentError, /requires input/)
+      end.to raise_error(ArgumentError, /requires input/)
     end
   end
 
@@ -123,12 +123,12 @@ RSpec.describe "v0.2 features (ADR-0007)" do
 
       classify_step.define_eval("results_test") do
         add_case "billing ticket",
-          input: "I was charged twice",
-          expected: { priority: "high", category: "billing" }
+                 input: "I was charged twice",
+                 expected: { priority: "high", category: "billing" }
 
         add_case "urgent outage",
-          input: "Database is down",
-          expected: { priority: "urgent", category: "infrastructure" }
+                 input: "Database is down",
+                 expected: { priority: "urgent", category: "infrastructure" }
       end
     end
 
@@ -208,12 +208,12 @@ RSpec.describe "v0.2 features (ADR-0007)" do
 
       classify_step.define_eval("scored") do
         add_case "billing",
-          input: "I was charged twice",
-          expected: { priority: "high", category: "billing" }
+                 input: "I was charged twice",
+                 expected: { priority: "high", category: "billing" }
 
         add_case "wrong",
-          input: "other",
-          expected: { priority: "urgent" }
+                 input: "other",
+                 expected: { priority: "urgent" }
       end
 
       @adapter_for_scored = multi_adapter

@@ -6,7 +6,7 @@ RSpec.describe "sample_response in define_eval (GH-14)" do
   let(:step) do
     Class.new(RubyLLM::Contract::Step::Base) do
       prompt "Classify: {input}"
-      validate("has intent") { |o| o[:intent].to_s.size > 0 }
+      validate("has intent") { |o| !o[:intent].to_s.empty? }
     end
   end
 
@@ -31,7 +31,7 @@ RSpec.describe "sample_response in define_eval (GH-14)" do
       step.define_eval("smoke") do
         default_input "test"
         sample_response({ intent: "billing" })
-        verify "has intent", { intent: /sales/ }  # won't match "billing"
+        verify "has intent", { intent: /sales/ } # won't match "billing"
       end
 
       # sample_response has "billing" but verify expects "sales" → would fail

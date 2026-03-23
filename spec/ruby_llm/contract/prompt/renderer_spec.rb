@@ -106,7 +106,8 @@ RSpec.describe RubyLLM::Contract::Prompt::Renderer do
         system "You are a sentiment classifier for customer support."
         rule "Return JSON with sentiment, confidence, and reason."
         section "CONTEXT", "We sell software for freelancers."
-        section "SCORING GUIDE", "negative = complaint or frustration\npositive = praise or thanks\nneutral = question or factual statement"
+        section "SCORING GUIDE",
+                "negative = complaint or frustration\npositive = praise or thanks\nneutral = question or factual statement"
         user "Classify this: {input}"
       end
 
@@ -116,7 +117,8 @@ RSpec.describe RubyLLM::Contract::Prompt::Renderer do
                                { role: :system, content: "You are a sentiment classifier for customer support." },
                                { role: :system, content: "Return JSON with sentiment, confidence, and reason." },
                                { role: :system, content: "[CONTEXT]\nWe sell software for freelancers." },
-                               { role: :system, content: "[SCORING GUIDE]\nnegative = complaint or frustration\npositive = praise or thanks\nneutral = question or factual statement" },
+                               { role: :system,
+                                 content: "[SCORING GUIDE]\nnegative = complaint or frustration\npositive = praise or thanks\nneutral = question or factual statement" },
                                { role: :user, content: "Classify this: Your billing page is broken!" }
                              ])
     end

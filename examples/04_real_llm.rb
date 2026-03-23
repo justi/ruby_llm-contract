@@ -359,7 +359,7 @@ end
 class MeetingFollowUpPipeline < RubyLLM::Contract::Pipeline::Base
   step ExtractMeetingItems,  as: :extract
   step AnalyzeAmbiguities,   as: :analyze
-  step GenerateMeetingEmail,  as: :email
+  step GenerateMeetingEmail, as: :email
 end
 
 transcript = <<~TRANSCRIPT
@@ -372,7 +372,7 @@ TRANSCRIPT
 
 puts "\n--- Full power: Pipeline + Schema + Invariants + Real LLM ---"
 result = MeetingFollowUpPipeline.run(transcript,
-  context: { model: "gpt-4.1-mini", temperature: 0.0 })
+                                     context: { model: "gpt-4.1-mini", temperature: 0.0 })
 
 puts "Pipeline status: #{result.status}"
 puts "Steps run:       #{result.step_results.length}"

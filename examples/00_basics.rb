@@ -34,7 +34,7 @@ end
 
 # Option A: with output_schema (recommended — simplest)
 class SimpleSentiment < RubyLLM::Contract::Step::Base
-  input_type String    # plain Ruby class works!
+  input_type String # plain Ruby class works!
 
   output_schema do
     string :sentiment
@@ -263,7 +263,8 @@ class SentimentWithSections < RubyLLM::Contract::Step::Base
     rule "Return JSON with sentiment, confidence, and reason."
 
     section "CONTEXT", "We sell software for freelancers."
-    section "SCORING GUIDE", "negative = complaint or frustration\npositive = praise or thanks\nneutral = question or factual statement"
+    section "SCORING GUIDE",
+            "negative = complaint or frustration\npositive = praise or thanks\nneutral = question or factual statement"
 
     user "Classify this: {input}"
   end
@@ -406,8 +407,8 @@ result.raw_output        # => '{"sentiment": "positive", "confidence": 0.92}'
 result.parsed_output     # => {sentiment: "positive", confidence: 0.92}
 result.validation_errors # => []
 result.trace[:model]     # => "gpt-4.1-mini"
-result.trace[:latency_ms]# => 0     (instant with test adapter)
-result.trace[:messages]  # => [{role: :system, content: "..."}, {role: :user, content: "..."}]
+result.trace[:latency_ms] # => 0     (instant with test adapter)
+result.trace[:messages] # => [{role: :system, content: "..."}, {role: :user, content: "..."}]
 
 # On failure, you still get everything for debugging:
 bad_adapter = RubyLLM::Contract::Adapters::Test.new(response: '{"sentiment": "positive", "confidence": 0.1}')
@@ -471,7 +472,7 @@ RubyLLM::Contract.configure do |c|
   )
 end
 
-# Note: with Test adapter, both steps get the same canned response.
+# NOTE: with Test adapter, both steps get the same canned response.
 # With a real LLM, each step would get a different response.
 result = SupportPipeline.run("I love this product!")
 result.ok?                            # => true

@@ -38,12 +38,12 @@ module RubyLLM
         end
 
         def table
-          lines = [format("  %-25s %6s %10s %12s", "Model", "Score", "Cost", "Avg Latency")]
+          lines = ["  Model                      Score       Cost  Avg Latency"]
           lines << "  #{"-" * 57}"
 
           @reports.each do |model, report|
             latency = report.avg_latency_ms ? "#{report.avg_latency_ms.round}ms" : "n/a"
-            cost = report.total_cost > 0 ? "$#{format("%.4f", report.total_cost)}" : "n/a"
+            cost = report.total_cost.positive? ? "$#{format("%.4f", report.total_cost)}" : "n/a"
             lines << format("  %-25s %6.2f %10s %12s", model, report.score, cost, latency)
           end
 

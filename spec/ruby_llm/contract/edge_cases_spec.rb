@@ -316,7 +316,7 @@ RSpec.describe "Edge cases" do
         )
 
         collected = []
-        report.each { |r| collected << r.passed? } # rubocop:disable Style/MapIntoArray
+        report.each { |r| collected << r.passed? }
         expect(collected).to eq([true, false])
       end
     end
@@ -466,7 +466,10 @@ RSpec.describe "Edge cases" do
 
     describe "evaluate_expected with Regexp" do
       it "uses Regex evaluator for Regexp expected" do
-        step = Class.new(RubyLLM::Contract::Step::Base) { output_type String; prompt "test {input}" }
+        step = Class.new(RubyLLM::Contract::Step::Base) do
+          output_type String
+          prompt "test {input}"
+        end
         adapter = RubyLLM::Contract::Adapters::Test.new(response: "Hello world")
 
         ds = RubyLLM::Contract::Eval::Dataset.define { add_case input: "t", expected: /world/ }
@@ -478,7 +481,10 @@ RSpec.describe "Edge cases" do
 
     describe "evaluate_expected with exact match" do
       it "uses Exact evaluator for non-Hash non-Regexp expected" do
-        step = Class.new(RubyLLM::Contract::Step::Base) { output_type String; prompt "test {input}" }
+        step = Class.new(RubyLLM::Contract::Step::Base) do
+          output_type String
+          prompt "test {input}"
+        end
         adapter = RubyLLM::Contract::Adapters::Test.new(response: "exact value")
 
         ds = RubyLLM::Contract::Eval::Dataset.define { add_case input: "t", expected: "exact value" }
@@ -595,7 +601,9 @@ RSpec.describe "Edge cases" do
       expect(described_class.calculate(model_name: nil, usage: { input_tokens: 100 })).to be_nil
       expect(described_class.calculate(model_name: "gpt-4", usage: nil)).to be_nil
       expect(described_class.calculate(model_name: "gpt-4", usage: "bad")).to be_nil
-      expect(described_class.calculate(model_name: "nonexistent-xyz", usage: { input_tokens: 100, output_tokens: 50 })).to be_nil
+      expect(described_class.calculate(model_name: "nonexistent-xyz",
+                                       usage: { input_tokens: 100,
+                                                output_tokens: 50 })).to be_nil
     end
 
     it "returns 0.0 for known model with empty usage hash (zero tokens)" do

@@ -5,7 +5,8 @@ RSpec.describe "Pretty print (to_s)" do
 
   describe "Step::Trace#to_s" do
     it "shows model, latency, tokens, cost" do
-      t = RubyLLM::Contract::Step::Trace.new(model: "gpt-4.1-mini", latency_ms: 234, usage: { input_tokens: 120, output_tokens: 60 })
+      t = RubyLLM::Contract::Step::Trace.new(model: "gpt-4.1-mini", latency_ms: 234,
+                                             usage: { input_tokens: 120, output_tokens: 60 })
       expect(t.to_s).to include("gpt-4.1-mini")
       expect(t.to_s).to include("234ms")
       expect(t.to_s).to include("120+60 tokens")
@@ -25,7 +26,8 @@ RSpec.describe "Pretty print (to_s)" do
 
   describe "Step::Result#to_s" do
     it "shows status and trace on success" do
-      trace = RubyLLM::Contract::Step::Trace.new(model: "gpt-4.1-mini", latency_ms: 100, usage: { input_tokens: 50, output_tokens: 25 })
+      trace = RubyLLM::Contract::Step::Trace.new(model: "gpt-4.1-mini", latency_ms: 100,
+                                                 usage: { input_tokens: 50, output_tokens: 25 })
       r = RubyLLM::Contract::Step::Result.new(status: :ok, raw_output: "{}", parsed_output: {}, trace: trace)
       expect(r.to_s).to include("ok")
       expect(r.to_s).to include("gpt-4.1-mini")
@@ -34,13 +36,13 @@ RSpec.describe "Pretty print (to_s)" do
 
     it "shows status and errors on failure" do
       r = RubyLLM::Contract::Step::Result.new(status: :validation_failed, raw_output: "{}", parsed_output: {},
-                                           validation_errors: ["locale is invalid", "description too short"])
+                                              validation_errors: ["locale is invalid", "description too short"])
       expect(r.to_s).to eq("validation_failed: locale is invalid, description too short")
     end
 
     it "truncates errors to 3" do
       r = RubyLLM::Contract::Step::Result.new(status: :validation_failed, raw_output: "{}", parsed_output: {},
-                                           validation_errors: ["a", "b", "c", "d"])
+                                              validation_errors: %w[a b c d])
       expect(r.to_s).to include("a, b, c, ...")
     end
   end

@@ -7,7 +7,7 @@ RSpec.describe "Plain prompt entry with JSON defaults (ADR-0002)" do
     it "works with just prompt string + validate" do
       step = Class.new(RubyLLM::Contract::Step::Base) do
         prompt "Classify this: {input}"
-        validate("has intent") { |o| o[:intent].to_s.size > 0 }
+        validate("has intent") { |o| !o[:intent].to_s.empty? }
       end
 
       adapter = RubyLLM::Contract::Adapters::Test.new(response: '{"intent": "billing"}')

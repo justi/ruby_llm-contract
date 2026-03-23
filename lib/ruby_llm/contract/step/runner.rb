@@ -6,7 +6,6 @@ module RubyLLM
       class Runner
         include LimitChecker
 
-        # rubocop:disable Metrics/ParameterLists
         def initialize(input_type:, output_type:, prompt_block:, contract_definition:,
                        adapter:, model:, output_schema: nil, max_output: nil,
                        max_input: nil, max_cost: nil)
@@ -21,7 +20,6 @@ module RubyLLM
           @max_input = max_input
           @max_cost = max_cost
         end
-        # rubocop:enable Metrics/ParameterLists
 
         def call(input)
           validated_input = validate_input(input)

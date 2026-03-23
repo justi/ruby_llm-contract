@@ -104,7 +104,7 @@ RSpec.describe "Token cost tracking (GH-15)" do
 
   describe "Pipeline token_budget" do
     it "halts with :budget_exceeded when total tokens exceed limit" do
-      adapter = RubyLLM::Contract::Adapters::Test.new(
+      RubyLLM::Contract::Adapters::Test.new(
         responses: [{ v: 1 }, { v: 2 }, { v: 3 }]
       )
       # Each step uses 0 tokens (Test adapter) so we override with a counting adapter
@@ -118,8 +118,14 @@ RSpec.describe "Token cost tracking (GH-15)" do
       end.new
 
       s1 = Class.new(RubyLLM::Contract::Step::Base) { prompt "test {input}" }
-      s2 = Class.new(RubyLLM::Contract::Step::Base) { input_type Hash; prompt "test {input}" }
-      s3 = Class.new(RubyLLM::Contract::Step::Base) { input_type Hash; prompt "test {input}" }
+      s2 = Class.new(RubyLLM::Contract::Step::Base) do
+        input_type Hash
+        prompt "test {input}"
+      end
+      s3 = Class.new(RubyLLM::Contract::Step::Base) do
+        input_type Hash
+        prompt "test {input}"
+      end
 
       pipeline = Class.new(RubyLLM::Contract::Pipeline::Base)
       pipeline.step s1, as: :first
