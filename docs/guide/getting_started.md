@@ -58,6 +58,8 @@ result.trace[:attempts]
 # 90% of requests succeed on nano. You only pay more when you have to.
 ```
 
+**Model priority:** `retry_policy models: %w[nano mini full]` tries models left to right. First model is always tried first. `context: { model: "..." }` is ignored when `retry_policy` is set — the policy controls model selection. Without `retry_policy`, the model comes from `context[:model]` or `default_model`.
+
 **Limits prevent runaway costs:**
 ```ruby
 result = ClassifyTicket.run(giant_10mb_document)
