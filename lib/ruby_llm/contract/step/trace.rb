@@ -26,6 +26,13 @@ module RubyLLM
           public_send(key)
         end
 
+        def dig(key, *rest)
+          value = self[key]
+          return value if rest.empty? || value.nil?
+
+          value.dig(*rest)
+        end
+
         def key?(key)
           KNOWN_KEYS.include?(key.to_sym) && !public_send(key).nil?
         end
