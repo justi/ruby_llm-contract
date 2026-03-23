@@ -46,16 +46,20 @@ module RubyLLM
           gate_passed = true
           suite_cost = 0.0
 
+          passed_reports = []
+
           results.each do |host, reports|
             puts "\n#{host.name || host.to_s}"
             reports.each_value do |report|
               report.print_summary
               suite_cost += report.total_cost
-              gate_passed = false unless report_meets_score?(report)
-              gate_passed = false if check_regression(report)
-              save_baseline!(report) if @save_baseline && gate_passed
+              report_ok = report_meets_score?(report) && !check_regression(report)
+              gate_passed = false unless report_ok
+              passed_reports << report if report_ok
             end
           end
+
+          passed_reports.each { |r| save_baseline!(r) } if @save_baseline
 
           if @maximum_cost && suite_cost > @maximum_cost
             abort "\nEval suite FAILED: total cost $#{format("%.4f", suite_cost)} " \

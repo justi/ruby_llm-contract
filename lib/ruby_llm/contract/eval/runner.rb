@@ -19,7 +19,8 @@ module RubyLLM
 
         def run
           results = @dataset.cases.map { |test_case| evaluate_case(test_case) }
-          Report.new(dataset_name: @dataset.name, results: results)
+          step_name = @step.respond_to?(:name) ? @step.name : @step.to_s
+          Report.new(dataset_name: @dataset.name, results: results, step_name: step_name)
         end
 
         private
