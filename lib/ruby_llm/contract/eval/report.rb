@@ -9,8 +9,9 @@ module RubyLLM
       class Report
         attr_reader :dataset_name, :results
 
-        def initialize(dataset_name:, results:)
+        def initialize(dataset_name:, results:, step_name: nil)
           @dataset_name = dataset_name
+          @step_name = step_name
           @results = results.freeze
           freeze
         end
@@ -132,7 +133,12 @@ module RubyLLM
         end
 
         def default_baseline_path
-          File.join(".eval_baselines", dataset_name.to_s.gsub(/[^a-zA-Z0-9_-]/, "_") + ".json")
+          prefix = @step_name ? "#{sanitize_name(@step_name)}/" : ""
+          File.join(".eval_baselines", "#{prefix}#{sanitize_name(dataset_name)}.json")
+        end
+
+        def sanitize_name(name)
+          name.to_s.gsub(/[^a-zA-Z0-9_-]/, "_")
         end
 
         def serialize_for_baseline
