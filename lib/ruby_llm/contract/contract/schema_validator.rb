@@ -40,10 +40,53 @@ module RubyLLM
 
       def validate_non_hash_output
         expected_type = @json_schema[:type]&.to_s
+
         if expected_type == "object" || @json_schema.key?(:properties)
-          ["expected object, got #{@output.class}"]
-        else
-          []
+          return ["expected object, got #{@output.class}"]
+        end
+
+        errors = []
+        validate_type_match(errors, @output, expected_type, "root") if expected_type
+        validate_constraints(errors, @output, @json_schema, "root")
+
+        if expected_type == "array" && @output.is_a?(Array) && @json_schema[:items]
+          @output.each_with_index do |item, i|
+            validate_object(item, @json_schema[:items], prefix: "[#{i}]") if item.is_a?(Hash) && @json_schema[:items].key?(:properties)
+          end
+          errors.concat(@errors)
+          @errors = []
+        end
+
+        errors
+      end
+
+      def validate_type_match(errors, value, expected_type, prefix)
+        valid = case expected_type
+                when "string" then value.is_a?(String)
+                when "integer" then value.is_a?(Integer)
+                when "number" then value.is_a?(Numeric)
+                when "boolean" then value.is_a?(TrueClass) || value.is_a?(FalseClass)
+                when "array" then value.is_a?(Array)
+                else true
+                end
+        errors << "#{prefix}: expected #{expected_type}, got #{value.class}" unless valid
+      end
+
+      def validate_constraints(errors, value, schema, prefix)
+        if schema[:minimum] && value.is_a?(Numeric) && value < schema[:minimum]
+          errors << "#{prefix}: #{value} is less than minimum #{schema[:minimum]}"
+        end
+        if schema[:maximum] && value.is_a?(Numeric) && value > schema[:maximum]
+          errors << "#{prefix}: #{value} is greater than maximum #{schema[:maximum]}"
+        end
+        if schema[:enum] && !schema[:enum].include?(value)
+          errors << "#{prefix}: #{value.inspect} is not in enum #{schema[:enum].inspect}"
+        end
+        if schema[:minItems] && value.is_a?(Array) && value.length < schema[:minItems]
+          errors << "#{prefix}: array has #{value.length} items, minimum #{schema[:minItems]}"
+        end
+        if schema[:maxItems] && value.is_a?(Array) && value.length > schema[:maxItems]
+          errors << "#{prefix}: array has #{value.length} items, maximum #{schema[:maxItems]}"
         end
       end
 

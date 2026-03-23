@@ -113,7 +113,8 @@ module RubyLLM
         def validate_sample_against_schema(schema)
           parsed = case @sample_response
                    when Hash, Array then @sample_response
-                   else JSON.parse(@sample_response.to_json)
+                   when String then JSON.parse(@sample_response)
+                   else @sample_response
                    end
           symbolized = parsed.is_a?(Hash) ? Parser.symbolize_keys(parsed) : parsed
           SchemaValidator.validate(symbolized, schema)

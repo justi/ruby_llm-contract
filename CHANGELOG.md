@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.3.4 (2026-03-24)
+
+- **SchemaValidator validates non-object roots** — boolean, integer, number, array root schemas now enforce type, min/max, enum, minItems/maxItems. Previously only object schemas were validated.
+- **Removed passing cases = regression** — `regressed?` returns true when baseline had passing cases that are now missing. Prevents gate bypass by deleting eval cases.
+- **JSON string sample_response fixed** — `sample_response('{"name":"Alice"}')` correctly parsed for pre-validation instead of double-encoding.
+- **`context[:max_tokens]` forwarded** — overrides step's `max_output` for adapter call AND budget precheck.
+
 ## 0.3.3 (2026-03-23)
 
 - **Skipped cases visible in regression diff** — baseline PASS → current SKIP now detected as regression by `without_regressions` and `fail_on_regression`.

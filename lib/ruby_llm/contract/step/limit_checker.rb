@@ -29,7 +29,7 @@ module RubyLLM
         end
 
         def append_cost_error(estimated, errors)
-          estimated_output = @max_output || 0
+          estimated_output = effective_max_output || 0
           estimated_cost = CostCalculator.calculate(
             model_name: @model,
             usage: { input_tokens: estimated, output_tokens: estimated_output }
