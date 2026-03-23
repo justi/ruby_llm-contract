@@ -20,7 +20,7 @@ module RubyLLM
           end
 
           def steps
-            steps_registry.dup.freeze
+            steps_registry.map { |s| s.dup.freeze }.freeze
           end
 
           # Internal mutable steps list for registration
