@@ -8,12 +8,12 @@ module RubyLLM
       module RetryExecutor
         private
 
-        def run_with_retry(input, adapter:, default_model:, policy:)
+        def run_with_retry(input, adapter:, default_model:, policy:, context_temperature: nil)
           all_attempts = []
 
           policy.max_attempts.times do |attempt_index|
             model = policy.model_for_attempt(attempt_index, default_model)
-            result = run_once(input, adapter: adapter, model: model)
+            result = run_once(input, adapter: adapter, model: model, context_temperature: context_temperature)
             all_attempts << { attempt: attempt_index + 1, model: model, result: result }
             break unless policy.retryable?(result)
           end

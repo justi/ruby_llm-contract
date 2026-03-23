@@ -67,13 +67,17 @@ module RubyLLM
 
       private
 
-      # Filter out stale hosts and prune registry
+      # Filter stale hosts, deduplicate by name (last wins), prune registry
       def live_eval_hosts
         alive, stale = eval_hosts.partition do |host|
           host.respond_to?(:eval_defined?) && host.eval_defined?
         end
         stale.each { |h| eval_hosts.delete(h) }
-        alive
+
+        # Deduplicate: if two classes share a name (reload), keep the latest
+        seen = {}
+        alive.each { |h| seen[h.name || h.object_id] = h }
+        seen.values
       end
 
       def auto_create_adapter!
