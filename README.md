@@ -6,7 +6,7 @@ Companion gem for [ruby_llm](https://github.com/crmne/ruby_llm).
 
 ## The problem
 
-You call an LLM. It returns bad JSON, wrong values, or costs 4x more than it should. You switch models and quality drops silently. You have no data to decide which model to use.
+You're paying for gpt-4.1 because you're not sure if nano is good enough. You changed a prompt last week and didn't notice accuracy dropped. You have no data to choose the right model — just intuition and hope.
 
 ## The fix
 
