@@ -119,19 +119,17 @@ RSpec.describe "Adversarial QA round 8 -- API contract violations" do
   # as strings, the adapter lookup fails because context[:adapter] returns nil
   # for string-keyed hashes.
   # ---------------------------------------------------------------------------
-  describe "BUG 42: String context keys are silently ignored" do
-    it "does not find adapter when key is a string" do
+  describe "BUG 42: String context keys are auto-symbolized" do
+    it "string key 'adapter' works (symbolized automatically)" do
       step = Class.new(RubyLLM::Contract::Step::Base) do
         prompt { user "{input}" }
+        output_type String
       end
 
       adapter = RubyLLM::Contract::Adapters::Test.new(response: "ok")
+      result = step.run("test", context: { "adapter" => adapter })
 
-      # String key "adapter" is not recognized
-      expect do
-        step.run("test", context: { "adapter" => adapter })
-      end.to raise_error(RubyLLM::Contract::Error, /No adapter configured/),
-             "String key 'adapter' is silently ignored, causing 'no adapter' crash"
+      expect(result.status).to eq(:ok)
     end
 
     it "works with symbol key :adapter" do
@@ -146,23 +144,16 @@ RSpec.describe "Adversarial QA round 8 -- API contract violations" do
       expect(result.status).to eq(:ok)
     end
 
-    it "warns about string keys that are known as symbols" do
+    it "mixed string/symbol keys both work" do
       step = Class.new(RubyLLM::Contract::Step::Base) do
         prompt { user "{input}" }
         output_type String
       end
 
       adapter = RubyLLM::Contract::Adapters::Test.new(response: "ok")
+      result = step.run("test", context: { "adapter" => adapter, model: "test" })
 
-      # warn is dispatched on the Step class singleton (private Kernel method)
-      warnings = []
-      allow(step).to receive(:warn) { |msg| warnings << msg }
-
-      step.run("test", context: { adapter: adapter, "model" => "gpt-4" })
-
-      warning_text = warnings.join(" ")
-      expect(warning_text).to include("Unknown context keys"),
-                              "Should warn about string key 'model'"
+      expect(result.status).to eq(:ok)
     end
   end
 

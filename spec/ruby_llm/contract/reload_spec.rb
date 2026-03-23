@@ -6,22 +6,24 @@ RSpec.describe "Eval reload lifecycle" do
     RubyLLM::Contract.reset_eval_hosts!
   end
 
-  describe "load_evals! clears and reloads" do
-    it "clears existing eval definitions before reloading" do
+  describe "load_evals! preserves inline, clears file-sourced" do
+    it "inline define_eval survives load_evals!" do
       step = Class.new(RubyLLM::Contract::Step::Base) do
         prompt { user "{input}" }
       end
 
-      step.define_eval("old_eval") do
+      step.define_eval("inline_eval") do
         default_input "test"
         sample_response({ v: 1 })
       end
 
-      expect(step.eval_names).to eq(["old_eval"])
+      expect(step.eval_names).to include("inline_eval")
 
-      # Simulate reload: clear_eval_definitions! removes old evals
-      step.clear_eval_definitions!
-      expect(step.eval_names).to eq([])
+      Dir.mktmpdir do |dir|
+        RubyLLM::Contract.load_evals!(dir)
+      end
+
+      expect(step.eval_names).to include("inline_eval")
     end
 
     it "reload flag suppresses warning on redefine" do
@@ -80,7 +82,10 @@ RSpec.describe "Eval reload lifecycle" do
       expect(RubyLLM::Contract.eval_hosts).to include(step)
 
       # Clear its evals (simulates reload where eval file was deleted)
-      step.clear_eval_definitions!
+      step.clear_file_sourced_evals!
+      # For this test, the eval was defined inline (not file-sourced),
+      # so we need to directly clear to simulate deletion
+      step.instance_variable_set(:@eval_definitions, {})
 
       # run_all_evals should skip it (live_eval_hosts filters)
       results = RubyLLM::Contract.run_all_evals

@@ -15,6 +15,7 @@ module RubyLLM
           if block
             @max_attempts = 1
             instance_eval(&block)
+            warn_no_retry! if @max_attempts == 1 && @models.empty?
           else
             apply_keywords(models: models, attempts: attempts, retry_on: retry_on)
           end
@@ -63,6 +64,11 @@ module RubyLLM
             @max_attempts = attempts || 1
           end
           @retryable_statuses = Array(retry_on).dup if retry_on
+        end
+
+        def warn_no_retry!
+          warn "[ruby_llm-contract] retry_policy has max_attempts=1 with no models. " \
+               "This means no actual retry will happen. Add `attempts 2` or `escalate %w[model1 model2]`."
         end
 
         def validate_max_attempts!

@@ -54,10 +54,13 @@ module RubyLLM
 
         return if dirs.empty?
 
-        # Suppress "redefining" warnings during file reload.
-        # Don't clear existing definitions — inline define_eval must survive.
-        # define_eval replaces same-name evals, so reloaded files update correctly.
+        # Clear only file-sourced evals (not inline). Then re-load.
+        # Handles: renamed evals, deleted files, changed definitions.
         Thread.current[:ruby_llm_contract_reloading] = true
+        eval_hosts.each do |host|
+          host.clear_file_sourced_evals! if host.respond_to?(:clear_file_sourced_evals!)
+        end
+
         dirs.each do |d|
           Dir[File.join(d, "**", "*_eval.rb")].each { |f| load f }
         end
@@ -67,17 +70,17 @@ module RubyLLM
 
       private
 
-      # Filter stale hosts, deduplicate by name (last wins), prune registry
+      # Filter stale hosts, deduplicate by name (last wins), prune registry in-place
       def live_eval_hosts
-        alive, stale = eval_hosts.partition do |host|
-          host.respond_to?(:eval_defined?) && host.eval_defined?
-        end
-        stale.each { |h| eval_hosts.delete(h) }
+        # Remove hosts without evals
+        @eval_hosts&.reject! { |h| !h.respond_to?(:eval_defined?) || !h.eval_defined? }
 
         # Deduplicate: if two classes share a name (reload), keep the latest
         seen = {}
-        alive.each { |h| seen[h.name || h.object_id] = h }
-        seen.values
+        @eval_hosts&.each { |h| seen[h.name || h.object_id] = h }
+        @eval_hosts = seen.values
+
+        @eval_hosts || []
       end
 
       def auto_create_adapter!
