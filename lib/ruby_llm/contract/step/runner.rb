@@ -85,22 +85,8 @@ module RubyLLM
           { model: @model }.tap do |opts|
             opts[:schema] = @output_schema if @output_schema
             opts[:max_tokens] = @max_output if @max_output
-            if @temperature
-              warn_temperature_ignored if temperature_ignored?
-              opts[:temperature] = @temperature
-            end
+            opts[:temperature] = @temperature if @temperature
           end
-        end
-
-        FIXED_TEMPERATURE_PATTERN = /^(o\d|gpt-5)/
-
-        def temperature_ignored?
-          @model&.match?(FIXED_TEMPERATURE_PATTERN)
-        end
-
-        def warn_temperature_ignored
-          warn "[ruby_llm-contract] temperature #{@temperature} set but #{@model} " \
-               "uses fixed temperature (1.0). Your setting will be ignored by the provider."
         end
 
         def build_error_result(error_result, messages)
