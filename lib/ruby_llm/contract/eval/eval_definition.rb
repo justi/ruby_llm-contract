@@ -44,11 +44,11 @@ module RubyLLM
         end
 
         def verify(description, expected_or_proc = nil, input: nil, expect: nil)
-          if expected_or_proc && expect
+          if !expected_or_proc.nil? && !expect.nil?
             raise ArgumentError, "verify accepts either a positional argument or expect: keyword, not both"
           end
 
-          expected_or_proc = expect if expect
+          expected_or_proc = expect unless expect.nil?
           case_input = input || @default_input
           validate_verify_args!(expected_or_proc, case_input)
 
@@ -85,7 +85,7 @@ module RubyLLM
         end
 
         def validate_verify_args!(expected_or_proc, case_input)
-          raise ArgumentError, "verify requires either a positional argument or expect: keyword" unless expected_or_proc
+          raise ArgumentError, "verify requires either a positional argument or expect: keyword" if expected_or_proc.nil?
           raise ArgumentError, "verify requires input (set default_input or pass input:)" unless case_input
         end
 

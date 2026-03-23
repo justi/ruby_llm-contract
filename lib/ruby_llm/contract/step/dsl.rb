@@ -168,7 +168,7 @@ module RubyLLM
         end
 
         def retry_policy(models: nil, attempts: nil, retry_on: nil, &block)
-          if block || models || attempts
+          if block || models || attempts || retry_on
             return @retry_policy = RetryPolicy.new(models: models, attempts: attempts, retry_on: retry_on, &block)
           end
 

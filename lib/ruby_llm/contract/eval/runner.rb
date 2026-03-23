@@ -82,7 +82,7 @@ module RubyLLM
             evaluate_with_custom(step_result, test_case)
           elsif test_case.expected_traits
             evaluate_traits(step_result, test_case)
-          elsif test_case.expected
+          elsif !test_case.expected.nil?
             evaluate_expected(step_result, test_case)
           else
             evaluate_contract_only
