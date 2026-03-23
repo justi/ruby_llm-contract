@@ -9,11 +9,11 @@ module RubyLLM
         attr_reader :messages, :model, :latency_ms, :usage, :attempts, :cost
 
         def initialize(messages: nil, model: nil, latency_ms: nil, usage: nil, attempts: nil, cost: nil)
-          @messages = messages
-          @model = model
+          @messages = deep_freeze(messages)
+          @model = model.frozen? ? model : model&.dup&.freeze
           @latency_ms = latency_ms
-          @usage = usage
-          @attempts = attempts
+          @usage = deep_freeze(usage)
+          @attempts = deep_freeze(attempts)
           @cost = cost || CostCalculator.calculate(model_name: model, usage: usage)
           freeze
         end
@@ -59,6 +59,16 @@ module RubyLLM
         end
 
         private
+
+        def deep_freeze(obj)
+          case obj
+          when Hash then obj.each_value { |v| deep_freeze(v) }.freeze
+          when Array then obj.each { |v| deep_freeze(v) }.freeze
+          when String then obj.freeze
+          when NilClass, Integer, Float, Symbol, TrueClass, FalseClass then obj
+          else obj.frozen? ? obj : obj.dup.freeze
+          end
+        end
 
         def build_summary_parts
           parts = [@model || "no-model"]

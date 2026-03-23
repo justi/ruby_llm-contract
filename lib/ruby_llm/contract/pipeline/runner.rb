@@ -13,7 +13,7 @@ module RubyLLM
           raise ArgumentError, "Pipeline has no steps defined" if steps.empty?
 
           @steps = steps
-          @context = context
+          @context = context || {}
           @timeout_ms = timeout_ms
           @token_budget = token_budget
         end
