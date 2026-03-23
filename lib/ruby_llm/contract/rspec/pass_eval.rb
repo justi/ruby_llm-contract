@@ -31,7 +31,7 @@ module RubyLLM
         private
 
         def build_header(eval_name, report, minimum_score, maximum_cost)
-          cost_str = report.total_cost > 0 ? ", cost: $#{format("%.4f", report.total_cost)}" : ""
+          cost_str = report.total_cost.positive? ? ", cost: $#{format("%.4f", report.total_cost)}" : ""
 
           if maximum_cost && report.total_cost > maximum_cost
             ["expected #{eval_name} eval cost <= $#{format("%.4f", maximum_cost)}, " \

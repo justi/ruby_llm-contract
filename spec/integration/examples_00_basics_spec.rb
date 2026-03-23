@@ -65,7 +65,8 @@ RSpec.describe "examples/00_basics.rb scenarios" do
       result = step2.run("I love this product!", context: { adapter: adapter })
 
       messages = result.trace[:messages]
-      expect(messages[0]).to eq({ role: :system, content: "Classify the sentiment of the user's text. Return JSON with a 'sentiment' key." })
+      expect(messages[0]).to eq({ role: :system,
+                                  content: "Classify the sentiment of the user's text. Return JSON with a 'sentiment' key." })
       expect(messages[1]).to eq({ role: :user, content: "I love this product!" })
     end
   end
@@ -347,7 +348,7 @@ RSpec.describe "examples/00_basics.rb scenarios" do
       parse :json
 
       invariant("translation must not be empty") do |o|
-        o[:translation].to_s.strip.length > 0
+        !o[:translation].to_s.strip.empty?
       end
 
       invariant("target_lang must match requested language") do |output, input|

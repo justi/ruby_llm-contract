@@ -8,7 +8,7 @@ module RubyLLM
 
         attr_reader :messages, :model, :latency_ms, :usage, :attempts, :cost
 
-        def initialize(messages: nil, model: nil, latency_ms: nil, usage: nil, attempts: nil, cost: nil) # rubocop:disable Metrics/ParameterLists
+        def initialize(messages: nil, model: nil, latency_ms: nil, usage: nil, attempts: nil, cost: nil)
           @messages = messages
           @model = model
           @latency_ms = latency_ms

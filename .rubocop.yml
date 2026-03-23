@@ -22,3 +22,34 @@ Metrics/MethodLength:
 
 Layout/LineLength:
   Max: 120
+
+Style/OneClassPerFile:
+  Exclude:
+    - 'spec/**/*'
+    - 'examples/**/*'
+
+Lint/UnusedBlockArgument:
+  Exclude:
+    - 'spec/**/*'
+
+Naming/VariableNumber:
+  Exclude:
+    - 'spec/**/*'
+    - 'examples/**/*'
+
+AllCops:
+  Exclude:
+    - 'internal/**/*'
+
+Metrics/ClassLength:
+  Max: 130
+
+Metrics/AbcSize:
+  Max: 30
+
+Metrics/ParameterLists:
+  Max: 11
+  MaxOptionalParameters: 9
+
+Style/FormatStringToken:
+  Enabled: false

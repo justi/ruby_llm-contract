@@ -47,6 +47,7 @@ module RubyLLM
           if expected_or_proc && expect
             raise ArgumentError, "verify accepts either a positional argument or expect: keyword, not both"
           end
+
           expected_or_proc = expect if expect
           case_input = input || @default_input
           validate_verify_args!(expected_or_proc, case_input)

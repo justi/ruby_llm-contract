@@ -15,7 +15,7 @@ RSpec.describe "DSL Simplification (GH-12)" do
 
         prompt { user "{input}" }
 
-        validate("has name") { |o| o[:name].to_s.size > 0 }
+        validate("has name") { |o| !o[:name].to_s.empty? }
         validate("age positive") { |o| o[:age].is_a?(Integer) && o[:age] > 0 }
       end
 
@@ -30,7 +30,7 @@ RSpec.describe "DSL Simplification (GH-12)" do
         input_type String
         output_type Hash
         prompt { user "{input}" }
-        validate("has name") { |o| o[:name].to_s.size > 0 }
+        validate("has name") { |o| !o[:name].to_s.empty? }
       end
 
       adapter = RubyLLM::Contract::Adapters::Test.new(response: '{"name": ""}')
@@ -197,10 +197,10 @@ RSpec.describe "DSL Simplification (GH-12)" do
   describe "Test adapter responses: array" do
     it "returns responses in order" do
       adapter = RubyLLM::Contract::Adapters::Test.new(responses: [
-        { a: 1 },
-        { b: 2 },
-        { c: 3 }
-      ])
+                                                        { a: 1 },
+                                                        { b: 2 },
+                                                        { c: 3 }
+                                                      ])
 
       r1 = adapter.call(messages: [])
       r2 = adapter.call(messages: [])
@@ -250,11 +250,10 @@ RSpec.describe "DSL Simplification (GH-12)" do
       pipeline.step s2, as: :second
 
       result = pipeline.test("hello",
-        responses: {
-          first: { greeting: "hi" },
-          second: { reply: "bye" }
-        }
-      )
+                             responses: {
+                               first: { greeting: "hi" },
+                               second: { reply: "bye" }
+                             })
 
       expect(result.status).to eq(:ok)
       expect(result.outputs_by_step[:first]).to eq({ greeting: "hi" })

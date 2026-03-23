@@ -32,7 +32,7 @@ RSpec.describe "Adversarial QA round 2 -- bug regressions" do
 
       # Should NOT be :input_error from NoMethodError
       expect(result.status).not_to eq(:input_error),
-        "user(42) should not cause input_error -- the prompt should render the integer as '42'"
+                                   "user(42) should not cause input_error -- the prompt should render the integer as '42'"
       expect(result.trace.messages.first[:content]).to eq("42")
     end
 
@@ -48,7 +48,7 @@ RSpec.describe "Adversarial QA round 2 -- bug regressions" do
       result = step.run("test", context: { adapter: adapter })
 
       expect(result.status).not_to eq(:input_error),
-        "system(:be_helpful) should not crash -- the symbol should be rendered as 'be_helpful'"
+                                   "system(:be_helpful) should not crash -- the symbol should be rendered as 'be_helpful'"
       system_msg = result.trace.messages.find { |m| m[:role] == :system }
       expect(system_msg[:content]).to eq("be_helpful")
     end
@@ -63,7 +63,7 @@ RSpec.describe "Adversarial QA round 2 -- bug regressions" do
       result = step.run({ count: 42 }, context: { adapter: adapter })
 
       expect(result.status).not_to eq(:input_error),
-        "dynamic prompt passing integer to user() should not crash"
+                                   "dynamic prompt passing integer to user() should not crash"
       expect(result.trace.messages.first[:content]).to eq("42")
     end
   end
@@ -89,7 +89,7 @@ RSpec.describe "Adversarial QA round 2 -- bug regressions" do
 
       # The section name should be literal "{input}", not "INJECTED"
       expect(content).to start_with("[{input}]"),
-        "Section name should be literal, not interpolated. Got: #{content.inspect}"
+                         "Section name should be literal, not interpolated. Got: #{content.inspect}"
       expect(content).not_to include("INJECTED")
     end
 
@@ -128,7 +128,7 @@ RSpec.describe "Adversarial QA round 2 -- bug regressions" do
       # Should NOT produce a second bracketed section header
       occurrences = content.scan(/^\[/).length
       expect(occurrences).to eq(1),
-        "Section name injection should be prevented. Got multi-section output: #{content.inspect}"
+                             "Section name injection should be prevented. Got multi-section output: #{content.inspect}"
     end
 
     it "sanitizes bracket-close from section names" do
@@ -142,9 +142,9 @@ RSpec.describe "Adversarial QA round 2 -- bug regressions" do
       # The section header should be on one line without a premature close bracket
       header_line = content.lines.first.strip
       expect(header_line).to match(/^\[.*\]$/),
-        "Section header should be a single well-formed [name] bracket"
+                             "Section header should be a single well-formed [name] bracket"
       expect(header_line.scan("]").length).to eq(1),
-        "Section header should have exactly one closing bracket"
+                                              "Section header should have exactly one closing bracket"
     end
   end
 
@@ -175,15 +175,15 @@ RSpec.describe "Adversarial QA round 2 -- bug regressions" do
     end
 
     it "raises ArgumentError for timeout_ms: 0" do
-      expect {
+      expect do
         pipeline.test("hello", responses: { step_a: { data: "ok" } }, timeout_ms: 0)
-      }.to raise_error(ArgumentError, /timeout_ms must be positive/)
+      end.to raise_error(ArgumentError, /timeout_ms must be positive/)
     end
 
     it "raises ArgumentError for negative timeout_ms" do
-      expect {
+      expect do
         pipeline.test("hello", responses: { step_a: { data: "ok" } }, timeout_ms: -100)
-      }.to raise_error(ArgumentError, /timeout_ms must be positive/)
+      end.to raise_error(ArgumentError, /timeout_ms must be positive/)
     end
 
     it "works normally with positive timeout_ms" do

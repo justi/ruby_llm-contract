@@ -122,7 +122,9 @@ RSpec.describe "Reddit Promo Planner — 5-step linear pipeline" do
       contract do
         parse :json
         invariant("valid classification") { |o| %w[PROMO FILLER SKIP].include?(o[:classification]) }
-        invariant("relevance_score in range") { |o| o[:relevance_score].is_a?(Integer) && o[:relevance_score].between?(1, 10) }
+        invariant("relevance_score in range") do |o|
+          o[:relevance_score].is_a?(Integer) && o[:relevance_score].between?(1, 10)
+        end
 
         invariant("PROMO score >= 6") do |o|
           o[:classification] != "PROMO" || o[:relevance_score] >= 6
@@ -150,7 +152,8 @@ RSpec.describe "Reddit Promo Planner — 5-step linear pipeline" do
         rule "Plan a helpful, non-spammy comment for the classified thread."
         rule "Return JSON with: approach, tone, key_points (array), link_strategy, target_length."
         rule "tone must be one of: casual, professional, empathetic."
-        section "GUIDELINES", "Never use aggressive marketing language.\nBe genuinely helpful first.\nMention product naturally."
+        section "GUIDELINES",
+                "Never use aggressive marketing language.\nBe genuinely helpful first.\nMention product naturally."
         user "{input}"
       end
 
@@ -194,7 +197,7 @@ RSpec.describe "Reddit Promo Planner — 5-step linear pipeline" do
 
         invariant("no spam phrases") do |o|
           comment = o[:comment].to_s.downcase
-          %w[buy\ now limited\ offer click\ here act\ fast discount].none? { |p| comment.include?(p) }
+          ["buy now", "limited offer", "click here", "act fast", "discount"].none? { |p| comment.include?(p) }
         end
 
         invariant("contains a link") do |o|
@@ -332,7 +335,7 @@ RSpec.describe "Reddit Promo Planner — 5-step linear pipeline" do
 
   describe "contract enforcement" do
     it "Step 1 rejects invalid locale" do
-      bad_response = { product_description: "A tool", locale: "ENGLISH", audience_groups: ["devs", "ops"] }.to_json
+      bad_response = { product_description: "A tool", locale: "ENGLISH", audience_groups: %w[devs ops] }.to_json
       adapter = RubyLLM::Contract::Adapters::Test.new(response: bad_response)
       result = analyze_product.run("https://example.com", context: { adapter: adapter })
 
@@ -361,7 +364,9 @@ RSpec.describe "Reddit Promo Planner — 5-step linear pipeline" do
     end
 
     it "Step 5 rejects comments without links" do
-      no_link = { comment: "I totally recommend checking out some invoicing tools, they helped me a lot with my business!", word_count: 15 }.to_json
+      no_link = {
+        comment: "I totally recommend checking out some invoicing tools, they helped me a lot with my business!", word_count: 15
+      }.to_json
       adapter = RubyLLM::Contract::Adapters::Test.new(response: no_link)
       input = JSON.parse(step4_response, symbolize_names: true)
       result = generate_comment.run(input, context: { adapter: adapter })
@@ -378,12 +383,12 @@ RSpec.describe "Reddit Promo Planner — 5-step linear pipeline" do
   describe "5-step Pipeline" do
     let(:adapter) do
       sequence_adapter_class.new(responses: [
-        step1_response,
-        step2_response,
-        step3_response,
-        step4_response,
-        step5_response
-      ])
+                                   step1_response,
+                                   step2_response,
+                                   step3_response,
+                                   step4_response,
+                                   step5_response
+                                 ])
     end
 
     let(:pipeline) do
@@ -441,12 +446,12 @@ RSpec.describe "Reddit Promo Planner — 5-step linear pipeline" do
     it "halts on step failure (fail-fast)" do
       # Step 3 returns bad classification → pipeline stops
       bad_adapter = sequence_adapter_class.new(responses: [
-        step1_response,
-        step2_response,
-        { classification: "PROMO", relevance_score: 2, reasoning: "Bad" }.to_json, # fails invariant
-        step4_response,
-        step5_response
-      ])
+                                                 step1_response,
+                                                 step2_response,
+                                                 { classification: "PROMO", relevance_score: 2, reasoning: "Bad" }.to_json, # fails invariant
+                                                 step4_response,
+                                                 step5_response
+                                               ])
 
       result = pipeline.run("https://invoiceninja.com", context: { adapter: bad_adapter })
 
@@ -476,8 +481,8 @@ RSpec.describe "Reddit Promo Planner — 5-step linear pipeline" do
       end
 
       slow_adapter = slow_adapter_class.new(responses: [
-        step1_response, step2_response, step3_response, step4_response, step5_response
-      ])
+                                              step1_response, step2_response, step3_response, step4_response, step5_response
+                                            ])
 
       # 30ms per step × 5 steps = 150ms total. Timeout at 80ms → should stop after ~2-3 steps
       result = pipeline.run("https://invoiceninja.com",
@@ -498,11 +503,13 @@ RSpec.describe "Reddit Promo Planner — 5-step linear pipeline" do
     it "evaluates comment generation against a dataset" do
       dataset = RubyLLM::Contract::Eval::Dataset.define do
         add_case "invoicing thread — good comment",
-                 input: { approach: "empathize then recommend", tone: "casual", key_points: ["recurring invoices"], link_strategy: "natural mention", target_length: "medium" },
+                 input: { approach: "empathize then recommend", tone: "casual", key_points: ["recurring invoices"],
+                          link_strategy: "natural mention", target_length: "medium" },
                  expected: { comment: /InvoiceNinja/ }
 
         add_case "invoicing thread — has link",
-                 input: { approach: "share experience", tone: "casual", key_points: ["payment reminders"], link_strategy: "after product mention", target_length: "short" },
+                 input: { approach: "share experience", tone: "casual", key_points: ["payment reminders"],
+                          link_strategy: "after product mention", target_length: "short" },
                  expected: { comment: %r{https?://} }
       end
 
@@ -801,7 +808,8 @@ RSpec.describe "Reddit Promo Planner — 5-step linear pipeline" do
       adapter = RubyLLM::Contract::Adapters::Test.new(response: step5_response)
 
       eval_result = generate_comment.eval_case(
-        input: { approach: "empathize", tone: "casual", key_points: ["invoicing"], link_strategy: "natural", target_length: "medium" },
+        input: { approach: "empathize", tone: "casual", key_points: ["invoicing"], link_strategy: "natural",
+                 target_length: "medium" },
         expected: { comment: /InvoiceNinja/ },
         context: { adapter: adapter }
       )
@@ -816,7 +824,8 @@ RSpec.describe "Reddit Promo Planner — 5-step linear pipeline" do
       )
 
       eval_result = generate_comment.eval_case(
-        input: { approach: "recommend", tone: "casual", key_points: [], link_strategy: "direct", target_length: "short" },
+        input: { approach: "recommend", tone: "casual", key_points: [], link_strategy: "direct",
+                 target_length: "short" },
         expected: { comment: /InvoiceNinja/ },
         context: { adapter: adapter }
       )

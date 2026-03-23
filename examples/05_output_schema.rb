@@ -114,9 +114,9 @@ end
 
 # Justified urgent:
 result = AnalyzeTicket.run({
-  title: "Projects disappeared",
-  body: "All my projects are gone. This is a data loss emergency."
-})
+                             title: "Projects disappeared",
+                             body: "All my projects are gone. This is a data loss emergency."
+                           })
 result.status # => :ok
 
 # Unjustified urgent:
@@ -127,9 +127,9 @@ RubyLLM::Contract.configure do |c|
 end
 
 result = AnalyzeTicket.run({
-  title: "Slow page",
-  body: "Dashboard takes 5 seconds to load."
-})
+                             title: "Slow page",
+                             body: "Dashboard takes 5 seconds to load."
+                           })
 result.status            # => :validation_failed
 result.validation_errors # => ["urgent requires justification"]
 

@@ -43,7 +43,7 @@ RSpec.describe "Adversarial QA round 9 -- multi-component interaction bugs" do
       end
       call_count = 0
       adapter = Class.new(RubyLLM::Contract::Adapters::Base) do
-        define_method(:call) do |messages:, **opts|
+        define_method(:call) do |messages:, **_opts|
           call_count += 1
           content = case call_count
                     when 1 # step1 -- returns valid JSON
@@ -95,14 +95,14 @@ RSpec.describe "Adversarial QA round 9 -- multi-component interaction bugs" do
       # Verify attempt statuses
       attempt_statuses = step2_result.trace.attempts.map { |a| a[:status] }
       expect(attempt_statuses).to eq(%i[parse_error validation_failed ok]),
-                                    "Attempts should be: parse_error, validation_failed, ok. " \
-                                    "Got: #{attempt_statuses.inspect}"
+                                  "Attempts should be: parse_error, validation_failed, ok. " \
+                                  "Got: #{attempt_statuses.inspect}"
 
       # Verify model escalation
       attempt_models = step2_result.trace.attempts.map { |a| a[:model] }
       expect(attempt_models).to eq(%w[nano mini full]),
-                                   "Models should escalate: nano, mini, full. " \
-                                   "Got: #{attempt_models.inspect}"
+                                "Models should escalate: nano, mini, full. " \
+                                "Got: #{attempt_models.inspect}"
 
       # Pipeline trace should aggregate usage from all steps including retries
       total_usage = result.trace.total_usage
@@ -136,8 +136,6 @@ RSpec.describe "Adversarial QA round 9 -- multi-component interaction bugs" do
   # ---------------------------------------------------------------------------
   describe "SCENARIO 2: Retry + deep_freeze -- no shared state between attempts" do
     it "each retry attempt produces independent parsed_output" do
-      attempt_outputs = []
-
       step = Class.new(RubyLLM::Contract::Step::Base) do
         prompt { |input| user "Process: #{input}" }
         input_type String
@@ -176,9 +174,9 @@ RSpec.describe "Adversarial QA round 9 -- multi-component interaction bugs" do
       expect(result.parsed_output).to be_frozen,
                                       "Successful parsed_output should be deep-frozen"
       expect(result.parsed_output[:items]).to be_frozen,
-                                             "Nested array should be deep-frozen"
+                                              "Nested array should be deep-frozen"
       expect(result.parsed_output[:items][0]).to be_frozen,
-                                                "Nested hash items should be deep-frozen"
+                                                 "Nested hash items should be deep-frozen"
 
       # Verify 3 attempts happened
       expect(result.trace.attempts.length).to eq(3)
@@ -245,7 +243,7 @@ RSpec.describe "Adversarial QA round 9 -- multi-component interaction bugs" do
       # Adapter returns prose-wrapped, code-fenced JSON with an extra "extra" key
       fenced_response = "Sure! Here's the JSON:\n\n```json\n{\"items\": [{\"name\": \"test\", \"extra\": true}]}\n```\n\nHope this helps!"
 
-      step = Class.new(RubyLLM::Contract::Step::Base) do
+      Class.new(RubyLLM::Contract::Step::Base) do
         prompt { user "{input}" }
         output_type RubyLLM::Contract::Types::Hash
         contract { parse :json }
@@ -254,18 +252,18 @@ RSpec.describe "Adversarial QA round 9 -- multi-component interaction bugs" do
       # First verify the parser chain works
       parsed = RubyLLM::Contract::Parser.parse(fenced_response, strategy: :json)
       expect(parsed).to eq({ items: [{ name: "test", extra: true }] }),
-                          "Parser should extract JSON from code-fenced prose"
+                        "Parser should extract JSON from code-fenced prose"
 
       # Now verify schema validation catches the extra property
       errors = RubyLLM::Contract::SchemaValidator.validate(parsed, schema_class.new)
       expect(errors).not_to be_empty,
                             "Schema validator should catch 'extra' property with additionalProperties: false"
       expect(errors.join).to include("extra"),
-                            "Error should mention the 'extra' property"
+                             "Error should mention the 'extra' property"
     end
 
     it "end-to-end: step with schema rejects extra properties in nested items from code-fenced response" do
-      step = Class.new(RubyLLM::Contract::Step::Base) do
+      Class.new(RubyLLM::Contract::Step::Base) do
         prompt { user "{input}" }
         output_type RubyLLM::Contract::Types::Hash
       end
@@ -299,7 +297,7 @@ RSpec.describe "Adversarial QA round 9 -- multi-component interaction bugs" do
 
       parsed = RubyLLM::Contract::Parser.parse(prose_wrapped, strategy: :json)
       expect(parsed).to eq({ items: [{ name: "extracted" }] }),
-                          "Parser should extract JSON from prose using bracket-matching"
+                        "Parser should extract JSON from prose using bracket-matching"
 
       errors = RubyLLM::Contract::SchemaValidator.validate(parsed, schema_class.new)
       expect(errors).to be_empty
@@ -395,7 +393,7 @@ RSpec.describe "Adversarial QA round 9 -- multi-component interaction bugs" do
       if result.status == :timeout
         expect(result.outputs_by_step).to have_key(:first)
         expect(result.outputs_by_step).to have_key(:second),
-                                         "Step 2 succeeded, so its output should be in outputs_by_step even on timeout"
+                                          "Step 2 succeeded, so its output should be in outputs_by_step even on timeout"
       else
         expect(result.status).to eq(:ok),
                                  "If not timeout, should be :ok"
@@ -414,7 +412,7 @@ RSpec.describe "Adversarial QA round 9 -- multi-component interaction bugs" do
   # ---------------------------------------------------------------------------
   describe "SCENARIO 5: Eval with schema + validate + verify interaction" do
     it "eval runs full validation chain: parse, schema, validate, then verify" do
-      schema_obj = Class.new do
+      Class.new do
         def to_json_schema
           {
             schema: {
@@ -442,7 +440,7 @@ RSpec.describe "Adversarial QA round 9 -- multi-component interaction bugs" do
 
           # ProcEvaluator calls proc with positional args: proc.call(output) or proc.call(output, input)
           # Return true/false (not EvaluationResult) -- ProcEvaluator wraps the return value
-          verify "name is present", ->(output) {
+          verify "name is present", lambda { |output|
             output.is_a?(Hash) && output[:name].is_a?(String) && !output[:name].empty?
           }
         end
@@ -468,7 +466,7 @@ RSpec.describe "Adversarial QA round 9 -- multi-component interaction bugs" do
           sample_response({ name: "Alice", score: 42 })
 
           # ProcEvaluator wraps true/false into EvaluationResult
-          verify "score must be exactly 100", ->(output) {
+          verify "score must be exactly 100", lambda { |output|
             output[:score] == 100
           }
         end
@@ -502,7 +500,7 @@ RSpec.describe "Adversarial QA round 9 -- multi-component interaction bugs" do
       expect(report.passed?).to be(false),
                                 "Eval should fail when sample_response fails contract validate"
       expect(report.results.first.step_status).to eq(:validation_failed),
-                                                 "Step status should be :validation_failed"
+                                                  "Step status should be :validation_failed"
     end
   end
 
@@ -629,7 +627,7 @@ RSpec.describe "Adversarial QA round 9 -- multi-component interaction bugs" do
 
     it "handles frozen string literals from source code" do
       # In files with # frozen_string_literal: true, string literals are frozen
-      frozen_str = "frozen".freeze
+      frozen_str = "frozen"
       data = { key: frozen_str }
 
       expect { validator.send(:deep_freeze, data) }.not_to raise_error,
@@ -681,7 +679,9 @@ RSpec.describe "Adversarial QA round 9 -- multi-component interaction bugs" do
 
       expect(result.status).to eq(:ok),
                                "Pipeline.test with Hash responses should succeed. " \
-                               "Got: #{result.status}, errors: #{result.step_results.map { |sr| sr[:result].validation_errors }.inspect}"
+                               "Got: #{result.status}, errors: #{result.step_results.map do |sr|
+                                 sr[:result].validation_errors
+                               end.inspect}"
 
       # Keys should be symbolized (Parser.parse_json handles Hash input via symbolize_keys)
       expect(result.outputs_by_step[:first]).to eq({ name: "Alice", age: 30 })
@@ -708,7 +708,7 @@ RSpec.describe "Adversarial QA round 9 -- multi-component interaction bugs" do
       expect(output).to have_key(:string_key),
                         "String keys should be symbolized"
       expect(output[:nested]).to have_key(:inner),
-                                "Nested string keys should be symbolized recursively"
+                                 "Nested string keys should be symbolized recursively"
     end
 
     it "Pipeline.test with validate invariant that crosses input/output" do
@@ -724,10 +724,10 @@ RSpec.describe "Adversarial QA round 9 -- multi-component interaction bugs" do
         contract { parse :json }
         prompt { |i| user "step2: #{i.to_json}" }
         # 2-arity validate: cross-check output against input
-        validate("output must reference input name") { |output, input|
+        validate("output must reference input name") do |output, input|
           input.is_a?(Hash) && output.is_a?(Hash) &&
             output[:source] == input[:name]
-        }
+        end
       end
 
       pipeline = Class.new(RubyLLM::Contract::Pipeline::Base) do
@@ -758,10 +758,10 @@ RSpec.describe "Adversarial QA round 9 -- multi-component interaction bugs" do
         output_type RubyLLM::Contract::Types::Hash
         contract { parse :json }
         prompt { |i| user "step2: #{i.to_json}" }
-        validate("output must reference input name") { |output, input|
+        validate("output must reference input name") do |output, input|
           input.is_a?(Hash) && output.is_a?(Hash) &&
             output[:source] == input[:name]
-        }
+        end
       end
 
       pipeline = Class.new(RubyLLM::Contract::Pipeline::Base) do
@@ -824,7 +824,7 @@ RSpec.describe "Adversarial QA round 9 -- multi-component interaction bugs" do
 
       call_count = 0
       adapter = Class.new(RubyLLM::Contract::Adapters::Base) do
-        define_method(:call) do |messages:, **opts|
+        define_method(:call) do |messages:, **_opts|
           call_count += 1
           content = call_count < 3 ? "not json" : '{"result": "ok"}'
           RubyLLM::Contract::Adapters::Response.new(
@@ -851,7 +851,7 @@ RSpec.describe "Adversarial QA round 9 -- multi-component interaction bugs" do
       # we can only document this structural issue.
       expect(result.trace.attempts.length).to eq(3)
       expect(result.trace.attempts.map { |a| a[:model] }).to eq(%w[gpt-4o-mini gpt-4o gpt-4]),
-                                                               "Per-attempt models should be tracked for correct cost attribution"
+                                                             "Per-attempt models should be tracked for correct cost attribution"
     end
   end
 
@@ -961,8 +961,8 @@ RSpec.describe "Adversarial QA round 9 -- multi-component interaction bugs" do
       result = pipeline.run("hello", context: { adapter: adapter })
 
       expect(result.status).to eq(:ok)
-      expect(models_seen).to eq(["gpt-4o-mini", "gpt-4"]),
-                              "Per-step model overrides should be passed to adapter. Got: #{models_seen.inspect}"
+      expect(models_seen).to eq(%w[gpt-4o-mini gpt-4]),
+                             "Per-step model overrides should be passed to adapter. Got: #{models_seen.inspect}"
     end
   end
 
@@ -1053,7 +1053,7 @@ RSpec.describe "Adversarial QA round 9 -- multi-component interaction bugs" do
       expect(report.passed?).to be(true),
                                 "String-keyed Hash sample_response should work end-to-end"
       expect(report.results.first.output).to have_key(:name),
-                                           "Output keys should be symbolized"
+                                             "Output keys should be symbolized"
     end
   end
 
@@ -1079,8 +1079,8 @@ RSpec.describe "Adversarial QA round 9 -- multi-component interaction bugs" do
           call_count += 1
           content = case call_count
                     when 1 then "this is not JSON at all"
-                    when 2 then '{"name": ""}'        # empty name fails validate
-                    when 3 then '{"name": "Charlie"}'  # succeeds
+                    when 2 then '{"name": ""}' # empty name fails validate
+                    when 3 then '{"name": "Charlie"}' # succeeds
                     end
           RubyLLM::Contract::Adapters::Response.new(
             content: content,
@@ -1093,11 +1093,11 @@ RSpec.describe "Adversarial QA round 9 -- multi-component interaction bugs" do
 
       expect(result.status).to eq(:ok)
       expect(result.parsed_output).to eq({ name: "Charlie" }),
-                                       "Result should reflect the successful attempt's output"
+                                      "Result should reflect the successful attempt's output"
       expect(result.raw_output).to eq('{"name": "Charlie"}'),
                                    "raw_output should be from the successful attempt"
       expect(result.validation_errors).to be_empty,
-                                         "No validation errors on success"
+                                          "No validation errors on success"
 
       # Verify attempt history
       attempts = result.trace.attempts
@@ -1128,8 +1128,6 @@ RSpec.describe "Adversarial QA round 9 -- multi-component interaction bugs" do
         validate("must have status field") { |o| o.key?(:status) }
         retry_policy attempts: 2
       end
-
-      step3_inputs = []
       step3 = Class.new(RubyLLM::Contract::Step::Base) do
         input_type RubyLLM::Contract::Types::Hash
         output_type RubyLLM::Contract::Types::Hash
@@ -1145,7 +1143,7 @@ RSpec.describe "Adversarial QA round 9 -- multi-component interaction bugs" do
                     when 1 then '{"name": "Alice"}'              # step1
                     when 2 then '{"missing_status": true}'       # step2 attempt 1 (fails validate)
                     when 3 then '{"status": "ok", "name": "Alice"}' # step2 attempt 2 (success)
-                    when 4 then '{"done": true}'                 # step3
+                    when 4 then '{"done": true}' # step3
                     end
           RubyLLM::Contract::Adapters::Response.new(
             content: content,

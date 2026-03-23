@@ -222,7 +222,7 @@ RSpec.describe "Step end-to-end integration" do
       messages = result.trace[:messages]
       messages.each do |msg|
         expect(msg[:content].to_s.strip).not_to be_empty,
-          "nil/blank content leaked to messages: #{msg.inspect}"
+                                                "nil/blank content leaked to messages: #{msg.inspect}"
       end
     end
 
@@ -247,7 +247,7 @@ RSpec.describe "Step end-to-end integration" do
 
         prompt do |input|
           system "Classify."
-          section "DATA", input[:data].upcase  # will crash if data is nil
+          section "DATA", input[:data].upcase # will crash if data is nil
           user "go"
         end
 

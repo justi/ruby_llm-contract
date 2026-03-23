@@ -31,8 +31,8 @@ module RubyLLM
       end
 
       def run_all_evals(context: {})
-        live_eval_hosts.each_with_object({}) do |host, results|
-          results[host] = host.run_eval(context: context)
+        live_eval_hosts.to_h do |host|
+          [host, host.run_eval(context: context)]
         end
       end
 
@@ -62,7 +62,7 @@ module RubyLLM
         end
 
         dirs.each do |d|
-          Dir[File.join(d, "**", "*_eval.rb")].sort.each { |f| load f }
+          Dir[File.join(d, "**", "*_eval.rb")].each { |f| load f }
         end
       ensure
         Thread.current[:ruby_llm_contract_reloading] = false
@@ -105,4 +105,4 @@ require_relative "contract/step"
 require_relative "contract/pipeline"
 require_relative "contract/eval"
 require_relative "contract/dsl"
-require_relative "contract/railtie" if defined?(::Rails::Railtie)
+require_relative "contract/railtie" if defined?(Rails::Railtie)

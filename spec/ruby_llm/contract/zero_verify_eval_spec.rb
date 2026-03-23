@@ -12,7 +12,7 @@ RSpec.describe "Zero-verify eval (ADR-0005)" do
         end
 
         prompt "Classify: {input}"
-        validate("has intent") { |o| o[:intent].to_s.size > 0 }
+        validate("has intent") { |o| !o[:intent].to_s.empty? }
         validate("high confidence") { |o| o[:confidence] > 0.5 }
       end
 
@@ -69,12 +69,12 @@ RSpec.describe "Zero-verify eval (ADR-0005)" do
         prompt "Test: {input}"
       end
 
-      expect {
+      expect do
         step.define_eval("bad") do
           default_input "test"
           sample_response({ intent: "INVALID_ENUM" })
         end
-      }.to raise_error(ArgumentError, /sample_response.*schema/i)
+      end.to raise_error(ArgumentError, /sample_response.*schema/i)
     end
 
     it "passes silently when sample is valid" do
@@ -85,12 +85,12 @@ RSpec.describe "Zero-verify eval (ADR-0005)" do
         prompt "Test: {input}"
       end
 
-      expect {
+      expect do
         step.define_eval("good") do
           default_input "test"
           sample_response({ intent: "billing" })
         end
-      }.not_to raise_error
+      end.not_to raise_error
     end
 
     it "skips pre-validation when step has no schema" do
@@ -98,12 +98,12 @@ RSpec.describe "Zero-verify eval (ADR-0005)" do
         prompt "Test: {input}"
       end
 
-      expect {
+      expect do
         step.define_eval("ok") do
           default_input "test"
           sample_response({ anything: "goes" })
         end
-      }.not_to raise_error
+      end.not_to raise_error
     end
   end
 

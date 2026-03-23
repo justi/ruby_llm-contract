@@ -55,9 +55,9 @@ RSpec.describe RubyLLM::Contract::Pipeline::Result do
       adapter = RubyLLM::Contract::Adapters::Test.new(response: '{"result": "ok"}')
       result = pipeline.run("test", context: { adapter: adapter })
 
-      expect {
+      expect do
         result.step_results[0][:alias] = "hijacked"
-      }.to raise_error(FrozenError)
+      end.to raise_error(FrozenError)
     end
 
     it "prevents injection of arbitrary keys into step results" do
@@ -74,9 +74,9 @@ RSpec.describe RubyLLM::Contract::Pipeline::Result do
       adapter = RubyLLM::Contract::Adapters::Test.new(response: '{"result": "ok"}')
       result = pipeline.run("test", context: { adapter: adapter })
 
-      expect {
+      expect do
         result.step_results[0][:injected] = "malicious"
-      }.to raise_error(FrozenError)
+      end.to raise_error(FrozenError)
     end
   end
 

@@ -47,15 +47,15 @@ RSpec.describe "output_schema with nested objects in arrays" do
 
       prompt "Analyze: {input}"
       validate("has groups") { |o| o[:groups].is_a?(Array) && o[:groups].size >= 1 }
-      validate("groups have who") { |o| o[:groups].all? { |g| g[:who].to_s.size > 0 } }
+      validate("groups have who") { |o| o[:groups].all? { |g| !g[:who].to_s.empty? } }
       validate("groups have tags") { |o| o[:groups].all? { |g| g[:tags].is_a?(Array) } }
     end
 
     response = {
       locale: "en",
       groups: [
-        { who: "I am a freelancer", tags: ["invoicing", "billing"] },
-        { who: "I run a small shop", tags: ["retail", "pos"] }
+        { who: "I am a freelancer", tags: %w[invoicing billing] },
+        { who: "I run a small shop", tags: %w[retail pos] }
       ]
     }.to_json
 
@@ -65,7 +65,7 @@ RSpec.describe "output_schema with nested objects in arrays" do
     expect(result.status).to eq(:ok)
     expect(result.parsed_output[:groups].size).to eq(2)
     expect(result.parsed_output[:groups][0][:who]).to eq("I am a freelancer")
-    expect(result.parsed_output[:groups][0][:tags]).to eq(["invoicing", "billing"])
+    expect(result.parsed_output[:groups][0][:tags]).to eq(%w[invoicing billing])
   end
 
   it "WRONG: array without object wrapper produces flat string items (documents the pitfall)" do

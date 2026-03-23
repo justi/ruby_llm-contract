@@ -16,7 +16,7 @@ RSpec.describe "Technical audit findings" do
 
       call_count = 0
       adapter = Object.new
-      adapter.define_singleton_method(:call) do |**opts|
+      adapter.define_singleton_method(:call) do |**_opts|
         call_count += 1
         # All attempts fail validation so we get retry with escalation
         RubyLLM::Contract::Adapters::Response.new(

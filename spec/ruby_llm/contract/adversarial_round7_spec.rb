@@ -154,16 +154,16 @@ RSpec.describe "Adversarial QA round 7 -- security and stress" do
 
       # Should succeed (not crash) and return the first object
       expect(result).to eq({ a: 1 }),
-                          "Parser should extract first JSON object from concatenated input"
+                        "Parser should extract first JSON object from concatenated input"
     end
 
     it "extracts first JSON array from concatenated input" do
-      text = '[1,2][3,4]'
+      text = "[1,2][3,4]"
 
       result = RubyLLM::Contract::Parser.parse(text, strategy: :json)
 
       expect(result).to eq([1, 2]),
-                          "Parser should extract first JSON array from concatenated input"
+                        "Parser should extract first JSON array from concatenated input"
     end
   end
 
