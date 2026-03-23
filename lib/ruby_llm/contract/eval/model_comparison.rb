@@ -8,7 +8,7 @@ module RubyLLM
 
         def initialize(eval_name:, reports:)
           @eval_name = eval_name
-          @reports = reports.freeze # { "model_name" => Report }
+          @reports = reports.dup.freeze # { "model_name" => Report }
           freeze
         end
 
