@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.3.5 (2026-03-24)
+
+- **String constraints in SchemaValidator** — `minLength`/`maxLength` enforced for root and nested strings.
+- **Array item validation** — scalar items (string, integer) validated against items schema type and constraints.
+- **Non-JSON sample_response fails fast** — `sample_response("hello")` with object schema raises ArgumentError at definition time instead of silently passing.
+- **`max_tokens` in KNOWN_CONTEXT_KEYS** — no more spurious "Unknown context keys" warning.
+- **Duplicate models deduplicated** — `compare_models(models: ["m", "m"])` runs model once.
+
 ## 0.3.4 (2026-03-24)
 
 - **SchemaValidator validates non-object roots** — boolean, integer, number, array root schemas now enforce type, min/max, enum, minItems/maxItems. Previously only object schemas were validated.

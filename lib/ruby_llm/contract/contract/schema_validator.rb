@@ -50,8 +50,15 @@ module RubyLLM
         validate_constraints(errors, @output, @json_schema, "root")
 
         if expected_type == "array" && @output.is_a?(Array) && @json_schema[:items]
+          items_schema = @json_schema[:items]
           @output.each_with_index do |item, i|
-            validate_object(item, @json_schema[:items], prefix: "[#{i}]") if item.is_a?(Hash) && @json_schema[:items].key?(:properties)
+            if item.is_a?(Hash) && items_schema.key?(:properties)
+              validate_object(item, items_schema, prefix: "[#{i}]")
+            else
+              item_type = items_schema[:type]&.to_s
+              validate_type_match(errors, item, item_type, "[#{i}]") if item_type
+              validate_constraints(errors, item, items_schema, "[#{i}]")
+            end
           end
           errors.concat(@errors)
           @errors = []
@@ -87,6 +94,12 @@ module RubyLLM
         end
         if schema[:maxItems] && value.is_a?(Array) && value.length > schema[:maxItems]
           errors << "#{prefix}: array has #{value.length} items, maximum #{schema[:maxItems]}"
+        end
+        if schema[:minLength] && value.is_a?(String) && value.length < schema[:minLength]
+          errors << "#{prefix}: string length #{value.length} is less than minLength #{schema[:minLength]}"
+        end
+        if schema[:maxLength] && value.is_a?(String) && value.length > schema[:maxLength]
+          errors << "#{prefix}: string length #{value.length} is greater than maxLength #{schema[:maxLength]}"
         end
       end
 

@@ -46,6 +46,7 @@ module RubyLLM
 
         def compare_models(eval_name, models:, context: {})
           context ||= {}
+          models = models.uniq
           reports = models.each_with_object({}) do |model, hash|
             model_context = deep_dup_context(context).merge(model: model)
             hash[model] = run_single_eval(eval_name, model_context)
