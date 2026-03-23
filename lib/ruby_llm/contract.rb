@@ -20,7 +20,7 @@ module RubyLLM
         @configuration = Configuration.new
       end
 
-      # --- Eval host registry (P3 fix) ---
+      # --- Eval host registry ---
 
       def register_eval_host(klass)
         eval_hosts << klass unless eval_hosts.include?(klass)
@@ -31,7 +31,7 @@ module RubyLLM
       end
 
       def run_all_evals(context: {})
-        eval_hosts.select(&:eval_defined?).each_with_object({}) do |host, results|
+        live_eval_hosts.each_with_object({}) do |host, results|
           results[host] = host.run_eval(context: context)
         end
       end
@@ -52,19 +52,35 @@ module RubyLLM
                  []
                end
 
+        return if dirs.empty?
+
+        # Clear existing eval definitions before reload to prevent stale state.
+        # Thread-local flag suppresses the "redefining" warning during reload.
+        Thread.current[:ruby_llm_contract_reloading] = true
+        eval_hosts.each do |host|
+          host.clear_eval_definitions! if host.respond_to?(:clear_eval_definitions!)
+        end
+
         dirs.each do |d|
           Dir[File.join(d, "**", "*_eval.rb")].sort.each { |f| load f }
         end
+      ensure
+        Thread.current[:ruby_llm_contract_reloading] = false
       end
 
       private
 
+      # Filter out GC'd anonymous classes and classes that no longer have evals
+      def live_eval_hosts
+        eval_hosts.select do |host|
+          host.respond_to?(:eval_defined?) && host.eval_defined?
+        end
+      end
+
       def auto_create_adapter!
         require "ruby_llm"
-        # If RubyLLM has any API key configured, auto-create the adapter
         configuration.default_adapter = Adapters::RubyLLM.new
       rescue LoadError
-        # ruby_llm not available — user must set adapter manually
         nil
       end
     end
