@@ -1,5 +1,8 @@
 # frozen_string_literal: true
 
+require "json"
+require "fileutils"
+
 module RubyLLM
   module Contract
     module Eval
@@ -78,6 +81,28 @@ module RubyLLM
           lines.join("\n")
         end
 
+        def save_baseline!(path: nil)
+          file = path || default_baseline_path
+          FileUtils.mkdir_p(File.dirname(file))
+          File.write(file, JSON.pretty_generate(serialize_for_baseline))
+          file
+        end
+
+        def compare_with_baseline(path: nil)
+          file = path || default_baseline_path
+          raise ArgumentError, "No baseline found at #{file}" unless File.exist?(file)
+
+          baseline_data = JSON.parse(File.read(file), symbolize_names: true)
+          BaselineDiff.new(
+            baseline_cases: baseline_data[:cases],
+            current_cases: results.map { |r| serialize_case(r) }
+          )
+        end
+
+        def baseline_exists?(path: nil)
+          File.exist?(path || default_baseline_path)
+        end
+
         def print_summary(io = $stdout)
           io.puts summary
           io.puts
@@ -104,6 +129,30 @@ module RubyLLM
 
         def evaluated_results
           results.reject { |r| r.step_status == :skipped }
+        end
+
+        def default_baseline_path
+          File.join(".eval_baselines", dataset_name.to_s.gsub(/[^a-zA-Z0-9_-]/, "_") + ".json")
+        end
+
+        def serialize_for_baseline
+          {
+            dataset_name: dataset_name,
+            score: score,
+            total_cost: total_cost,
+            timestamp: Time.now.iso8601,
+            cases: results.map { |r| serialize_case(r) }
+          }
+        end
+
+        def serialize_case(result)
+          {
+            name: result.name,
+            passed: result.passed?,
+            score: result.score,
+            details: result.details,
+            cost: result.cost
+          }
         end
 
         def format_cost(cost)

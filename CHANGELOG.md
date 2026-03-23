@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.3.0 (2026-03-23)
+
+Baseline regression detection — know when quality drops before users do.
+
+### Features
+
+- **`report.save_baseline!`** — serialize eval results to `.eval_baselines/` (JSON, git-tracked)
+- **`report.compare_with_baseline`** — returns `BaselineDiff` with regressions, improvements, score_delta, new/removed cases
+- **`diff.regressed?`** — true when any previously-passing case now fails
+- **`without_regressions` RSpec chain** — `expect(Step).to pass_eval("x").without_regressions`
+- **RakeTask `fail_on_regression`** — blocks CI when regressions detected
+- **RakeTask `save_baseline`** — auto-save after successful run
+- **Migration guide** — `docs/guide/migration.md` with 7 patterns for adopting the gem in existing Rails apps
+
+### Stats
+
+- 1086 tests, 0 failures
+
 ## 0.2.3 (2026-03-23)
 
 Production hardening from senior Rails review panel.

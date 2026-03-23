@@ -143,9 +143,9 @@ Works with any ruby_llm provider (OpenAI, Anthropic, Gemini, etc).
 
 ## Roadmap
 
-**v0.2 (current):** Model comparison, cost tracking, eval with `add_case`, CI gating, Rails Railtie.
+**v0.3 (current):** Baseline regression detection — `save_baseline!`, `compare_with_baseline`, `without_regressions`. Migration guide.
 
-**v0.3:** Regression baselines — compare eval results with previous run, detect quality drift.
+**v0.2:** Model comparison, cost tracking, eval with `add_case`, CI gating, Rails Railtie.
 
 **v0.4:** Auto-routing — learn which model works for which input pattern.
 
