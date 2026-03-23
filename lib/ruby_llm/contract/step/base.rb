@@ -69,8 +69,16 @@ module RubyLLM
             if policy
               run_with_retry(input, adapter: adapter, default_model: default_model, policy: policy)
             else
-              run_once(input, adapter: adapter, model: default_model)
+              run_once(input, adapter: adapter, model: default_model, context_temperature: context[:temperature])
             end
+          end
+
+          def build_messages(input)
+            dynamic = prompt.arity >= 1
+            ast = Prompt::Builder.build(input: dynamic ? input : nil, &prompt)
+            variables = dynamic ? {} : { input: input }
+            variables.merge!(input.transform_keys(&:to_sym)) if !dynamic && input.is_a?(Hash)
+            Prompt::Renderer.render(ast, variables: variables)
           end
 
           private
@@ -91,13 +99,21 @@ module RubyLLM
                                             "{ |c| c.default_adapter = ... } or pass context: { adapter: ... }"
           end
 
-          def run_once(input, adapter:, model:)
-            Runner.new(
+          def run_once(input, adapter:, model:, context_temperature: nil)
+            effective_temp = context_temperature || temperature
+            runner = Runner.new(
               input_type: input_type, output_type: output_type,
               prompt_block: prompt, contract_definition: effective_contract,
               adapter: adapter, model: model, output_schema: output_schema,
-              max_output: max_output, max_input: max_input, max_cost: max_cost
-            ).call(input)
+              max_output: max_output, max_input: max_input, max_cost: max_cost,
+              temperature: effective_temp
+            )
+
+            if around_call
+              around_call.call(self, input) { runner.call(input) }
+            else
+              runner.call(input)
+            end
           rescue ArgumentError => e
             Result.new(status: :input_error, raw_output: nil, parsed_output: nil,
                        validation_errors: [e.message])
@@ -116,14 +132,6 @@ module RubyLLM
               extra_invariants: extra,
               parse_override: inferred_parse && !has_own_contract ? inferred_parse : nil
             )
-          end
-
-          def build_messages(input)
-            dynamic = prompt.arity >= 1
-            ast = Prompt::Builder.build(input: dynamic ? input : nil, &prompt)
-            variables = dynamic ? {} : { input: input }
-            variables.merge!(input.transform_keys(&:to_sym)) if !dynamic && input.is_a?(Hash)
-            Prompt::Renderer.render(ast, variables: variables)
           end
 
           def json_compatible_type?(type)
