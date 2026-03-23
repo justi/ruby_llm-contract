@@ -67,11 +67,13 @@ module RubyLLM
 
       private
 
-      # Filter out GC'd anonymous classes and classes that no longer have evals
+      # Filter out stale hosts and prune registry
       def live_eval_hosts
-        eval_hosts.select do |host|
+        alive, stale = eval_hosts.partition do |host|
           host.respond_to?(:eval_defined?) && host.eval_defined?
         end
+        stale.each { |h| eval_hosts.delete(h) }
+        alive
       end
 
       def auto_create_adapter!
