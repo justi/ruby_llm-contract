@@ -50,21 +50,32 @@ module RubyLLM
         validate_constraints(errors, @output, @json_schema, "root")
 
         if expected_type == "array" && @output.is_a?(Array) && @json_schema[:items]
-          items_schema = @json_schema[:items]
-          @output.each_with_index do |item, i|
-            if item.is_a?(Hash) && items_schema.key?(:properties)
-              validate_object(item, items_schema, prefix: "[#{i}]")
-            else
-              item_type = items_schema[:type]&.to_s
-              validate_type_match(errors, item, item_type, "[#{i}]") if item_type
-              validate_constraints(errors, item, items_schema, "[#{i}]")
-            end
-          end
-          errors.concat(@errors)
-          @errors = []
+          validate_array_items(errors, @output, @json_schema[:items], "")
         end
 
         errors
+      end
+
+      def validate_array_items(errors, array, items_schema, prefix)
+        array.each_with_index do |item, i|
+          item_prefix = "#{prefix}[#{i}]"
+          validate_value(errors, item, items_schema, item_prefix)
+        end
+      end
+
+      def validate_value(errors, value, schema, prefix)
+        value_type = schema[:type]&.to_s
+
+        validate_type_match(errors, value, value_type, prefix) if value_type
+        validate_constraints(errors, value, schema, prefix)
+
+        if value.is_a?(Hash) && (schema.key?(:properties) || value_type == "object")
+          validate_object(value, schema, prefix: prefix)
+          errors.concat(@errors)
+          @errors = []
+        elsif value.is_a?(Array) && schema[:items]
+          validate_array_items(errors, value, schema[:items], prefix)
+        end
       end
 
       def validate_type_match(errors, value, expected_type, prefix)

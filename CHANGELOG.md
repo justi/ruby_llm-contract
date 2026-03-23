@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.3.6 (2026-03-24)
+
+- **Recursive array/object validation** — nested arrays (`array of array of string`) validated recursively. Object items validated even without `:properties` (e.g. `additionalProperties: false`).
+- **Deep symbolize in sample pre-validation** — array samples with string keys (`[{"name" => "Alice"}]`) correctly symbolized before schema validation.
+
 ## 0.3.5 (2026-03-24)
 
 - **String constraints in SchemaValidator** — `minLength`/`maxLength` enforced for root and nested strings.
