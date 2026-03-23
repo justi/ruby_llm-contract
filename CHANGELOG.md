@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.3.2 (2026-03-23)
+
+- **Array response preserved** — `Adapters::RubyLLM` no longer stringifies Array content. Steps with `output_type Array` work correctly.
+- **Falsy prompt input** — `run(false)` and `build_messages(false)` pass `false` to dynamic prompt blocks instead of falling back to `instance_eval`.
+- **`retry_on` flatten** — `retry_on([:a, :b])` no longer wraps in nested array.
+- **Builder reset** — `Prompt::Builder` resets nodes on each build (no accumulation on reuse).
+- **Pipeline false output** — `output: false` no longer shows "(no output)" in pretty_print.
+
 ## 0.3.1 (2026-03-23)
 
 Fixes from persona_tool production deployment (4 services migrated).
