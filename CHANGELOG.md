@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.2.2 (2026-03-23)
+
+Fixes from first real-world integration (persona_tool).
+
+- **`around_call` fires per-run** — not per-attempt. With retry_policy, callback fires once with final result. Signature: `around_call { |step, input, result| ... }`
+- **`Result#trace` always `Trace` object** — never bare Hash. `result.trace.model` works on success AND failure.
+- **`around_call` exception safe** — warns and returns result instead of crashing.
+- **`model` DSL** — `model "gpt-4o-mini"` per-step. Priority: context > step DSL > global config.
+- **Test adapter `raw_output` always String** — Hash/Array normalized to `.to_json`.
+- **`Trace#dig`** — `trace.dig(:usage, :input_tokens)` works.
+
 ## 0.2.1 (2026-03-23)
 
 Production DX improvements from first real-world integration (persona_tool).
