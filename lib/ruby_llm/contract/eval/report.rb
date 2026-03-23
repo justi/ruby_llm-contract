@@ -82,26 +82,27 @@ module RubyLLM
           lines.join("\n")
         end
 
-        def save_baseline!(path: nil)
-          file = path || default_baseline_path
+        def save_baseline!(path: nil, model: nil)
+          file = path || default_baseline_path(model: model)
           FileUtils.mkdir_p(File.dirname(file))
           File.write(file, JSON.pretty_generate(serialize_for_baseline))
           file
         end
 
-        def compare_with_baseline(path: nil)
-          file = path || default_baseline_path
+        def compare_with_baseline(path: nil, model: nil)
+          file = path || default_baseline_path(model: model)
           raise ArgumentError, "No baseline found at #{file}" unless File.exist?(file)
 
           baseline_data = JSON.parse(File.read(file), symbolize_names: true)
+          validate_baseline!(baseline_data)
           BaselineDiff.new(
             baseline_cases: baseline_data[:cases],
             current_cases: results.map { |r| serialize_case(r) }
           )
         end
 
-        def baseline_exists?(path: nil)
-          File.exist?(path || default_baseline_path)
+        def baseline_exists?(path: nil, model: nil)
+          File.exist?(path || default_baseline_path(model: model))
         end
 
         def print_summary(io = $stdout)
@@ -132,9 +133,21 @@ module RubyLLM
           results.reject { |r| r.step_status == :skipped }
         end
 
-        def default_baseline_path
-          prefix = @step_name ? "#{sanitize_name(@step_name)}/" : ""
-          File.join(".eval_baselines", "#{prefix}#{sanitize_name(dataset_name)}.json")
+        def default_baseline_path(model: nil)
+          parts = [".eval_baselines"]
+          parts << sanitize_name(@step_name) if @step_name
+          name = sanitize_name(dataset_name)
+          name = "#{name}_#{sanitize_name(model)}" if model
+          parts << "#{name}.json"
+          File.join(*parts)
+        end
+
+        def validate_baseline!(data)
+          return unless data[:dataset_name]
+
+          if data[:dataset_name] != dataset_name
+            raise ArgumentError, "Baseline is for '#{data[:dataset_name]}', not '#{dataset_name}'"
+          end
         end
 
         def sanitize_name(name)

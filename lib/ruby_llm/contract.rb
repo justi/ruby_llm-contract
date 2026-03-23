@@ -54,13 +54,10 @@ module RubyLLM
 
         return if dirs.empty?
 
-        # Clear existing eval definitions before reload to prevent stale state.
-        # Thread-local flag suppresses the "redefining" warning during reload.
+        # Suppress "redefining" warnings during file reload.
+        # Don't clear existing definitions — inline define_eval must survive.
+        # define_eval replaces same-name evals, so reloaded files update correctly.
         Thread.current[:ruby_llm_contract_reloading] = true
-        eval_hosts.each do |host|
-          host.clear_eval_definitions! if host.respond_to?(:clear_eval_definitions!)
-        end
-
         dirs.each do |d|
           Dir[File.join(d, "**", "*_eval.rb")].each { |f| load f }
         end
