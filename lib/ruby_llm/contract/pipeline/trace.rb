@@ -11,8 +11,8 @@ module RubyLLM
         def initialize(trace_id: nil, total_latency_ms: nil, total_usage: nil, step_traces: nil)
           @trace_id = trace_id
           @total_latency_ms = total_latency_ms
-          @total_usage = total_usage
-          @step_traces = step_traces
+          @total_usage = total_usage.frozen? ? total_usage : total_usage&.dup&.freeze
+          @step_traces = step_traces.frozen? ? step_traces : step_traces&.dup&.freeze
           @total_cost = calculate_total_cost
           freeze
         end

@@ -36,6 +36,7 @@ module RubyLLM
         end
 
         def run_eval(name = nil, context: {})
+          context ||= {}
           if name
             run_single_eval(name, context)
           else
@@ -44,6 +45,7 @@ module RubyLLM
         end
 
         def compare_models(eval_name, models:, context: {})
+          context ||= {}
           reports = models.each_with_object({}) do |model, hash|
             model_context = deep_dup_context(context).merge(model: model)
             hash[model] = run_single_eval(eval_name, model_context)
