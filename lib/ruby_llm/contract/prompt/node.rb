@@ -7,8 +7,8 @@ module RubyLLM
         attr_reader :type, :content
 
         def initialize(type:, content:)
-          @type = type.freeze
-          @content = content.freeze
+          @type = type
+          @content = content.frozen? ? content : content.dup.freeze
           freeze
         end
 

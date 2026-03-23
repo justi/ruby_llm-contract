@@ -42,13 +42,15 @@ module RubyLLM
       end
 
       class Case
+        include Concerns::DeepFreeze
+
         attr_reader :name, :input, :expected, :expected_traits, :evaluator
 
         def initialize(name:, input:, expected: nil, expected_traits: nil, evaluator: nil)
           @name = name
-          @input = input
-          @expected = expected
-          @expected_traits = expected_traits
+          @input = deep_dup_freeze(input)
+          @expected = deep_dup_freeze(expected)
+          @expected_traits = deep_dup_freeze(expected_traits)
           @evaluator = evaluator
           freeze
         end

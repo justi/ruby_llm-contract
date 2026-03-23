@@ -8,8 +8,8 @@ module RubyLLM
           attr_reader :input, :output
 
           def initialize(input:, output:)
-            @input = input.freeze
-            @output = output.freeze
+            @input = input.frozen? ? input : input.dup.freeze
+            @output = output.frozen? ? output : output.dup.freeze
             super(type: :example, content: nil)
           end
 

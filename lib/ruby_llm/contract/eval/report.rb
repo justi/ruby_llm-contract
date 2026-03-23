@@ -12,7 +12,7 @@ module RubyLLM
         def initialize(dataset_name:, results:, step_name: nil)
           @dataset_name = dataset_name
           @step_name = step_name
-          @results = results.freeze
+          @results = results.dup.freeze
           freeze
         end
 
