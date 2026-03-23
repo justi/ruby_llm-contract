@@ -55,12 +55,11 @@ This gives you: `satisfy_contract`, `pass_eval` matchers, and the `stub_step` he
 
 ## stub_step Helper
 
-Reduces test boilerplate — sets a global test adapter for a step:
+Stubs a specific step to return a canned response. Other steps are unaffected:
 
 ```ruby
 RSpec.describe ClassifyIntent do
   before { stub_step(described_class, response: { intent: "billing" }) }
-  after  { RubyLLM::Contract.reset_configuration! }
 
   it "satisfies contract" do
     result = described_class.run("Change my invoice")
@@ -72,6 +71,11 @@ end
 For multiple responses:
 ```ruby
 stub_step(described_class, responses: [{ intent: "billing" }, { intent: "sales" }])
+```
+
+To stub ALL steps globally:
+```ruby
+stub_all_steps(response: { default: true })
 ```
 
 ## RSpec Matchers
