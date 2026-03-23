@@ -1,5 +1,41 @@
 # Changelog
 
+## 0.2.1 (2026-03-23)
+
+Production DX improvements from first real-world integration (persona_tool).
+
+### Features
+
+- **`temperature` DSL** — `temperature 0.3` in step definition, overridable via `context: { temperature: 0.7 }`. RubyLLM handles per-model normalization natively.
+- **`around_call` hook** — callback for logging, metrics, observability. Replaces need for custom middleware.
+- **`build_messages` public** — inspect rendered prompt without running the step.
+- **`stub_step` RSpec helper** — `stub_step(MyStep, response: { ... })` reduces test boilerplate. Auto-included via `require "ruby_llm/contract/rspec"`.
+- **`estimate_cost` / `estimate_eval_cost`** — predict spend before API calls.
+
+### Fixes
+
+- **Reload lifecycle** — `load_evals!` clears definitions before re-loading. Railtie hooks `config.to_prepare` for development reload. `define_eval` warns on duplicate name (suppressed during reload).
+- **Pipeline eval cost** — uses `Pipeline::Trace#total_cost` (all steps), not just last step.
+- **Adapter isolation** — `compare_models` and `run_all_own_evals` deep-dup context per run.
+- **Offline mode** — cases without adapter return `:skipped` instead of crashing. Skipped cases excluded from score.
+- **`expected_traits`** reachable from `define_eval` DSL via `add_case`.
+- **`verify`** raises when both positional and `expect:` keyword provided.
+- **`best_for`** excludes zero-score models from recommendation.
+- **`print_summary`** replaces `pretty_print` (avoids `Kernel#pretty_print` shadow).
+- **`CaseResult#to_h`** round-trips correctly (`name:` key).
+
+### Docs
+
+- All 5 guides updated for v0.2 API
+- Symbol keys documented
+- Retry model priority documented
+- Test adapter format documented
+
+### Stats
+
+- 1077 tests, 0 failures
+- 3 architecture review rounds, 32 findings fixed
+
 ## 0.2.0 (2026-03-23)
 
 Contracts for LLM quality. Know which model to use, what it costs, and when accuracy drops.
