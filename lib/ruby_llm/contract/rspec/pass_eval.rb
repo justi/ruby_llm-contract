@@ -64,12 +64,18 @@ RSpec::Matchers.define :pass_eval do |eval_name|
     @maximum_cost = cost
   end
 
+  chain :without_regressions do
+    @check_regressions = true
+  end
+
   match do |step_or_pipeline|
     @eval_name = eval_name
     @context ||= {}
     @minimum_score ||= nil
     @maximum_cost ||= nil
+    @check_regressions ||= false
     @error = nil
+    @diff = nil
     @report = step_or_pipeline.run_eval(eval_name, context: @context)
 
     score_ok = if @minimum_score
@@ -80,7 +86,14 @@ RSpec::Matchers.define :pass_eval do |eval_name|
 
     cost_ok = @maximum_cost ? @report.total_cost <= @maximum_cost : true
 
-    score_ok && cost_ok
+    regression_ok = if @check_regressions && @report.baseline_exists?
+                      @diff = @report.compare_with_baseline
+                      !@diff.regressed?
+                    else
+                      true
+                    end
+
+    score_ok && cost_ok && regression_ok
   rescue StandardError => e
     @error = e
     false

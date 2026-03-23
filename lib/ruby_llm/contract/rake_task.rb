@@ -6,7 +6,8 @@ require "rake/tasklib"
 module RubyLLM
   module Contract
     class RakeTask < ::Rake::TaskLib
-      attr_accessor :name, :context, :fail_on_empty, :minimum_score, :maximum_cost, :eval_dirs
+      attr_accessor :name, :context, :fail_on_empty, :minimum_score, :maximum_cost,
+                    :eval_dirs, :save_baseline, :fail_on_regression
 
       def initialize(name = :"ruby_llm_contract:eval", &block)
         super()
@@ -16,6 +17,8 @@ module RubyLLM
         @minimum_score = nil # nil = require 100%; float = threshold
         @maximum_cost = nil  # nil = no cost limit; float = budget cap (suite-level)
         @eval_dirs = []      # directories to load eval files from (non-Rails)
+        @save_baseline = false
+        @fail_on_regression = false
         block&.call(self)
         define_task
       end
@@ -49,6 +52,8 @@ module RubyLLM
               report.print_summary
               suite_cost += report.total_cost
               gate_passed = false unless report_meets_score?(report)
+              gate_passed = false if check_regression(report)
+              save_baseline!(report) if @save_baseline && gate_passed
             end
           end
 
@@ -68,6 +73,24 @@ module RubyLLM
         else
           report.passed?
         end
+      end
+
+      def check_regression(report)
+        return false unless @fail_on_regression && report.baseline_exists?
+
+        diff = report.compare_with_baseline
+        if diff.regressed?
+          puts "\n  REGRESSIONS DETECTED:"
+          puts "  #{diff}"
+          true
+        else
+          false
+        end
+      end
+
+      def save_baseline!(report)
+        path = report.save_baseline!
+        puts "  Baseline saved: #{path}"
       end
 
       def task_prerequisites
