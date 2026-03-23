@@ -143,10 +143,11 @@ module RubyLLM
         end
 
         def validate_baseline!(data)
-          return unless data[:dataset_name]
-
-          if data[:dataset_name] != dataset_name
-            raise ArgumentError, "Baseline is for '#{data[:dataset_name]}', not '#{dataset_name}'"
+          if data[:dataset_name] && data[:dataset_name] != dataset_name
+            raise ArgumentError, "Baseline eval '#{data[:dataset_name]}' does not match '#{dataset_name}'"
+          end
+          if data[:step_name] && @step_name && data[:step_name] != @step_name
+            raise ArgumentError, "Baseline step '#{data[:step_name]}' does not match '#{@step_name}'"
           end
         end
 
@@ -157,6 +158,7 @@ module RubyLLM
         def serialize_for_baseline
           {
             dataset_name: dataset_name,
+            step_name: @step_name,
             score: score,
             total_cost: total_cost,
             cases: evaluated_results.map { |r| serialize_case(r) }

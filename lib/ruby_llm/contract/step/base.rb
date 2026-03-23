@@ -61,6 +61,7 @@ module RubyLLM
           KNOWN_CONTEXT_KEYS = %i[adapter model temperature max_tokens schema provider assume_model_exists].freeze
 
           def run(input, context: {})
+            context = context.transform_keys(&:to_sym)
             warn_unknown_context_keys(context)
             adapter = resolve_adapter(context)
             default_model = context[:model] || model || RubyLLM::Contract.configuration.default_model

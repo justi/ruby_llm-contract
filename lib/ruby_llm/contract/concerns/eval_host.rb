@@ -6,6 +6,7 @@ module RubyLLM
       module EvalHost
         def define_eval(name, &)
           @eval_definitions ||= {}
+          @file_sourced_evals ||= Set.new
           key = name.to_s
 
           if @eval_definitions.key?(key) && !Thread.current[:ruby_llm_contract_reloading]
@@ -14,12 +15,16 @@ module RubyLLM
           end
 
           @eval_definitions[key] = Eval::EvalDefinition.new(key, step_class: self, &)
+          @file_sourced_evals.add(key) if Thread.current[:ruby_llm_contract_reloading]
           Contract.register_eval_host(self)
           register_subclasses(self)
         end
 
-        def clear_eval_definitions!
-          @eval_definitions = {}
+        def clear_file_sourced_evals!
+          return unless defined?(@file_sourced_evals) && defined?(@eval_definitions)
+
+          @file_sourced_evals.each { |key| @eval_definitions.delete(key) }
+          @file_sourced_evals.clear
         end
 
         def eval_names
