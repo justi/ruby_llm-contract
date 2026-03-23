@@ -25,6 +25,13 @@ module RubyLLM
           public_send(key)
         end
 
+        def dig(key, *rest)
+          value = self[key]
+          return value if rest.empty? || value.nil?
+
+          value.dig(*rest)
+        end
+
         def to_h
           { trace_id: @trace_id, total_latency_ms: @total_latency_ms,
             total_usage: @total_usage, step_traces: @step_traces,
