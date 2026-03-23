@@ -29,8 +29,7 @@ module RubyLLM
         desc "Run all ruby_llm-contract evals"
         task(@name => task_prerequisites) do
           require "ruby_llm/contract"
-          @eval_dirs.each { |dir| RubyLLM::Contract.load_evals!(dir) }
-          RubyLLM::Contract.load_evals!
+          RubyLLM::Contract.load_evals!(*@eval_dirs)
 
           results = RubyLLM::Contract.run_all_evals(context: @context)
 
