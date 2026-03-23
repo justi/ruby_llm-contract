@@ -68,11 +68,13 @@ module RubyLLM
             policy = retry_policy
 
             ctx_temp = context[:temperature]
+            extra = context.slice(:provider, :assume_model_exists, :schema, :max_tokens)
             result = if policy
                        run_with_retry(input, adapter: adapter, default_model: default_model,
-                                      policy: policy, context_temperature: ctx_temp)
+                                      policy: policy, context_temperature: ctx_temp, extra_options: extra)
                      else
-                       run_once(input, adapter: adapter, model: default_model, context_temperature: ctx_temp)
+                       run_once(input, adapter: adapter, model: default_model,
+                                context_temperature: ctx_temp, extra_options: extra)
                      end
 
             invoke_around_call(input, result)
@@ -104,14 +106,14 @@ module RubyLLM
                                             "{ |c| c.default_adapter = ... } or pass context: { adapter: ... }"
           end
 
-          def run_once(input, adapter:, model:, context_temperature: nil)
+          def run_once(input, adapter:, model:, context_temperature: nil, extra_options: {})
             effective_temp = context_temperature || temperature
             Runner.new(
               input_type: input_type, output_type: output_type,
               prompt_block: prompt, contract_definition: effective_contract,
               adapter: adapter, model: model, output_schema: output_schema,
               max_output: max_output, max_input: max_input, max_cost: max_cost,
-              temperature: effective_temp
+              temperature: effective_temp, extra_options: extra_options
             ).call(input)
           rescue ArgumentError => e
             Result.new(status: :input_error, raw_output: nil, parsed_output: nil,
