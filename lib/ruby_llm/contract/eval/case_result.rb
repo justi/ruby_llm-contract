@@ -67,6 +67,7 @@ module RubyLLM
         def match?(expected_value, actual)
           case expected_value
           when ::Regexp then actual.to_s.match?(expected_value)
+          when ::Range then expected_value.include?(actual)
           else expected_value == actual
           end
         end

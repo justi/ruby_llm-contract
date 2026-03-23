@@ -27,6 +27,8 @@ module RubyLLM
               "missing key: #{key}"
             elsif expected_value.is_a?(::Regexp)
               mismatch_message(key, expected_value, actual) unless actual.to_s.match?(expected_value)
+            elsif expected_value.is_a?(::Range)
+              mismatch_message(key, expected_value, actual) unless expected_value.include?(actual)
             elsif actual != expected_value
               mismatch_message(key, expected_value, actual)
             end
