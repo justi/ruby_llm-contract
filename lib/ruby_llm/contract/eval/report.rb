@@ -97,7 +97,7 @@ module RubyLLM
           validate_baseline!(baseline_data)
           BaselineDiff.new(
             baseline_cases: baseline_data[:cases],
-            current_cases: evaluated_results.map { |r| serialize_case(r) }
+            current_cases: results.map { |r| serialize_case(r) }
           )
         end
 

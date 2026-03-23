@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.3.3 (2026-03-23)
+
+- **Skipped cases visible in regression diff** — baseline PASS → current SKIP now detected as regression by `without_regressions` and `fail_on_regression`.
+- **Skip only on missing adapter** — eval runner no longer masks evaluator errors as SKIP. Only "No adapter configured" triggers skip.
+- **Array/Hash sample pre-validation** — `sample_response([{...}])` correctly validated against schema instead of silently skipping.
+- **`assume_model_exists: false` forwarded** — boolean `false` no longer dropped by truthiness check in adapter options.
+- **Duplicate case names caught at definition** — `add_case`/`verify` with same name raises immediately, not at run time.
+
 ## 0.3.2 (2026-03-23)
 
 - **Array response preserved** — `Adapters::RubyLLM` no longer stringifies Array content. Steps with `output_type Array` work correctly.

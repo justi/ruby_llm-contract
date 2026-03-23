@@ -34,6 +34,7 @@ module RubyLLM
         def add_case(description, input: nil, expected: nil, expected_traits: nil, evaluator: nil)
           case_input = input.nil? ? @default_input : input
           raise ArgumentError, "add_case requires input (set default_input or pass input:)" if case_input.nil?
+          validate_unique_case_name!(description)
 
           @cases << {
             name: description,
@@ -52,6 +53,7 @@ module RubyLLM
           expected_or_proc = expect unless expect.nil?
           case_input = input.nil? ? @default_input : input
           validate_verify_args!(expected_or_proc, case_input)
+          validate_unique_case_name!(description)
 
           evaluator = expected_or_proc.is_a?(::Proc) ? expected_or_proc : nil
 
@@ -85,6 +87,12 @@ module RubyLLM
           [{ name: "contract check", input: @default_input, expected: nil, evaluator: nil }]
         end
 
+        def validate_unique_case_name!(name)
+          return unless @cases.any? { |c| c[:name] == name }
+
+          raise ArgumentError, "Duplicate case name '#{name}' in eval '#{@name}'. Case names must be unique."
+        end
+
         def validate_verify_args!(expected_or_proc, case_input)
           raise ArgumentError, "verify requires either a positional argument or expect: keyword" if expected_or_proc.nil?
           raise ArgumentError, "verify requires input (set default_input or pass input:)" if case_input.nil?
@@ -103,8 +111,11 @@ module RubyLLM
         end
 
         def validate_sample_against_schema(schema)
-          response_hash = @sample_response.is_a?(Hash) ? @sample_response : JSON.parse(@sample_response.to_s)
-          symbolized = Parser.symbolize_keys(response_hash)
+          parsed = case @sample_response
+                   when Hash, Array then @sample_response
+                   else JSON.parse(@sample_response.to_json)
+                   end
+          symbolized = parsed.is_a?(Hash) ? Parser.symbolize_keys(parsed) : parsed
           SchemaValidator.validate(symbolized, schema)
         end
       end

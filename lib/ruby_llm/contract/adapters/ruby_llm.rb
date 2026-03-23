@@ -43,8 +43,8 @@ module RubyLLM
 
         def chat_constructor_options(options)
           opts = { model: options[:model] }
-          opts[:provider] = options[:provider] if options[:provider]
-          opts[:assume_model_exists] = options[:assume_model_exists] if options[:assume_model_exists]
+          opts[:provider] = options[:provider] if options.key?(:provider)
+          opts[:assume_model_exists] = options[:assume_model_exists] if options.key?(:assume_model_exists)
           opts
         end
 
