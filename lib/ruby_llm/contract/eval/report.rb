@@ -146,7 +146,6 @@ module RubyLLM
             dataset_name: dataset_name,
             score: score,
             total_cost: total_cost,
-            timestamp: Time.now.iso8601,
             cases: results.map { |r| serialize_case(r) }
           }
         end

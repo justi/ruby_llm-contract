@@ -23,8 +23,13 @@ module RubyLLM
         # dataset.case "name", input: {...}, expected_traits: {...}
         # dataset.case "name", input: {...}, evaluator: proc
         def add_case(name = nil, input:, expected: nil, expected_traits: nil, evaluator: nil)
+          case_name = name || "case_#{@cases.length + 1}"
+          if @cases.any? { |c| c.name == case_name }
+            raise ArgumentError, "Duplicate case name '#{case_name}'. Case names must be unique within a dataset."
+          end
+
           @cases << Case.new(
-            name: name || "case_#{@cases.length + 1}",
+            name: case_name,
             input: input,
             expected: expected,
             expected_traits: expected_traits,

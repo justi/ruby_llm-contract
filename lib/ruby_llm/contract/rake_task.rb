@@ -59,14 +59,15 @@ module RubyLLM
             end
           end
 
-          passed_reports.each { |r| save_baseline!(r) } if @save_baseline
-
           if @maximum_cost && suite_cost > @maximum_cost
             abort "\nEval suite FAILED: total cost $#{format("%.4f", suite_cost)} " \
                   "exceeds budget $#{format("%.4f", @maximum_cost)}"
           end
 
           abort "\nEval suite FAILED" unless gate_passed
+
+          # Save baselines only after ALL gates pass
+          passed_reports.each { |r| save_baseline!(r) } if @save_baseline
           puts "\nAll evals passed."
         end
       end
