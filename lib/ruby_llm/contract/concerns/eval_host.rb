@@ -80,7 +80,7 @@ module RubyLLM
         end
 
         def eval_context(defn, context)
-          context = context.transform_keys { |k| k.respond_to?(:to_sym) ? k.to_sym : k }
+          context = (context || {}).transform_keys { |k| k.respond_to?(:to_sym) ? k.to_sym : k }
           return context if context[:adapter]
 
           sample_adapter = defn.build_adapter

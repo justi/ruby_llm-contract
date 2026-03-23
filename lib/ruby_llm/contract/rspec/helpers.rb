@@ -40,11 +40,7 @@ module RubyLLM
         end
 
         def normalize_test_response(value)
-          case value
-          when nil then nil
-          when String then value
-          else value.to_json
-          end
+          value
         end
       end
     end
