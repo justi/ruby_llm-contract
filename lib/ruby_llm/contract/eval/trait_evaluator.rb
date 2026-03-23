@@ -26,6 +26,8 @@ module RubyLLM
 
         def trait_error(key, value, expectation)
           case expectation
+          when ::Proc
+            trait_proc_error(key, value, expectation)
           when ::Regexp
             trait_regexp_error(key, value, expectation)
           when Range
@@ -54,6 +56,10 @@ module RubyLLM
 
         def trait_falsy_error(key, value)
           "#{key}: expected falsy, got #{value.inspect}" if value
+        end
+
+        def trait_proc_error(key, value, expectation)
+          "#{key}: trait check failed, got #{value.inspect}" unless expectation.call(value)
         end
 
         def trait_equality_error(key, value, expectation)

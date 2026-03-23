@@ -51,6 +51,10 @@ module RubyLLM
 
         return if dirs.empty?
 
+        # In Rails, eager-load parent directories so contract classes
+        # are available when eval files reference them.
+        eager_load_contract_dirs! if defined?(::Rails)
+
         # Clear file-sourced evals ONCE, then load ALL dirs.
         Thread.current[:ruby_llm_contract_reloading] = true
         eval_hosts.each do |host|
@@ -77,6 +81,18 @@ module RubyLLM
         @eval_hosts = seen.values
 
         @eval_hosts || []
+      end
+
+      def eager_load_contract_dirs!
+        %w[app/contracts app/steps].each do |path|
+          full = ::Rails.root.join(path)
+          next unless full.exist?
+
+          ::Rails.autoloaders.main.eager_load_dir(full.to_s)
+        rescue StandardError
+          # Zeitwerk not available or dir not managed — skip
+          nil
+        end
       end
 
       def auto_create_adapter!
