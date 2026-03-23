@@ -2,10 +2,20 @@
 
 ## Test Adapter
 
-Ship deterministic specs with zero API calls:
+Ship deterministic specs with zero API calls. The adapter accepts String, Hash, or Array:
 
 ```ruby
+# String JSON
 adapter = RubyLLM::Contract::Adapters::Test.new(response: '{"intent":"billing"}')
+
+# Hash — auto-converted to JSON
+adapter = RubyLLM::Contract::Adapters::Test.new(response: { intent: "billing" })
+
+# Multiple sequential responses
+adapter = RubyLLM::Contract::Adapters::Test.new(
+  responses: [{ intent: "billing" }, { intent: "sales" }]
+)
+
 result = ClassifyIntent.run("Change my invoice", context: { adapter: adapter })
 result.ok?  # => true
 ```
@@ -22,7 +32,18 @@ result = MyPipeline.test("input",
 )
 ```
 
-## RSpec Matchers
+## Output keys are always symbols
+
+Parsed output uses **symbol keys**, never string keys:
+
+```ruby
+result.parsed_output[:priority]   # => "high" ✓
+result.parsed_output["priority"]  # => nil ✗
+```
+
+The gem warns if a `validate` or `verify` block returns `nil` — usually a sign of string key access on symbolized data.
+
+## RSpec Setup
 
 Add to your `spec_helper.rb`:
 
@@ -30,35 +51,48 @@ Add to your `spec_helper.rb`:
 require "ruby_llm/contract/rspec"
 ```
 
-Then test your steps with clean, expressive assertions:
+This gives you: `satisfy_contract`, `pass_eval` matchers, and the `stub_step` helper.
+
+## stub_step Helper
+
+Reduces test boilerplate — sets a global test adapter for a step:
 
 ```ruby
 RSpec.describe ClassifyIntent do
-  let(:adapter) { RubyLLM::Contract::Adapters::Test.new(response: '{"intent":"billing"}') }
+  before { stub_step(described_class, response: { intent: "billing" }) }
+  after  { RubyLLM::Contract.reset_configuration! }
 
   it "satisfies contract" do
-    result = described_class.run("Change my invoice", context: { adapter: adapter })
+    result = described_class.run("Change my invoice")
+    expect(result).to satisfy_contract
+  end
+end
+```
+
+For multiple responses:
+```ruby
+stub_step(described_class, responses: [{ intent: "billing" }, { intent: "sales" }])
+```
+
+## RSpec Matchers
+
+```ruby
+RSpec.describe ClassifyIntent do
+  before { stub_step(described_class, response: { intent: "billing" }) }
+
+  it "satisfies contract" do
+    result = described_class.run("Change my invoice")
     expect(result).to satisfy_contract
   end
 
   it "catches invalid output" do
-    bad_adapter = RubyLLM::Contract::Adapters::Test.new(response: '{"intent":"unknown"}')
-    result = described_class.run("hello", context: { adapter: bad_adapter })
+    stub_step(described_class, response: { intent: "unknown" })
+    result = described_class.run("hello")
     expect(result).not_to satisfy_contract
-    # Failure message:
-    #   expected step result to satisfy contract, but got status: validation_failed
-    #   Validation errors:
-    #     - valid intent
-    #   Raw output: {"intent":"unknown"}
   end
 
   it "passes eval" do
     expect(described_class).to pass_eval("smoke")
-    # Runs define_eval("smoke") with sample_response — zero API calls
-  end
-
-  it "passes eval with real LLM" do
-    expect(described_class).to pass_eval("smoke").with_context(adapter: real_adapter)
   end
 end
 ```
