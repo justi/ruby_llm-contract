@@ -6,7 +6,7 @@ Companion gem for [ruby_llm](https://github.com/crmne/ruby_llm).
 
 ## The problem
 
-You're paying for gpt-4.1 because you're not sure if nano is good enough. You changed a prompt last week and didn't notice accuracy dropped. You have no data to choose the right model — just intuition and hope.
+Which model should you use? The expensive one is accurate but costs 4x more. The cheap one is fast but hallucinates on edge cases. You tweak a prompt — did accuracy improve or drop? You have no data. Just gut feeling.
 
 ## The fix
 
