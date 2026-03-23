@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.3.1 (2026-03-23)
+
+Fixes from persona_tool production deployment (4 services migrated).
+
+- **Proc/Lambda in `expected_traits`** — `expected_traits: { score: ->(v) { v > 3 } }` now works.
+- **Zeitwerk eager-load** — `load_evals!` eager-loads `app/contracts/` and `app/steps/` before loading eval files. Fixes uninitialized constant errors in Rake tasks.
+- **Falsy values** — `expected: false`, `input: false`, `sample_response(nil)` all handled correctly.
+- **Context key forwarding** — `provider:` and `assume_model_exists:` forwarded to adapter. `schema:` and `max_tokens:` are step-level only (no split-brain).
+- **Deep-freeze immutability** — constructors never mutate caller's data.
+
 ## 0.3.0 (2026-03-23)
 
 Baseline regression detection — know when quality drops before users do.
