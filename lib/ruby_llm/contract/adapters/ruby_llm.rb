@@ -57,7 +57,7 @@ module RubyLLM
 
         def build_response(response)
           content = response.content
-          content = content.to_s unless content.is_a?(Hash)
+          content = content.to_s unless content.is_a?(Hash) || content.is_a?(Array)
 
           Response.new(
             content: content,

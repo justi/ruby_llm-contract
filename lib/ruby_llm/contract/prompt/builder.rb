@@ -10,7 +10,8 @@ module RubyLLM
         end
 
         def build(input = nil)
-          if input && @block.arity >= 1
+          @nodes = []
+          if !input.nil? && @block.arity >= 1
             instance_exec(input, &@block)
           else
             instance_eval(&@block)
