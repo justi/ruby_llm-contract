@@ -9,11 +9,11 @@ module RubyLLM
         attr_reader :messages, :model, :latency_ms, :usage, :attempts, :cost
 
         def initialize(messages: nil, model: nil, latency_ms: nil, usage: nil, attempts: nil, cost: nil)
-          @messages = deep_freeze(messages)
+          @messages = deep_dup_freeze(messages)
           @model = model.frozen? ? model : model&.dup&.freeze
           @latency_ms = latency_ms
-          @usage = deep_freeze(usage)
-          @attempts = deep_freeze(attempts)
+          @usage = deep_dup_freeze(usage)
+          @attempts = deep_dup_freeze(attempts)
           @cost = cost || CostCalculator.calculate(model_name: model, usage: usage)
           freeze
         end
@@ -60,12 +60,12 @@ module RubyLLM
 
         private
 
-        def deep_freeze(obj)
+        def deep_dup_freeze(obj)
           case obj
-          when Hash then obj.each_value { |v| deep_freeze(v) }.freeze
-          when Array then obj.each { |v| deep_freeze(v) }.freeze
-          when String then obj.freeze
           when NilClass, Integer, Float, Symbol, TrueClass, FalseClass then obj
+          when Hash then obj.transform_values { |v| deep_dup_freeze(v) }.freeze
+          when Array then obj.map { |v| deep_dup_freeze(v) }.freeze
+          when String then obj.frozen? ? obj : obj.dup.freeze
           else obj.frozen? ? obj : obj.dup.freeze
           end
         end

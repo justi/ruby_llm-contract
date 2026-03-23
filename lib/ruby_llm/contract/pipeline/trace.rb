@@ -11,8 +11,8 @@ module RubyLLM
         def initialize(trace_id: nil, total_latency_ms: nil, total_usage: nil, step_traces: nil)
           @trace_id = trace_id
           @total_latency_ms = total_latency_ms
-          @total_usage = total_usage.frozen? ? total_usage : total_usage&.dup&.freeze
-          @step_traces = step_traces.frozen? ? step_traces : step_traces&.dup&.freeze
+          @total_usage = deep_dup_freeze(total_usage)
+          @step_traces = step_traces&.dup&.freeze
           @total_cost = calculate_total_cost
           freeze
         end
@@ -43,6 +43,16 @@ module RubyLLM
         end
 
         private
+
+        def deep_dup_freeze(obj)
+          case obj
+          when NilClass, Integer, Float, Symbol, TrueClass, FalseClass then obj
+          when Hash then obj.transform_values { |v| deep_dup_freeze(v) }.freeze
+          when Array then obj.map { |v| deep_dup_freeze(v) }.freeze
+          when String then obj.frozen? ? obj : obj.dup.freeze
+          else obj.frozen? ? obj : obj.dup.freeze
+          end
+        end
 
         def build_summary_parts
           parts = ["trace=#{@trace_id&.slice(0, 8)}"]
