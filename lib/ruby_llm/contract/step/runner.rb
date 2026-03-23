@@ -8,7 +8,7 @@ module RubyLLM
 
         def initialize(input_type:, output_type:, prompt_block:, contract_definition:,
                        adapter:, model:, output_schema: nil, max_output: nil,
-                       max_input: nil, max_cost: nil)
+                       max_input: nil, max_cost: nil, temperature: nil)
           @input_type = input_type
           @output_type = output_type
           @prompt_block = prompt_block
@@ -19,6 +19,7 @@ module RubyLLM
           @max_output = max_output
           @max_input = max_input
           @max_cost = max_cost
+          @temperature = temperature
         end
 
         def call(input)
@@ -84,6 +85,7 @@ module RubyLLM
           { model: @model }.tap do |opts|
             opts[:schema] = @output_schema if @output_schema
             opts[:max_tokens] = @max_output if @max_output
+            opts[:temperature] = @temperature if @temperature
           end
         end
 

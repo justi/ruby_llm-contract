@@ -127,6 +127,34 @@ module RubyLLM
           end
         end
 
+        def temperature(value = nil)
+          if value
+            unless value.is_a?(Numeric) && value >= 0 && value <= 2
+              raise ArgumentError, "temperature must be 0.0-2.0, got #{value}"
+            end
+
+            return @temperature = value
+          end
+
+          if defined?(@temperature)
+            @temperature
+          elsif superclass.respond_to?(:temperature)
+            superclass.temperature
+          end
+        end
+
+        def around_call(&block)
+          if block
+            return @around_call = block
+          end
+
+          if defined?(@around_call) && @around_call
+            @around_call
+          elsif superclass.respond_to?(:around_call)
+            superclass.around_call
+          end
+        end
+
         def retry_policy(models: nil, attempts: nil, retry_on: nil, &block)
           if block || models || attempts
             return @retry_policy = RetryPolicy.new(models: models, attempts: attempts, retry_on: retry_on, &block)
