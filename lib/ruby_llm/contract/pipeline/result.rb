@@ -116,7 +116,7 @@ module RubyLLM
         end
 
         def format_output(output)
-          return ["(no output)"] unless output
+          return ["(no output)"] if output.nil?
 
           pairs = output.is_a?(Hash) ? output : { value: output }
           pairs.map do |key, val|

@@ -39,7 +39,7 @@ module RubyLLM
         end
 
         def retry_on(*statuses)
-          @retryable_statuses = statuses
+          @retryable_statuses = statuses.flatten
         end
 
         def retryable?(result)
