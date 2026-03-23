@@ -12,18 +12,31 @@ You call an LLM. It returns bad JSON, wrong values, or costs 4x more than it sho
 
 ```ruby
 class ClassifyTicket < RubyLLM::Contract::Step::Base
-  prompt "Classify this support ticket by priority. Return JSON. {input}"
-  validate("valid priority") { |o| %w[low medium high urgent].include?(o[:priority]) }
+  prompt do
+    system "You are a support ticket classifier."
+    rule "Return valid JSON only, no markdown."
+    rule "Use exactly one priority: low, medium, high, urgent."
+    example input: "My invoice is wrong", output: '{"priority": "high"}'
+    user "{input}"
+  end
+
+  output_schema do
+    string :priority, enum: %w[low medium high urgent]
+    string :category
+  end
+
+  validate("urgent needs justification") { |o, input| o[:priority] != "urgent" || input.length > 20 }
   retry_policy models: %w[gpt-4.1-nano gpt-4.1-mini gpt-4.1]
 end
 
-result = ClassifyTicket.run(ticket_text)
+result = ClassifyTicket.run("I was charged twice")
 result.ok?               # => true
-result.parsed_output     # => {priority: "high"}
+result.parsed_output     # => {priority: "high", category: "billing"}
 result.trace[:cost]      # => 0.000032
+result.trace[:model]     # => "gpt-4.1-nano"
 ```
 
-Bad JSON? Auto-retry. Wrong value? Escalate to a smarter model. All with cost tracking.
+Bad JSON? Auto-retry. Wrong value? Escalate to a smarter model. Schema violated? Caught client-side even if the provider ignores it. All with cost tracking.
 
 ## Which model should I use?
 
@@ -51,10 +64,51 @@ gpt-4.1-mini                1.00    $0.000102     1070ms
 Cheapest at 100%: gpt-4.1-mini
 ```
 
-nano got 2/3 right at 3x less cost. mini got 3/3. Now you have data to decide.
-
 ```ruby
 comparison.best_for(min_score: 0.95)  # => "gpt-4.1-mini"
+
+# Inspect failures
+comparison.reports["gpt-4.1-nano"].failures.each do |f|
+  puts "#{f.name}: expected #{f.expected}, got #{f.output}"
+  puts "  mismatches: #{f.mismatches}"
+  # => outage: expected {priority: "urgent"}, got {priority: "high"}
+  #      mismatches: {priority: {expected: "urgent", got: "high"}}
+end
+```
+
+## Pipeline
+
+Chain steps with fail-fast. Hallucination in step 1 stops before step 2 spends tokens.
+
+```ruby
+class TicketPipeline < RubyLLM::Contract::Pipeline::Base
+  step ClassifyTicket,  as: :classify
+  step RouteToTeam,     as: :route
+  step DraftResponse,   as: :draft
+end
+
+result = TicketPipeline.run("I was charged twice")
+result.ok?                          # => true
+result.outputs_by_step[:classify]   # => {priority: "high", category: "billing"}
+result.trace.total_cost             # => 0.000128
+```
+
+## CI gate
+
+```ruby
+# RSpec — block merge if accuracy drops or cost spikes
+expect(ClassifyTicket).to pass_eval("regression")
+  .with_context(model: "gpt-4.1-mini")
+  .with_minimum_score(0.8)
+  .with_maximum_cost(0.01)
+
+# Rake — run all evals across all steps
+require "ruby_llm/contract/rake_task"
+RubyLLM::Contract::RakeTask.new do |t|
+  t.minimum_score = 0.8
+  t.maximum_cost = 0.05
+end
+# bundle exec rake ruby_llm_contract:eval
 ```
 
 ## Predict cost before running
@@ -62,24 +116,6 @@ comparison.best_for(min_score: 0.95)  # => "gpt-4.1-mini"
 ```ruby
 ClassifyTicket.estimate_eval_cost("regression", models: %w[gpt-4.1-nano gpt-4.1-mini])
 # => { "gpt-4.1-nano" => 0.000024, "gpt-4.1-mini" => 0.000096 }
-```
-
-## CI gate
-
-```ruby
-# RSpec
-expect(ClassifyTicket).to pass_eval("regression")
-  .with_context(model: "gpt-4.1-mini")
-  .with_minimum_score(0.8)
-  .with_maximum_cost(0.01)
-
-# Rake (add to Rakefile)
-require "ruby_llm/contract/rake_task"
-RubyLLM::Contract::RakeTask.new do |t|
-  t.minimum_score = 0.8
-  t.maximum_cost = 0.05
-end
-# bundle exec rake ruby_llm_contract:eval
 ```
 
 ## Install
@@ -94,17 +130,6 @@ RubyLLM::Contract.configure { |c| c.default_model = "gpt-4.1-mini" }
 ```
 
 Works with any ruby_llm provider (OpenAI, Anthropic, Gemini, etc).
-
-## What you get
-
-- **Model comparison** — `compare_models` runs same eval on multiple models, shows score/cost/latency table. `best_for(min_score: 0.95)` returns cheapest model meeting your threshold.
-- **Cost prediction** — `estimate_cost` and `estimate_eval_cost` predict spend before calling the API.
-- **Eval in CI** — `add_case input:, expected:` with partial matching. `with_minimum_score(0.8)` + `with_maximum_cost(0.01)` gates merges.
-- **Model escalation** — `retry_policy models: %w[nano mini full]` starts cheap, auto-escalates on failure.
-- **Validated responses** — `validate` + `output_schema` enforce correctness at runtime.
-- **Cost control** — `max_input`, `max_cost` refuse before calling the LLM.
-- **Pipeline** — chain steps with fail-fast, timeout, cost tracking across all steps.
-- **Defensive parsing** — code fences, BOM, prose wrapping — 14 edge cases handled.
 
 ## Docs
 
