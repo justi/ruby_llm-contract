@@ -45,12 +45,14 @@ RSpec.describe RubyLLM::Contract::Pipeline::Base do
   end
 
   describe "define_eval duplicate name" do
-    it "replaces eval with same name (supports reload)" do
+    it "warns and replaces eval with same name" do
       pipeline = Class.new(described_class)
 
       pipeline.define_eval("smoke") do
         default_input "test"
       end
+
+      expect(pipeline).to receive(:warn).with(/Redefining eval 'smoke'/i)
 
       pipeline.define_eval("smoke") do
         default_input "test again"

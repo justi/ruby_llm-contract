@@ -195,27 +195,25 @@ RSpec.describe "Adversarial QA round 2 -- bug regressions" do
   # ---------------------------------------------------------------------------
   # BUG 14: define_eval silently overwrites existing eval definitions.
   #
-  # Calling define_eval(:smoke) twice on the same step replaces the first
-  # definition with no warning. This is dangerous because test expectations
-  # tied to the first definition silently become stale.
-  #
-  # Fix: define_eval raises ArgumentError if name already exists. Use
-  # redefine_eval to explicitly override.
+  # Calling define_eval(:smoke) twice on the same step warns and replaces.
+  # Reload path suppresses the warning via Thread-local flag.
   # ---------------------------------------------------------------------------
-  describe "BUG 14: define_eval with duplicate name replaces (supports reload)" do
-    it "replaces existing eval with same name" do
+  describe "BUG 14: define_eval with duplicate name warns and replaces" do
+    it "warns on duplicate name outside reload" do
       step = Class.new(RubyLLM::Contract::Step::Base) do
         prompt { user "{input}" }
+      end
 
-        define_eval :smoke do
-          default_input "test1"
-          sample_response({ v: "first" })
-        end
+      step.define_eval(:smoke) do
+        default_input "test1"
+        sample_response({ v: "first" })
+      end
 
-        define_eval :smoke do
-          default_input "test2"
-          sample_response({ v: "second" })
-        end
+      expect(step).to receive(:warn).with(/Redefining eval 'smoke'/i)
+
+      step.define_eval(:smoke) do
+        default_input "test2"
+        sample_response({ v: "second" })
       end
 
       expect(step.eval_names).to eq(["smoke"])

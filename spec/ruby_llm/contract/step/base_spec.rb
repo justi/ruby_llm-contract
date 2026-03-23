@@ -154,7 +154,7 @@ RSpec.describe RubyLLM::Contract::Step::Base do
   end
 
   describe ".define_eval duplicate name" do
-    it "raises ArgumentError when defining an eval with a name that already exists" do
+    it "warns and replaces when defining an eval with a duplicate name" do
       step = Class.new(RubyLLM::Contract::Step::Base) do
         prompt "test {input}"
       end
@@ -163,7 +163,8 @@ RSpec.describe RubyLLM::Contract::Step::Base do
         default_input "test"
       end
 
-      # Redefining replaces the eval (supports Rails reload)
+      expect(step).to receive(:warn).with(/Redefining eval 'smoke'/i)
+
       step.define_eval("smoke") do
         default_input "test again"
       end
