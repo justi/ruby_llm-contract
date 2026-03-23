@@ -111,6 +111,30 @@ end
 # bundle exec rake ruby_llm_contract:eval
 ```
 
+## Detect quality drops
+
+Save a baseline. Next run, see what regressed.
+
+```ruby
+report = ClassifyTicket.run_eval("regression", context: { model: "gpt-4.1-nano" })
+report.save_baseline!(model: "gpt-4.1-nano")
+
+# Later — after prompt change, model update, or provider weight shift:
+report = ClassifyTicket.run_eval("regression", context: { model: "gpt-4.1-nano" })
+diff = report.compare_with_baseline(model: "gpt-4.1-nano")
+
+diff.regressed?    # => true
+diff.regressions   # => [{case: "outage", baseline: {passed: true}, current: {passed: false}}]
+diff.score_delta   # => -0.33
+```
+
+```ruby
+# CI: block merge if any previously-passing case now fails
+expect(ClassifyTicket).to pass_eval("regression")
+  .with_context(model: "gpt-4.1-nano")
+  .without_regressions
+```
+
 ## Predict cost before running
 
 ```ruby
@@ -140,6 +164,7 @@ Works with any ruby_llm provider (OpenAI, Anthropic, Gemini, etc).
 | [Output Schema](docs/guide/output_schema.md) | Full schema reference + constraints |
 | [Pipeline](docs/guide/pipeline.md) | Multi-step composition, timeout, fail-fast |
 | [Testing](docs/guide/testing.md) | Test adapter, RSpec matchers |
+| [Migration](docs/guide/migration.md) | Adopting the gem in existing Rails apps |
 
 ## Roadmap
 
