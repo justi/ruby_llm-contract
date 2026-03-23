@@ -58,7 +58,7 @@ module RubyLLM
             end
           end
 
-          KNOWN_CONTEXT_KEYS = %i[adapter model temperature max_tokens schema provider assume_model_exists].freeze
+          KNOWN_CONTEXT_KEYS = %i[adapter model temperature provider assume_model_exists].freeze
 
           def run(input, context: {})
             context = context.transform_keys { |k| k.respond_to?(:to_sym) ? k.to_sym : k }
@@ -68,7 +68,7 @@ module RubyLLM
             policy = retry_policy
 
             ctx_temp = context[:temperature]
-            extra = context.slice(:provider, :assume_model_exists, :schema, :max_tokens)
+            extra = context.slice(:provider, :assume_model_exists)
             result = if policy
                        run_with_retry(input, adapter: adapter, default_model: default_model,
                                       policy: policy, context_temperature: ctx_temp, extra_options: extra)

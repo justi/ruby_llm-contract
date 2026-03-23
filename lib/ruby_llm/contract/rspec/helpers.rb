@@ -33,10 +33,17 @@ module RubyLLM
 
         def build_test_adapter(response: nil, responses: nil)
           if responses
-            Adapters::Test.new(responses: responses.map { |r| r.is_a?(String) ? r : r.to_json })
+            Adapters::Test.new(responses: responses.map { |r| normalize_test_response(r) })
           else
-            content = response.is_a?(String) ? response : response.to_json
-            Adapters::Test.new(response: content)
+            Adapters::Test.new(response: normalize_test_response(response))
+          end
+        end
+
+        def normalize_test_response(value)
+          case value
+          when nil then nil
+          when String then value
+          else value.to_json
           end
         end
       end
