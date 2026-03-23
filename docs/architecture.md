@@ -20,14 +20,22 @@ RubyLLM::Contract::Step::Base       # single contracted step
   ├── Step::Trace                # model, latency, tokens, cost
   ├── CostCalculator             # per-step cost estimation from model pricing
   ├── TokenEstimator             # input token count estimation for limit checks
+  ├── estimate_cost              # single-call cost estimate (input + expected output)
+  ├── estimate_eval_cost         # cost estimate for full eval suite across models
   └── Adapters::Base             # provider interface
         ├── Adapters::RubyLLM    # real LLM calls via ruby_llm
         └── Adapters::Test       # canned responses for specs
 
 RubyLLM::Contract::Eval             # quality measurement
-  ├── Eval::EvalDefinition       # define_eval DSL (verify, default_input, sample_response)
+  ├── Eval::EvalDefinition       # define_eval DSL (verify, add_case, default_input, sample_response)
   ├── Eval::TraitEvaluator       # trait-based evaluation (Range, Regexp, Proc)
   ├── Eval::Dataset              # test cases
   ├── Eval::Runner               # execution
-  └── Eval::Report               # score, pass_rate, per-case results
+  ├── Eval::Report               # score, pass_rate, per-case results
+  ├── Eval::CaseResult           # value object (name, passed?, output, expected, mismatches, cost)
+  └── Eval::ModelComparison      # compare_models result (table, best_for, cost_per_point)
+
+RubyLLM::Contract::CI               # CI / Rails integration
+  ├── RakeTask                   # rake ruby_llm_contract:eval
+  └── Railtie                    # auto-loads eval files in Rails
 ```

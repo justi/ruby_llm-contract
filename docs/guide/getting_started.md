@@ -66,7 +66,9 @@ result.validation_errors # => ["Input token limit exceeded: estimated 32000 toke
 # LLM was never called. Zero tokens spent. Zero cost.
 ```
 
-**Eval verifies your contract offline (zero API calls):**
+**Eval verifies your contract — offline or online:**
+
+Offline mode (zero API calls) — uses a canned response to verify schema + validates:
 ```ruby
 ClassifyTicket.define_eval("smoke") do
   default_input "My invoice is wrong"
@@ -76,9 +78,43 @@ end
 report = ClassifyTicket.run_eval("smoke")
 report.passed?  # => true — schema + validates pass on sample data
 report.score    # => 1.0
+```
 
-# In CI: ensure your contract still works after prompt changes
-# rspec: expect(ClassifyTicket).to pass_eval("smoke")
+Online mode (v0.2) — define cases with expected output, then compare models:
+```ruby
+ClassifyTicket.define_eval("regression") do
+  add_case "billing complaint",
+           input: "My invoice is wrong",
+           expected: { priority: "high", category: "billing" }  # partial match
+
+  add_case "urgent outage",
+           input: "Server is down, customers affected",
+           expected: { priority: "urgent" }
+end
+
+# Run against one model
+report = ClassifyTicket.run_eval("regression")
+report.score  # => 1.0
+
+# Compare models — find the cheapest one that passes
+comparison = ClassifyTicket.compare_models("regression",
+                                           models: %w[gpt-4.1-nano gpt-4.1-mini gpt-4.1])
+comparison.print_summary
+#   Model                      Score       Cost  Avg Latency
+#   ---------------------------------------------------------
+#   gpt-4.1-nano                0.50    $0.0001         48ms
+#   gpt-4.1-mini                1.00    $0.0004         92ms
+#   gpt-4.1                     1.00    $0.0021        210ms
+#
+#   Cheapest at 100%: gpt-4.1-mini
+```
+
+In CI — gate on score threshold and cost:
+```ruby
+# rspec
+expect(ClassifyTicket).to pass_eval("regression")
+  .with_minimum_score(0.8)
+  .with_maximum_cost(0.01)
 ```
 
 ## Structured Prompts
@@ -162,7 +198,7 @@ end
 
 1. **Model escalation with quality gate.** Start every request on nano ($0.10/M tokens). When `validate` catches a bad answer, auto-retry on mini ($0.40/M), then full ($2.00/M). 90% of requests succeed on nano. At 10k requests/month: ~$40 instead of ~$200.
 
-2. **Eval in CI (zero API calls).** `expect(MyStep).to pass_eval("smoke")` verifies your contract still works after a prompt change. Uses `sample_response`, no LLM call. No other Ruby gem does this.
+2. **Eval that matters.** Offline smoke tests with `sample_response` (zero API calls). Online regression with `add_case` + partial matching. `compare_models` to find the cheapest model that passes. Cost tracking per eval run. CI gating with `with_minimum_score(0.8)` and `with_maximum_cost(0.01)`. No other Ruby gem does this.
 
 3. **Defensive parsing.** LLM wraps JSON in ` ```json ``` `? Stripped. UTF-8 BOM? Stripped. Prose around JSON? Extracted. `null` response? Caught. 14 edge cases in the parser.
 

@@ -98,6 +98,8 @@ result = MeetingFollowUp.run(transcript, context: { adapter: adapter })
 result.ok?                          # => true
 result.outputs_by_step[:extract]    # => {decisions: [...], action_items: [...]}
 result.outputs_by_step[:email]      # => {subject: "Follow-up: Q2 planning", body: "Hi team, ..."}
+result.trace.total_cost             # => 0.000128 (all steps combined)
+result.trace.total_latency_ms       # => 2340
 ```
 
 ## Fail-fast behavior
@@ -127,6 +129,19 @@ end
 result = EntityPipeline.run("Apple released the iPhone.", timeout_ms: 30_000)
 ```
 
+## Pipeline eval
+
+```ruby
+TicketPipeline.define_eval("e2e") do
+  add_case "billing ticket",
+    input: "I was charged twice on my credit card",
+    expected: { subject: /billing/i }
+end
+
+report = TicketPipeline.run_eval("e2e", context: { model: "gpt-4.1-mini" })
+report.print_summary
+```
+
 ## Pretty print
 
 ```ruby
@@ -134,5 +149,9 @@ puts result
 # Pipeline: ok  3 steps  1234ms  450+120 tokens  trace=abc12345
 
 result.pretty_print
-# Full ASCII table with per-step outputs
+# Full ASCII table with per-step outputs (Pipeline::Result)
+
+# For eval reports, use print_summary instead:
+report.print_summary
+# Tabular pass/fail breakdown (Eval::Report)
 ```
