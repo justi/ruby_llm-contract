@@ -89,6 +89,7 @@ module RubyLLM
   end
 end
 
+require_relative "contract/concerns/deep_freeze"
 require_relative "contract/concerns/deep_symbolize"
 require_relative "contract/concerns/eval_host"
 require_relative "contract/concerns/trace_equality"
