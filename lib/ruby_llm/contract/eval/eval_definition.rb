@@ -117,8 +117,16 @@ module RubyLLM
                    when String then JSON.parse(@sample_response)
                    else @sample_response
                    end
-          symbolized = parsed.is_a?(Hash) ? Parser.symbolize_keys(parsed) : parsed
+          symbolized = deep_symbolize(parsed)
           SchemaValidator.validate(symbolized, schema)
+        end
+
+        def deep_symbolize(obj)
+          case obj
+          when Hash then Parser.symbolize_keys(obj)
+          when Array then obj.map { |item| deep_symbolize(item) }
+          else obj
+          end
         end
       end
     end
