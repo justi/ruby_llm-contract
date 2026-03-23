@@ -3,7 +3,7 @@ id: ADR-0013
 decision_type: adr
 status: Proposed
 created: 2026-03-23
-summary: "v0.3 roadmap — baselines, drift detection, migration guide"
+summary: "v0.3 roadmap — baselines, migration guide, batch decision"
 owners:
   - justi
 ---
@@ -12,133 +12,102 @@ owners:
 
 ## Where v0.2 ended
 
-v0.2 delivered: add_case, compare_models, cost tracking, CI gating, Rails Railtie.
-v0.2.1-0.2.2 fixed 22 production DX issues from first real-world integration.
+v0.2.0: add_case, compare_models, cost tracking, CI gating, Rails Railtie.
+v0.2.1: temperature DSL, around_call, build_messages, stub_step, estimate_cost.
+v0.2.2: around_call per-run, Result#trace always Trace, model DSL, Trace#dig.
 
-Game changer confirmed: `compare_models` with real API produces actionable data.
+Game changer confirmed with real OpenAI API. First production adoption validated gem on 1 of 5 services. 22 DX issues found and fixed.
 
-v0.3 focuses on two things:
-1. **Baseline regression** (ADR-0009) — "did something change?"
-2. **Migration guide** — how to adopt the gem in existing Rails apps
+## v0.3 scope
 
-## Feature 1: Baseline Regression (ADR-0009)
+### Feature 1: Baseline Regression Detection (ADR-0009)
 
-### Why
-
-You run eval today: 9/10 pass. Provider updates model weights. You run eval next week: 7/10 pass. Without a baseline, you don't know quality dropped.
-
-### Spec
+**The question:** "Did something change since last run?"
 
 ```ruby
-# Save baseline after successful run
-report = ClassifyTicket.run_eval("regression", context: { model: "gpt-4.1-nano" })
+report = Step.run_eval("regression", context: { model: "gpt-4.1-nano" })
 report.save_baseline!
-# Writes to .eval_baselines/ClassifyTicket/regression.json
 
-# Next run: compare
-report = ClassifyTicket.run_eval("regression", context: { model: "gpt-4.1-nano" })
+# Later...
+report = Step.run_eval("regression", context: { model: "gpt-4.1-nano" })
 diff = report.compare_with_baseline
 
-diff.regressions     # => [{name: "outage", was: :passed, now: :failed}]
-diff.improvements    # => [{name: "edge_case", was: :failed, now: :passed}]
+diff.regressions     # => cases that passed before but fail now
+diff.improvements    # => cases that failed before but pass now
 diff.score_delta     # => -0.15
 diff.regressed?      # => true
 ```
 
-### CI integration
-
+**CI gate:**
 ```ruby
-expect(ClassifyTicket).to pass_eval("regression")
-  .with_context(model: "gpt-4.1-nano")
-  .without_regressions
+expect(Step).to pass_eval("regression").without_regressions
 
 RubyLLM::Contract::RakeTask.new do |t|
   t.fail_on_regression = true
-  t.save_baseline = true  # auto-save after pass
+  t.save_baseline = true
 end
 ```
 
-### Implementation
+**Storage:** `.eval_baselines/` directory, JSON files, git-tracked.
 
-- `Report#save_baseline!(path:)` — JSON serialization
-- `Report#compare_with_baseline(path:)` — load + diff
-- `BaselineDiff` value object
-- Default storage: `.eval_baselines/` (git-tracked)
-- ~150 lines of code
+**Effort:** ~150 lines. Depends on CaseResult serialization (already has `to_h`).
 
-## Feature 2: Migration Guide
+### Feature 2: Migration Guide (ADR-0012)
 
-### Why
+**The question:** "How do I adopt this gem in my existing Rails app?"
 
-Adopting ruby_llm-contract in an existing Rails app is non-obvious. The persona_tool migration revealed patterns that should be documented.
+`docs/guide/migration.md` covering 7 patterns:
+1. Raw HTTP → Step
+2. Manual retry → retry_policy
+3. Manual logging → around_call
+4. response_format → output_schema
+5. Parallel batches → Step + app orchestrator
+6. Model fallback → retry_policy / model DSL
+7. Test stubbing → stub_step
 
-### Content
+Plus anti-patterns: don't migrate text output, don't parallelize in gem, don't migrate all at once.
 
-**`docs/guide/migration.md`:**
+**Effort:** ~2h documentation.
 
-1. **Identify LLM call sites** — grep for HTTP calls, `RubyLLM.chat`, OpenAI client usage
-2. **Start with the simplest service** — single input → JSON output → DB save
-3. **Define the contract** — prompt DSL, output_schema, validates
-4. **Replace the service** — swap LlmClient call for Step.run
-5. **Add around_call** — replace manual logging with callback
-6. **Add eval cases** — 3-5 cases from production data
-7. **Run compare_models** — find cheapest viable model
-8. **Repeat for next service**
+### Decision: Batch/Parallel Execution
 
-**Patterns from persona_tool migration:**
+**Question:** Should the gem support `Step.run_batch(inputs, concurrency: 4)`?
 
-| Old pattern | New pattern |
-|-------------|-------------|
-| `LlmClient.new(model:).call(prompt)` | `MyStep.run(input)` |
-| `JSON.parse(response[:content])` | `result.parsed_output` |
-| `retries = 0; begin; rescue; retry; end` | `retry_policy models: [...]` |
-| `body[:temperature] = 0.7` | `temperature 0.7` |
-| `AiCallLog.create(...)` | `around_call { \|s, i, r\| AiCallLog.create(...) }` |
-| `response_format: JsonSchema.build(...)` | `output_schema do...end` |
+**Decision: No.** Parallelism is application concern. Reasons:
+- Thread management depends on app (Rails executor, connection pool, Sidekiq)
+- Error handling for partial failures is domain-specific
+- `Concurrent::Future` and `Parallel` gem already exist
+- Adding threading to gem increases surface area without clear moat
 
-## Feature 3: Batch/Parallel Support (exploration)
+The gem provides the contract. The app decides how to run it.
 
-### Why
+### Feature 3: Upstream PR — ruby_llm-schema Array Fix (ADR-0011)
 
-PersonaGenerator runs 10 LLM calls in parallel threads. The gem has no built-in parallel execution. The orchestrator stays in the Rails service.
+PR to `ruby_llm-schema`: raise `ArgumentError` when array block produces >1 schema instead of silent `.first`.
 
-### Question
-
-Should the gem support batch execution natively?
-
-```ruby
-# Option A: gem handles parallelism
-results = GeneratePersonaBatch.run_batch(
-  inputs: 10.times.map { |i| { batch_size: 10, batch_num: i } },
-  concurrency: 4
-)
-
-# Option B: user handles parallelism (current)
-results = Concurrent::Future.execute { GeneratePersonaBatch.run(input) }
-```
-
-**Decision: Option B (user handles).** Parallelism is application concern. The gem provides the contract; the app decides how to run it. Adding threading to the gem adds complexity without clear benefit over `Concurrent::Future` or `Parallel`.
+**Effort:** ~1h PR.
 
 ## NOT in v0.3
 
-- Auto-routing (v0.4) — needs eval history data from baselines
-- Dashboard (v0.4) — needs persistence layer
+- Auto-routing (v0.4) — needs baseline history data
+- Dashboard (v0.4) — needs persistence layer beyond JSON files
 - Database persistence for eval history (v0.4) — JSON files first
-- Batch/parallel execution in gem — user's responsibility
+- Batch execution in gem — user's responsibility
+- Multi-provider eval comparison — works today via context, no gem change needed
 
-## Timeline
+## Release plan
 
-| Phase | What | Effort |
-|-------|------|--------|
+| Phase | Deliverable | Effort |
+|-------|-------------|--------|
 | 1 | Baseline save/load/diff | ~3h |
-| 2 | CI integration (without_regressions) | ~1h |
-| 3 | Migration guide | ~2h |
-| 4 | persona_tool full migration (ADR-0012) | ~4h |
+| 2 | `without_regressions` CI gate | ~1h |
+| 3 | Migration guide (docs/guide/migration.md) | ~2h |
+| 4 | ruby_llm-schema PR (ADR-0011) | ~1h |
 | 5 | Release v0.3.0 | — |
 
 ## Success criteria
 
-1. Developer can save baseline, change prompt, see regressions
-2. CI blocks merge when previously-passing case now fails
-3. Migration guide covers 5 common patterns with code examples
-4. persona_tool runs 4/5 services on ruby_llm-contract
+1. `report.save_baseline!` + `compare_with_baseline` + `diff.regressions` works
+2. `without_regressions` blocks CI when quality drops
+3. Migration guide covers all 7 patterns with working code
+4. ruby_llm-schema PR submitted (accepted or not)
