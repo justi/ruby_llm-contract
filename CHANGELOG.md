@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.2.3 (2026-03-23)
+
+Production hardening from senior Rails review panel.
+
+- **`around_call` propagates exceptions** — no longer silently swallows DB errors, timeouts, etc. User who wants swallowing can rescue in their block.
+- **Nil section content skipped** — `section "X", nil` no longer renders `"null"` to the LLM. Section is omitted entirely.
+- **Range support in `expected:`** — `expected: { score: 1..5 }` works in `add_case`. Previously only Regexp was supported.
+- **`Trace#dig`** — `trace.dig(:usage, :input_tokens)` works on both Step and Pipeline traces.
+
 ## 0.2.2 (2026-03-23)
 
 Fixes from first real-world integration (persona_tool).
