@@ -100,7 +100,15 @@ RSpec::Matchers.define :pass_eval do |eval_name|
   end
 
   failure_message do
-    format_failure_message(@eval_name, @error, @report, @minimum_score, @maximum_cost)
+    msg = format_failure_message(@eval_name, @error, @report, @minimum_score, @maximum_cost)
+    if @diff&.regressed?
+      msg += "\n\nRegressions from baseline:\n"
+      @diff.regressions.each do |r|
+        msg += "  #{r[:case]}: was PASS, now FAIL — #{r[:detail]}\n"
+      end
+      msg += "  Score delta: #{@diff.score_delta}"
+    end
+    msg
   end
 
   failure_message_when_negated do
