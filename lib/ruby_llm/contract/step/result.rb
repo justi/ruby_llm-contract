@@ -6,12 +6,12 @@ module RubyLLM
       class Result
         attr_reader :status, :raw_output, :parsed_output, :validation_errors, :trace
 
-        def initialize(status:, raw_output:, parsed_output:, validation_errors: [], trace: {})
+        def initialize(status:, raw_output:, parsed_output:, validation_errors: [], trace: nil)
           @status = status
           @raw_output = raw_output
           @parsed_output = parsed_output
           @validation_errors = validation_errors.freeze
-          @trace = trace.freeze
+          @trace = normalize_trace(trace)
           freeze
         end
 
@@ -22,6 +22,19 @@ module RubyLLM
         def failed?
           @status != :ok
         end
+
+        private
+
+        def normalize_trace(trace)
+          case trace
+          when Trace then trace
+          when Hash then Trace.new(**trace)
+          when nil then Trace.new
+          else trace
+          end.freeze
+        end
+
+        public
 
         def to_s
           if ok?

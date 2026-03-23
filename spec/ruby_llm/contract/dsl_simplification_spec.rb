@@ -206,9 +206,9 @@ RSpec.describe "DSL Simplification (GH-12)" do
       r2 = adapter.call(messages: [])
       r3 = adapter.call(messages: [])
 
-      expect(r1.content).to eq({ a: 1 })
-      expect(r2.content).to eq({ b: 2 })
-      expect(r3.content).to eq({ c: 3 })
+      expect(r1.content).to eq({ a: 1 }.to_json)
+      expect(r2.content).to eq({ b: 2 }.to_json)
+      expect(r3.content).to eq({ c: 3 }.to_json)
     end
 
     it "repeats last response on overflow" do

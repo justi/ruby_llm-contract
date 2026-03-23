@@ -1169,7 +1169,8 @@ RSpec.describe "Adversarial QA round 10 -- production certification audit" do
           trace: { model: "gpt-4" }
         )
         expect(result.trace).to be_frozen
-        expect { result.trace[:hacked] = true }.to raise_error(FrozenError)
+        expect(result.trace).to be_a(RubyLLM::Contract::Step::Trace)
+        expect { result.trace.instance_variable_set(:@model, "hacked") }.to raise_error(FrozenError)
       end
     end
 

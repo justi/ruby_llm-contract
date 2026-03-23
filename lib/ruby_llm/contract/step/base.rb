@@ -63,14 +63,16 @@ module RubyLLM
           def run(input, context: {})
             warn_unknown_context_keys(context)
             adapter = resolve_adapter(context)
-            default_model = context[:model] || RubyLLM::Contract.configuration.default_model
+            default_model = context[:model] || model || RubyLLM::Contract.configuration.default_model
             policy = retry_policy
 
-            if policy
-              run_with_retry(input, adapter: adapter, default_model: default_model, policy: policy)
-            else
-              run_once(input, adapter: adapter, model: default_model, context_temperature: context[:temperature])
-            end
+            result = if policy
+                       run_with_retry(input, adapter: adapter, default_model: default_model, policy: policy)
+                     else
+                       run_once(input, adapter: adapter, model: default_model, context_temperature: context[:temperature])
+                     end
+
+            invoke_around_call(input, result)
           end
 
           def build_messages(input)
@@ -101,22 +103,26 @@ module RubyLLM
 
           def run_once(input, adapter:, model:, context_temperature: nil)
             effective_temp = context_temperature || temperature
-            runner = Runner.new(
+            Runner.new(
               input_type: input_type, output_type: output_type,
               prompt_block: prompt, contract_definition: effective_contract,
               adapter: adapter, model: model, output_schema: output_schema,
               max_output: max_output, max_input: max_input, max_cost: max_cost,
               temperature: effective_temp
-            )
-
-            if around_call
-              around_call.call(self, input) { runner.call(input) }
-            else
-              runner.call(input)
-            end
+            ).call(input)
           rescue ArgumentError => e
             Result.new(status: :input_error, raw_output: nil, parsed_output: nil,
                        validation_errors: [e.message])
+          end
+
+          def invoke_around_call(input, result)
+            return result unless around_call
+
+            around_call.call(self, input, result)
+            result
+          rescue StandardError => e
+            warn "[ruby_llm-contract] around_call raised #{e.class}: #{e.message}"
+            result
           end
 
           def effective_contract
