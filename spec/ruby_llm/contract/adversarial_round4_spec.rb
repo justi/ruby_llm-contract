@@ -128,12 +128,12 @@ RSpec.describe "Adversarial QA round 4 -- bug regressions" do
                                   "responses: [Array] (#{r2.content.class}) should produce same type"
     end
 
-    it "preserves Array as Array in responses: form" do
+    it "normalizes Array to JSON String in responses: form" do
       adapter = RubyLLM::Contract::Adapters::Test.new(responses: [[1, 2, 3]])
       response = adapter.call(messages: [])
 
-      expect(response.content).to be_an(Array),
-                                  "Array in responses: should stay as Array, " \
+      expect(response.content).to be_a(String),
+                                  "Array in responses: is normalized to JSON String, " \
                                   "got #{response.content.class}: #{response.content.inspect}"
     end
   end

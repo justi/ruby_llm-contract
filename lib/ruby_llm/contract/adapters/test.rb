@@ -20,7 +20,7 @@ module RubyLLM
 
         def normalize_response(response)
           case response
-          when Hash, Array then response
+          when Hash, Array then response.to_json
           when nil then ""
           else response.to_s
           end

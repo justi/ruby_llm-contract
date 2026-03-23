@@ -565,7 +565,7 @@ RSpec.describe "Adversarial QA round 8 -- API contract violations" do
   # BUG 53: raw_output type is not always String.
   # ---------------------------------------------------------------------------
   describe "BUG 53: raw_output type is not always String" do
-    it "raw_output is a Hash when adapter returns Hash" do
+    it "raw_output is always String even when adapter is given Hash" do
       step = Class.new(RubyLLM::Contract::Step::Base) do
         prompt { user "{input}" }
         output_type RubyLLM::Contract::Types::Hash
@@ -576,8 +576,8 @@ RSpec.describe "Adversarial QA round 8 -- API contract violations" do
       result = step.run("test", context: { adapter: adapter })
 
       expect(result.status).to eq(:ok)
-      expect(result.raw_output).to be_a(Hash),
-                                   "raw_output is Hash when adapter returns Hash, not String"
+      expect(result.raw_output).to be_a(String),
+                                   "raw_output is always String after Test adapter normalizes Hash to JSON"
     end
 
     it "raw_output is String when adapter returns String" do

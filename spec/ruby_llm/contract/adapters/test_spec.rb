@@ -31,7 +31,7 @@ RSpec.describe RubyLLM::Contract::Adapters::Test do
   end
 
   describe "response:/responses: consistency for Hashes" do
-    it "produces same raw_output type (Hash) regardless of constructor form" do
+    it "produces same raw_output type (String) regardless of constructor form" do
       step = Class.new(RubyLLM::Contract::Step::Base) do
         prompt { user "{input}" }
         output_type RubyLLM::Contract::Types::Hash
@@ -44,8 +44,8 @@ RSpec.describe RubyLLM::Contract::Adapters::Test do
       result_single = step.run("test", context: { adapter: adapter_single })
       result_array = step.run("test", context: { adapter: adapter_array })
 
-      expect(result_single.raw_output).to be_a(Hash)
-      expect(result_array.raw_output).to be_a(Hash)
+      expect(result_single.raw_output).to be_a(String)
+      expect(result_array.raw_output).to be_a(String)
       expect(result_single.parsed_output).to eq(result_array.parsed_output)
     end
   end

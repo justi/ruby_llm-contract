@@ -127,6 +127,18 @@ module RubyLLM
           end
         end
 
+        def model(name = nil)
+          if name
+            return @model = name
+          end
+
+          if defined?(@model)
+            @model
+          elsif superclass.respond_to?(:model)
+            superclass.model
+          end
+        end
+
         def temperature(value = nil)
           if value
             unless value.is_a?(Numeric) && value >= 0 && value <= 2
