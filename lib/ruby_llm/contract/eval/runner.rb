@@ -87,7 +87,13 @@ module RubyLLM
 
         def dup_context_for_concurrency(context)
           context.transform_values do |v|
-            v.respond_to?(:dup) ? v.dup : v
+            if v.respond_to?(:clone_for_concurrency)
+              v.clone_for_concurrency
+            elsif v.respond_to?(:dup)
+              v.dup
+            else
+              v
+            end
           rescue TypeError
             v
           end
