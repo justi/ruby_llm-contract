@@ -192,15 +192,16 @@ Observability without code. Cost tracking visible in existing log infrastructure
 | Database persistence | JSONL files first, DB adapter in v0.5 | v0.5 |
 | Web dashboard | Needs persistence layer | v0.5+ |
 
-## v0.5 preview: Intelligence
+## v0.5 preview: Data-Driven Prompt Engineering (ADR-0015)
 
-v0.5 builds ON TOP of v0.4 data:
+v0.5 reuses v0.3 BaselineDiff machinery for prompt comparison:
 
-- **Model recommendation** — "Your eval history shows nano handles 94% of ClassifyTicket. Consider switching from mini." Based on v0.4 history data.
-- **Auto-routing** — route easy inputs to nano, hard to mini. Based on v0.4 per-step eval + history.
-- **Cost alerts** — "ClassifyTicket cost increased 2x this week." Based on v0.4 trending.
+- **`compare_with(OtherStep)`** — A/B test prompts with regression check. "Candidate improves 3 cases, regresses 0. Safe to switch."
+- **Cross-provider examples** — `compare_models` already works multi-provider. v0.5 adds docs and convenience.
 
-v0.4 collects the data. v0.5 acts on it. Without v0.4 history, v0.5 intelligence has no foundation.
+Key insight (from ruby_llm creator review): this is ~30 lines of new code reusing existing BaselineDiff. Not a new architecture.
+
+See ADR-0015 for full spec.
 
 ## Implementation plan
 
