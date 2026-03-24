@@ -34,6 +34,15 @@ module RubyLLM
           @responses
         end
 
+        # Returns a fresh adapter with reset index for concurrent execution
+        def clone_for_concurrency
+          if @responses
+            self.class.new(responses: @responses.dup, usage: @usage.dup)
+          else
+            self.class.new(response: @response, usage: @usage.dup)
+          end
+        end
+
         def call(messages:, **_options) # rubocop:disable Lint/UnusedMethodArgument
           content = if @responses
                       c = @responses[@index] || @responses.last
