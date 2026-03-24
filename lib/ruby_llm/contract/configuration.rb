@@ -10,11 +10,12 @@ module RubyLLM
     # Then configure contract-specific options:
     #   RubyLLM::Contract.configure { |c| c.default_model = "gpt-4.1-mini" }
     class Configuration
-      attr_accessor :default_adapter, :default_model
+      attr_accessor :default_adapter, :default_model, :logger
 
       def initialize
         @default_adapter = nil
         @default_model = nil
+        @logger = nil
       end
     end
   end

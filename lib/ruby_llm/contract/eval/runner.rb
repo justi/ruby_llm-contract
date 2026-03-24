@@ -7,30 +7,55 @@ module RubyLLM
         include TraitEvaluator
         include ContractDetailBuilder
 
-        def self.run(step:, dataset:, context: {})
-          new(step: step, dataset: dataset, context: context).run
+        def self.run(step:, dataset:, context: {}, concurrency: nil)
+          new(step: step, dataset: dataset, context: context, concurrency: concurrency).run
         end
 
-        def initialize(step:, dataset:, context: {})
+        def initialize(step:, dataset:, context: {}, concurrency: nil)
           @step = step
           @dataset = dataset
           @context = context
+          @concurrency = concurrency
         end
 
         def run
-          results = @dataset.cases.map { |test_case| evaluate_case(test_case) }
+          results = if @concurrency && @concurrency > 1
+                      run_concurrent
+                    else
+                      @dataset.cases.map { |test_case| evaluate_case(test_case) }
+                    end
           step_name = @step.respond_to?(:name) ? @step.name : @step.to_s
           Report.new(dataset_name: @dataset.name, results: results, step_name: step_name)
         end
 
         private
 
+        def run_concurrent
+          require "concurrent"
+          pool = Concurrent::FixedThreadPool.new(@concurrency)
+          futures = @dataset.cases.map do |test_case|
+            Concurrent::Future.execute(executor: pool) { evaluate_case(test_case) }
+          end
+          futures.map(&:value!)
+        ensure
+          pool&.shutdown
+          pool&.wait_for_termination(5)
+        end
+
         def evaluate_case(test_case)
           run_result = @step.run(test_case.input, context: @context)
           step_result = normalize_result(run_result)
           eval_result = dispatch_evaluation(step_result, test_case)
 
-          build_case_result(test_case, step_result, eval_result)
+          result = build_case_result(test_case, step_result, eval_result)
+
+          # Pipeline per-step evaluation
+          if test_case.respond_to?(:step_expectations) && test_case.step_expectations &&
+             run_result.respond_to?(:outputs_by_step)
+            evaluate_step_expectations(result, run_result.outputs_by_step, test_case.step_expectations)
+          else
+            result
+          end
         rescue RubyLLM::Contract::Error => e
           raise unless e.message.include?("No adapter configured")
 
@@ -142,6 +167,33 @@ module RubyLLM
           EvaluationResult.new(
             score: 0.0, passed: false,
             details: "step failed: #{step_result.status} — #{step_result.validation_errors.join(", ")}"
+          )
+        end
+
+        def evaluate_step_expectations(result, outputs_by_step, expectations)
+          step_results = {}
+          all_passed = true
+
+          expectations.each do |step_alias, expected|
+            output = outputs_by_step[step_alias]
+            if output.nil?
+              step_results[step_alias] = { passed: false, details: "step not executed" }
+              all_passed = false
+            else
+              eval_res = dispatch_expected_evaluator(output: output, expected: expected, input: nil)
+              step_results[step_alias] = { passed: eval_res.passed, score: eval_res.score, details: eval_res.details }
+              all_passed = false unless eval_res.passed
+            end
+          end
+
+          # Rebuild CaseResult with step_results metadata
+          CaseResult.new(
+            name: result.name, input: result.input, output: result.output,
+            expected: result.expected, step_status: all_passed ? result.step_status : :step_expectation_failed,
+            score: all_passed ? result.score : 0.0,
+            passed: result.passed? && all_passed,
+            label: result.label, details: result.details,
+            duration_ms: result.duration_ms, cost: result.cost
           )
         end
 

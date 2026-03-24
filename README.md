@@ -168,9 +168,9 @@ Works with any ruby_llm provider (OpenAI, Anthropic, Gemini, etc).
 
 ## Roadmap
 
-**v0.3 (current):** Baseline regression detection, migration guide, production hardening.
+**v0.4 (current):** Observability & scale — eval history with trending, batch eval with concurrency, pipeline per-step eval, Minitest support, structured logging.
 
-**v0.4:** Observability & scale — eval history with trending, batch eval with concurrency, pipeline per-step eval, Minitest support, structured logging.
+**v0.3:** Baseline regression detection, migration guide, production hardening.
 
 **v0.5:** Prompt A/B testing — `compare_with(OtherStep)` for data-driven prompt engineering with regression safety. Cross-provider comparison docs.
 

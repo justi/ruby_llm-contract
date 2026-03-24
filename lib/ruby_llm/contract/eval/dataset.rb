@@ -22,7 +22,7 @@ module RubyLLM
         # dataset.case "name", input: {...}, expected: {...}
         # dataset.case "name", input: {...}, expected_traits: {...}
         # dataset.case "name", input: {...}, evaluator: proc
-        def add_case(name = nil, input:, expected: nil, expected_traits: nil, evaluator: nil)
+        def add_case(name = nil, input:, expected: nil, expected_traits: nil, evaluator: nil, step_expectations: nil)
           case_name = name || "case_#{@cases.length + 1}"
           if @cases.any? { |c| c.name == case_name }
             raise ArgumentError, "Duplicate case name '#{case_name}'. Case names must be unique within a dataset."
@@ -33,7 +33,8 @@ module RubyLLM
             input: input,
             expected: expected,
             expected_traits: expected_traits,
-            evaluator: evaluator
+            evaluator: evaluator,
+            step_expectations: step_expectations
           )
         end
 
@@ -44,14 +45,15 @@ module RubyLLM
       class Case
         include Concerns::DeepFreeze
 
-        attr_reader :name, :input, :expected, :expected_traits, :evaluator
+        attr_reader :name, :input, :expected, :expected_traits, :evaluator, :step_expectations
 
-        def initialize(name:, input:, expected: nil, expected_traits: nil, evaluator: nil)
+        def initialize(name:, input:, expected: nil, expected_traits: nil, evaluator: nil, step_expectations: nil)
           @name = name
           @input = deep_dup_freeze(input)
           @expected = deep_dup_freeze(expected)
           @expected_traits = deep_dup_freeze(expected_traits)
           @evaluator = evaluator
+          @step_expectations = deep_dup_freeze(step_expectations)
           freeze
         end
       end

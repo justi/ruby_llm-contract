@@ -35,12 +35,12 @@ module RubyLLM
           !all_eval_definitions.empty?
         end
 
-        def run_eval(name = nil, context: {})
+        def run_eval(name = nil, context: {}, concurrency: nil)
           context ||= {}
           if name
-            run_single_eval(name, context)
+            run_single_eval(name, context, concurrency: concurrency)
           else
-            run_all_own_evals(context)
+            run_all_own_evals(context, concurrency: concurrency)
           end
         end
 
@@ -66,19 +66,21 @@ module RubyLLM
           inherited.merge(own)
         end
 
-        def run_single_eval(name, context)
+        def run_single_eval(name, context, concurrency: nil)
           defn = all_eval_definitions[name.to_s]
           raise ArgumentError, "No eval '#{name}' defined. Available: #{all_eval_definitions.keys}" unless defn
 
           effective_context = eval_context(defn, context)
-          Eval::Runner.run(step: self, dataset: defn.build_dataset, context: effective_context)
+          Eval::Runner.run(step: self, dataset: defn.build_dataset, context: effective_context,
+                           concurrency: concurrency)
         end
 
-        def run_all_own_evals(context)
+        def run_all_own_evals(context, concurrency: nil)
           all_eval_definitions.transform_values do |defn|
             isolated_context = deep_dup_context(context)
             effective_context = eval_context(defn, isolated_context)
-            Eval::Runner.run(step: self, dataset: defn.build_dataset, context: effective_context)
+            Eval::Runner.run(step: self, dataset: defn.build_dataset, context: effective_context,
+                             concurrency: concurrency)
           end
         end
 
