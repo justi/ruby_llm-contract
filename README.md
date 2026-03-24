@@ -168,11 +168,11 @@ Works with any ruby_llm provider (OpenAI, Anthropic, Gemini, etc).
 
 ## Roadmap
 
-**v0.3 (current):** Baseline regression detection — `save_baseline!`, `compare_with_baseline`, `without_regressions`. Migration guide.
+**v0.3 (current):** Baseline regression detection, migration guide, production hardening.
 
-**v0.2:** Model comparison, cost tracking, eval with `add_case`, CI gating, Rails Railtie.
+**v0.4:** Observability & scale — eval history with trending, batch eval with concurrency, pipeline per-step eval, Minitest support, structured logging.
 
-**v0.4:** Auto-routing — learn which model works for which input pattern.
+**v0.5:** Intelligence — model recommendation based on eval history, auto-routing, cost alerts.
 
 ## License
 
