@@ -183,7 +183,7 @@ end
 
 ## Baseline Regression Detection
 
-Save eval results as a baseline. Next run, detect what changed.
+Like `schema.rb` for your LLM quality — save what works, catch when it breaks.
 
 ```ruby
 # First run — everything passes, save as baseline
