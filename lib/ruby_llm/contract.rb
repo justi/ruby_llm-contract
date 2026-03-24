@@ -88,10 +88,7 @@ module RubyLLM
           full = ::Rails.root.join(path)
           next unless full.exist?
 
-          # Ignore eval/ subdirs — they don't define Zeitwerk-compatible
-          # constants and are loaded separately by load_evals!
-          eval_dir = full.join("eval")
-          ::Rails.autoloaders.main.ignore(eval_dir.to_s) if eval_dir.exist?
+          # eval/ subdirs already ignored by Railtie initializer (before Zeitwerk setup)
           ::Rails.autoloaders.main.eager_load_dir(full.to_s)
         rescue StandardError
           nil
