@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.4.2 (2026-03-24)
+
+- **RakeTask lazy context** — `t.context` now accepts a Proc, resolved at task runtime (after `:environment`). Fixes adapter not being available at Rake load time in Rails apps.
+
 ## 0.4.1 (2026-03-24)
 
 - **RakeTask `:environment` fix** — uses `defined?(::Rails)` instead of `Rake::Task.task_defined?(:environment)`. Works in Rails 8 without manual `Rake::Task.enhance`.

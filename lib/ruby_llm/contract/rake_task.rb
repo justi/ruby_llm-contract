@@ -31,7 +31,8 @@ module RubyLLM
           require "ruby_llm/contract"
           RubyLLM::Contract.load_evals!(*@eval_dirs)
 
-          results = RubyLLM::Contract.run_all_evals(context: @context)
+          context = @context.respond_to?(:call) ? @context.call : @context
+          results = RubyLLM::Contract.run_all_evals(context: context)
 
           if results.empty?
             if @fail_on_empty
