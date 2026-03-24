@@ -69,7 +69,7 @@ module RubyLLM
 
           lines = ["#{runs.length} runs"]
           runs.last(5).each do |r|
-            lines << "  #{r[:date]} score=#{r[:score].round(2)} cost=$#{format("%.6f", r[:cost] || 0)}"
+            lines << "  #{r[:date]} score=#{r[:score].round(2)} cost=$#{format("%.6f", r[:total_cost] || r[:cost] || 0)}"
           end
           lines.join("\n")
         end

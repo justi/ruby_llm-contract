@@ -34,12 +34,43 @@ module RubyLLM
           require "concurrent"
           pool = Concurrent::FixedThreadPool.new(@concurrency)
           futures = @dataset.cases.map do |test_case|
-            Concurrent::Future.execute(executor: pool) { evaluate_case(test_case) }
+            # Each future gets its own context+adapter to avoid shared mutable state
+            isolated_context = dup_context_for_concurrency(@context)
+            Concurrent::Future.execute(executor: pool) do
+              evaluate_case_with_context(test_case, isolated_context)
+            end
           end
           futures.map(&:value!)
         ensure
           pool&.shutdown
           pool&.wait_for_termination(5)
+        end
+
+        def evaluate_case_with_context(test_case, context)
+          run_result = @step.run(test_case.input, context: context)
+          step_result = normalize_result(run_result)
+          eval_result = dispatch_evaluation(step_result, test_case)
+
+          result = build_case_result(test_case, step_result, eval_result)
+
+          if test_case.respond_to?(:step_expectations) && test_case.step_expectations &&
+             run_result.respond_to?(:outputs_by_step)
+            evaluate_step_expectations(result, run_result.outputs_by_step, test_case.step_expectations)
+          else
+            result
+          end
+        rescue RubyLLM::Contract::Error => e
+          raise unless e.message.include?("No adapter configured")
+
+          skipped_result(test_case, e.message)
+        end
+
+        def dup_context_for_concurrency(context)
+          context.transform_values do |v|
+            v.respond_to?(:dup) ? v.dup : v
+          rescue TypeError
+            v
+          end
         end
 
         def evaluate_case(test_case)
@@ -187,12 +218,17 @@ module RubyLLM
           end
 
           # Rebuild CaseResult with step_results metadata
+          failed_steps = step_results.select { |_, v| !v[:passed] }
+          failure_details = failed_steps.map { |k, v| "#{k}: #{v[:details]}" }.join("; ")
+
           CaseResult.new(
             name: result.name, input: result.input, output: result.output,
-            expected: result.expected, step_status: all_passed ? result.step_status : :step_expectation_failed,
+            expected: result.expected,
+            step_status: all_passed ? result.step_status : :step_expectation_failed,
             score: all_passed ? result.score : 0.0,
             passed: result.passed? && all_passed,
-            label: result.label, details: result.details,
+            label: all_passed ? result.label : "FAIL",
+            details: all_passed ? result.details : "step expectations failed: #{failure_details}",
             duration_ms: result.duration_ms, cost: result.cost
           )
         end
