@@ -33,17 +33,37 @@ module RubyLLM
         def run_concurrent
           require "concurrent"
           pool = Concurrent::FixedThreadPool.new(@concurrency)
-          futures = @dataset.cases.map do |test_case|
-            # Each future gets its own context+adapter to avoid shared mutable state
-            isolated_context = dup_context_for_concurrency(@context)
+
+          # Pre-build per-case contexts: if adapter has responses:, each case
+          # gets a single-response adapter with its own response (by index).
+          per_case_contexts = build_per_case_contexts
+
+          futures = @dataset.cases.each_with_index.map do |test_case, i|
+            ctx = per_case_contexts[i]
             Concurrent::Future.execute(executor: pool) do
-              evaluate_case_with_context(test_case, isolated_context)
+              evaluate_case_with_context(test_case, ctx)
             end
           end
           futures.map(&:value!)
         ensure
           pool&.shutdown
           pool&.wait_for_termination(5)
+        end
+
+        def build_per_case_contexts
+          adapter = @context[:adapter]
+          responses = adapter.respond_to?(:responses_array) ? adapter.responses_array : nil
+
+          @dataset.cases.each_with_index.map do |_, i|
+            if responses
+              # Give each case its own single-response adapter
+              response = responses[i] || responses.last
+              per_case_adapter = Adapters::Test.new(response: response)
+              @context.merge(adapter: per_case_adapter)
+            else
+              dup_context_for_concurrency(@context)
+            end
+          end
         end
 
         def evaluate_case_with_context(test_case, context)
