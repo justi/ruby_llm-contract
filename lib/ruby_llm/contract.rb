@@ -40,6 +40,15 @@ module RubyLLM
         @eval_hosts = []
       end
 
+      # Thread-local per-step adapter overrides used by test helpers (RSpec + Minitest).
+      def step_adapter_overrides
+        Thread.current[:ruby_llm_contract_step_overrides] ||= {}
+      end
+
+      def step_adapter_overrides=(map)
+        Thread.current[:ruby_llm_contract_step_overrides] = map
+      end
+
       def load_evals!(*dirs)
         dirs = dirs.flatten.compact
         if dirs.empty? && defined?(::Rails)
@@ -102,6 +111,21 @@ module RubyLLM
         nil
       end
     end
+
+    # One-time prepend on Step::Base that checks the override map before
+    # falling through to the normal adapter resolution.
+    # Used by both RSpec and Minitest test helpers.
+    module StepAdapterOverride
+      def run(input, context: {})
+        context = context || {}
+        overrides = RubyLLM::Contract.step_adapter_overrides
+        unless overrides.empty? || context.key?(:adapter) || context.key?("adapter")
+          override = overrides[self]
+          context = context.merge(adapter: override) if override
+        end
+        super(input, context: context)
+      end
+    end
   end
 end
 
@@ -126,3 +150,6 @@ require_relative "contract/pipeline"
 require_relative "contract/eval"
 require_relative "contract/dsl"
 require_relative "contract/railtie" if defined?(Rails::Railtie)
+
+# Prepend after Step::Base is loaded
+RubyLLM::Contract::Step::Base.singleton_class.prepend(RubyLLM::Contract::StepAdapterOverride)

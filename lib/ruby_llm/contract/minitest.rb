@@ -4,32 +4,6 @@ require "ruby_llm/contract"
 
 module RubyLLM
   module Contract
-    # Thread-local per-step adapter overrides used by MinitestHelpers.
-    # Kept at the module level so Step::Base can read it during resolve_adapter.
-    class << self
-      def step_adapter_overrides
-        Thread.current[:ruby_llm_contract_step_overrides] ||= {}
-      end
-
-      def step_adapter_overrides=(map)
-        Thread.current[:ruby_llm_contract_step_overrides] = map
-      end
-    end
-
-    # One-time prepend on Step::Base that checks the override map before
-    # falling through to the normal adapter resolution.
-    module StepAdapterOverride
-      def run(input, context: {})
-        unless context.key?(:adapter)
-          override = RubyLLM::Contract.step_adapter_overrides[self]
-          context = context.merge(adapter: override) if override
-        end
-        super(input, context: context)
-      end
-    end
-
-    Step::Base.singleton_class.prepend(StepAdapterOverride)
-
     module MinitestHelpers
       def assert_satisfies_contract(result, msg = nil)
         assert result.ok?, msg || "Expected step result to satisfy contract, " \
