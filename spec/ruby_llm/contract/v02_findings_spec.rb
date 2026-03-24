@@ -41,6 +41,37 @@ RSpec.describe "v0.2 review findings" do
   end
 
   # ===========================================================================
+  # RakeTask lazy context — Proc resolved at task runtime, not load time
+  # ===========================================================================
+
+  describe "RakeTask lazy context" do
+    it "accepts a Proc as context and resolves it at task execution time" do
+      resolved_at = nil
+      task = RubyLLM::Contract::RakeTask.new(:"test_lazy_#{rand(1000)}") do |t|
+        t.context = -> { resolved_at = Time.now; { adapter: RubyLLM::Contract::Adapters::Test.new(response: "{}") } }
+        t.fail_on_empty = false
+      end
+
+      # Proc not called during initialize
+      expect(resolved_at).to be_nil
+
+      # Proc called when task executes
+      Rake::Task[task.name].invoke
+      expect(resolved_at).not_to be_nil
+    end
+
+    it "still accepts a plain Hash as context" do
+      adapter = RubyLLM::Contract::Adapters::Test.new(response: "{}")
+      task = RubyLLM::Contract::RakeTask.new(:"test_hash_ctx_#{rand(1000)}") do |t|
+        t.context = { adapter: adapter }
+        t.fail_on_empty = false
+      end
+
+      expect { Rake::Task[task.name].invoke }.not_to raise_error
+    end
+  end
+
+  # ===========================================================================
   # Finding 2 (MEDIUM): Subclasses with inherited evals must be discovered
   # ===========================================================================
 
