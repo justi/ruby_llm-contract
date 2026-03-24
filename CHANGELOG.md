@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.3.7 (2026-03-24)
+
+- **Trait missing key = error** — `expected_traits: { title: 0..5 }` on output `{}` now fails instead of silently passing.
+- **nil input in dynamic prompts** — `run(nil)` with `prompt { |input| ... }` correctly passes nil to block.
+- **Defensive sample pre-validation** — `sample_response` uses the same parser as runtime (handles code fences, BOM, prose around JSON).
+- **Baseline diff excludes skipped** — self-compare with skipped cases no longer shows artificial score delta.
+- **Zeitwerk eval/ ignore** — `eager_load_contract_dirs!` ignores `eval/` subdirs before eager load.
+
 ## 0.3.6 (2026-03-24)
 
 - **Recursive array/object validation** — nested arrays (`array of array of string`) validated recursively. Object items validated even without `:properties` (e.g. `additionalProperties: false`).
