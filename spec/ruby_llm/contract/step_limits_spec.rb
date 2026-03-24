@@ -91,17 +91,18 @@ RSpec.describe "Step-level execution limits (GH-17)" do
       expect(result.status).to eq(:ok)
     end
 
-    it "warns when model pricing unavailable but still runs" do
+    it "refuses when model pricing unavailable (fail closed)" do
       adapter = RubyLLM::Contract::Adapters::Test.new(response: '{"v": 1}')
 
       step = Class.new(RubyLLM::Contract::Step::Base) do
         prompt "Hi {input}"
-        max_cost 0.0001 # very low
+        max_cost 0.0001
       end
 
-      # Unknown model — no pricing data — warn issued, call still proceeds
+      # Unknown model — no pricing data — refuse by default
       result = step.run("test", context: { adapter: adapter, model: "unknown-model-xyz" })
-      expect(result.status).to eq(:ok) # call was not blocked — fail-open with warning
+      expect(result.status).to eq(:limit_exceeded)
+      expect(result.validation_errors.first).to include("no pricing data")
     end
   end
 

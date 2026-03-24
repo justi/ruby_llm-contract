@@ -11,22 +11,48 @@ module RubyLLM
         #   result.parsed_output  # => {priority: "high"}
         #
         # Only affects the specified step — other steps are not affected.
+        # Supports an optional block form for scoped stubbing:
         #
-        def stub_step(step_class, response: nil, responses: nil)
+        #   stub_step(ClassifyTicket, response: data) do
+        #     # only stubbed inside this block
+        #   end
+        #   # mock automatically cleaned up by RSpec after example
+        #
+        def stub_step(step_class, response: nil, responses: nil, &block)
           adapter = build_test_adapter(response: response, responses: responses)
           allow(step_class).to receive(:run).and_wrap_original do |original, input, **kwargs|
             context = (kwargs[:context] || {}).merge(adapter: adapter)
             original.call(input, context: context)
           end
+          yield if block
         end
 
         # Set a global test adapter for ALL steps.
         #
         #   stub_all_steps(response: { default: true })
         #
-        def stub_all_steps(response: nil, responses: nil)
+        # Supports an optional block form — the previous adapter is restored
+        # after the block returns (even if it raises):
+        #
+        #   stub_all_steps(response: { default: true }) do
+        #     # all steps use test adapter
+        #   end
+        #   # original adapter restored
+        #
+        def stub_all_steps(response: nil, responses: nil, &block)
           adapter = build_test_adapter(response: response, responses: responses)
-          RubyLLM::Contract.configure { |c| c.default_adapter = adapter }
+
+          if block
+            previous = RubyLLM::Contract.configuration.default_adapter
+            begin
+              RubyLLM::Contract.configuration.default_adapter = adapter
+              yield
+            ensure
+              RubyLLM::Contract.configuration.default_adapter = previous
+            end
+          else
+            RubyLLM::Contract.configure { |c| c.default_adapter = adapter }
+          end
         end
 
         private

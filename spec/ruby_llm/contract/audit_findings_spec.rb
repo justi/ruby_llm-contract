@@ -207,7 +207,7 @@ RSpec.describe "Technical audit findings" do
 
     it "child inherits validate blocks from parent effective_contract" do
       adapter = RubyLLM::Contract::Adapters::Test.new(response: '{"key": "value", "extra": "bad"}')
-      result = child_step.run("test", context: { adapter: adapter })
+      result = child_step.run("test", context: { adapter: adapter, model: "gpt-4.1-mini" })
 
       # The parent validate("extra check") should be inherited
       expect(result.status).to eq(:validation_failed)
@@ -216,7 +216,7 @@ RSpec.describe "Technical audit findings" do
 
     it "child step can run with parent's DSL" do
       adapter = RubyLLM::Contract::Adapters::Test.new(response: '{"key": "value", "extra": "good"}')
-      result = child_step.run("test", context: { adapter: adapter })
+      result = child_step.run("test", context: { adapter: adapter, model: "gpt-4.1-mini" })
 
       expect(result.status).to eq(:ok)
     end

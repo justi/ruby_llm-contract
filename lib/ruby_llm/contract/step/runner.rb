@@ -8,7 +8,8 @@ module RubyLLM
 
         def initialize(input_type:, output_type:, prompt_block:, contract_definition:,
                        adapter:, model:, output_schema: nil, max_output: nil,
-                       max_input: nil, max_cost: nil, temperature: nil, extra_options: {})
+                       max_input: nil, max_cost: nil, on_unknown_pricing: :refuse,
+                       temperature: nil, extra_options: {})
           @input_type = input_type
           @output_type = output_type
           @prompt_block = prompt_block
@@ -19,6 +20,7 @@ module RubyLLM
           @max_output = max_output
           @max_input = max_input
           @max_cost = max_cost
+          @on_unknown_pricing = on_unknown_pricing
           @temperature = temperature
           @extra_options = extra_options
         end
