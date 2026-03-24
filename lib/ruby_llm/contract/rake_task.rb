@@ -62,6 +62,9 @@ module RubyLLM
             end
           end
 
+          # Save history BEFORE gating — failures are valuable trend data (ADR-0016 F3)
+          save_all_history!(all_reports, context) if @track_history
+
           if @maximum_cost && suite_cost > @maximum_cost
             abort "\nEval suite FAILED: total cost $#{format("%.4f", suite_cost)} " \
                   "exceeds budget $#{format("%.4f", @maximum_cost)}"
@@ -71,9 +74,6 @@ module RubyLLM
 
           # Save baselines only after ALL gates pass
           passed_reports.each { |r| save_baseline!(r) } if @save_baseline
-
-          # Save history for ALL reports (pass and fail — failures are valuable trend data)
-          save_all_history!(all_reports, context) if @track_history
 
           puts "\nAll evals passed."
         end

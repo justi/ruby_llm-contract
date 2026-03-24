@@ -11,20 +11,40 @@ module RubyLLM
         #   result.parsed_output  # => {priority: "high"}
         #
         # Only affects the specified step — other steps are not affected.
-        # Supports an optional block form for scoped stubbing:
+        #
+        # With a block, the stub is scoped — cleaned up after the block:
         #
         #   stub_step(ClassifyTicket, response: data) do
         #     # only stubbed inside this block
         #   end
-        #   # mock automatically cleaned up by RSpec after example
+        #   # ClassifyTicket no longer stubbed
+        #
+        # Without a block, the stub lives until the RSpec example ends.
         #
         def stub_step(step_class, response: nil, responses: nil, &block)
           adapter = build_test_adapter(response: response, responses: responses)
-          allow(step_class).to receive(:run).and_wrap_original do |original, input, **kwargs|
-            context = (kwargs[:context] || {}).merge(adapter: adapter)
-            original.call(input, context: context)
+
+          if block
+            # Block form: use thread-local overrides with save/restore for real scoping
+            overrides = RubyLLM::Contract.step_adapter_overrides
+            previous = overrides[step_class]
+            overrides[step_class] = adapter
+            begin
+              yield
+            ensure
+              if previous
+                overrides[step_class] = previous
+              else
+                overrides.delete(step_class)
+              end
+            end
+          else
+            # Non-block: use RSpec allow (auto-cleaned after example)
+            allow(step_class).to receive(:run).and_wrap_original do |original, input, **kwargs|
+              context = (kwargs[:context] || {}).merge(adapter: adapter)
+              original.call(input, context: context)
+            end
           end
-          yield if block
         end
 
         # Stub multiple steps at once with different responses.
@@ -40,10 +60,26 @@ module RubyLLM
         def stub_steps(stubs, &block)
           raise ArgumentError, "stub_steps requires a block" unless block
 
+          overrides = RubyLLM::Contract.step_adapter_overrides
+          previous = {}
+
           stubs.each do |step_class, opts|
-            stub_step(step_class, **opts)
+            adapter = build_test_adapter(**opts)
+            previous[step_class] = overrides[step_class]
+            overrides[step_class] = adapter
           end
-          yield
+
+          begin
+            yield
+          ensure
+            stubs.each_key do |step_class|
+              if previous[step_class]
+                overrides[step_class] = previous[step_class]
+              else
+                overrides.delete(step_class)
+              end
+            end
+          end
         end
 
         # Set a global test adapter for ALL steps.
