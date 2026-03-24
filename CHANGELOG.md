@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.4.4 (2026-03-24)
+
+- **`stub_steps` (plural)** — stub multiple steps with different responses in one block. No nesting needed. Works in RSpec and Minitest:
+  ```ruby
+  stub_steps(
+    ClassifyTicket => { response: { priority: "high" } },
+    RouteToTeam => { response: { team: "billing" } }
+  ) { TicketPipeline.run("test") }
+  ```
+
 ## 0.4.3 (2026-03-24)
 
 Production feedback release — driven by ADR-0016 (real Rails 8.1 deployment).

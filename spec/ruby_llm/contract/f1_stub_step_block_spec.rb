@@ -119,6 +119,28 @@ RSpec.describe "F1: stub_step block form — RSpec helpers" do
       expect(RubyLLM::Contract.configuration.default_adapter).to eq(original_adapter)
     end
   end
+
+  # ---- stub_steps (plural) ----
+
+  describe "stub_steps (plural)" do
+    it "stubs multiple steps with different responses in one block" do
+      stub_steps(
+        F1StepAlpha => { response: '{"step":"alpha"}' },
+        F1StepBeta => { response: '{"step":"beta"}' }
+      ) do
+        result_a = F1StepAlpha.run("x")
+        result_b = F1StepBeta.run("x")
+        expect(result_a.parsed_output).to eq({ step: "alpha" })
+        expect(result_b.parsed_output).to eq({ step: "beta" })
+      end
+    end
+
+    it "requires a block" do
+      expect {
+        stub_steps(F1StepAlpha => { response: '{"x":1}' })
+      }.to raise_error(ArgumentError, /requires a block/)
+    end
+  end
 end
 
 # =========================================================================
@@ -222,6 +244,37 @@ RSpec.describe "F1: stub_step block form — Minitest helpers" do
       # After outer block, should fall back to default
       result = F1StepAlpha.run("x")
       expect(result.parsed_output).to eq({ level: "fallback" })
+    end
+  end
+
+  # ---- stub_steps (plural) ----
+
+  describe "stub_steps (plural)" do
+    it "stubs multiple steps with different responses in one block" do
+      fallback = RubyLLM::Contract::Adapters::Test.new(response: '{"step":"fallback"}')
+      RubyLLM::Contract.configuration.default_adapter = fallback
+
+      stub_steps(
+        F1StepAlpha => { response: '{"step":"alpha"}' },
+        F1StepBeta => { response: '{"step":"beta"}' }
+      ) do
+        result_a = F1StepAlpha.run("x")
+        result_b = F1StepBeta.run("x")
+        expect(result_a.parsed_output).to eq({ step: "alpha" })
+        expect(result_b.parsed_output).to eq({ step: "beta" })
+      end
+
+      # After block, both should fall back to default
+      result_a = F1StepAlpha.run("x")
+      result_b = F1StepBeta.run("x")
+      expect(result_a.parsed_output).to eq({ step: "fallback" })
+      expect(result_b.parsed_output).to eq({ step: "fallback" })
+    end
+
+    it "requires a block" do
+      expect {
+        stub_steps(F1StepAlpha => { response: '{"x":1}' })
+      }.to raise_error(ArgumentError, /requires a block/)
     end
   end
 end
