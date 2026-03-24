@@ -29,6 +29,11 @@ module RubyLLM
 
         public
 
+        # Exposes raw responses array for concurrent eval to split per-case
+        def responses_array
+          @responses
+        end
+
         def call(messages:, **_options) # rubocop:disable Lint/UnusedMethodArgument
           content = if @responses
                       c = @responses[@index] || @responses.last
