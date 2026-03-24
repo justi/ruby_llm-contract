@@ -135,6 +135,28 @@ expect(ClassifyTicket).to pass_eval("regression")
   .without_regressions
 ```
 
+## Track quality over time
+
+```ruby
+# Save every eval run
+report = ClassifyTicket.run_eval("regression", context: { model: "gpt-4.1-nano" })
+report.save_history!(model: "gpt-4.1-nano")
+
+# View trend
+history = report.eval_history(model: "gpt-4.1-nano")
+history.score_trend   # => :stable_or_improving | :declining
+history.drift?        # => true (score dropped > 10%)
+```
+
+## Run evals fast
+
+```ruby
+# 4x faster with parallel execution
+report = ClassifyTicket.run_eval("regression",
+  context: { model: "gpt-4.1-nano" },
+  concurrency: 4)
+```
+
 ## Predict cost before running
 
 ```ruby
