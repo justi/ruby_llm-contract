@@ -41,7 +41,10 @@ module RubyLLM
           else
             # Non-block: use RSpec allow (auto-cleaned after example)
             allow(step_class).to receive(:run).and_wrap_original do |original, input, **kwargs|
-              context = (kwargs[:context] || {}).merge(adapter: adapter)
+              context = kwargs[:context] || {}
+              unless context.key?(:adapter) || context.key?("adapter")
+                context = context.merge(adapter: adapter)
+              end
               original.call(input, context: context)
             end
           end
