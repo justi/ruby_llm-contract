@@ -180,3 +180,67 @@ end
 ```
 
 `mismatches` returns a hash of keys where `expected` and actual output diverge -- handy for pinpointing which field a model got wrong.
+
+## Baseline Regression Detection
+
+Save eval results as a baseline. Next run, detect what changed.
+
+```ruby
+# First run — everything passes, save as baseline
+report = ClassifyTicket.run_eval("regression", context: { model: "gpt-4.1-nano" })
+report.save_baseline!(model: "gpt-4.1-nano")
+# Writes to .eval_baselines/ClassifyTicket/regression_gpt-4_1-nano.json
+```
+
+Later — after a prompt change, model update, or provider weight shift:
+
+```ruby
+report = ClassifyTicket.run_eval("regression", context: { model: "gpt-4.1-nano" })
+diff = report.compare_with_baseline(model: "gpt-4.1-nano")
+
+diff.regressed?      # => true
+diff.regressions     # => [{case: "outage", baseline: {passed: true}, current: {passed: false}}]
+diff.improvements    # => []
+diff.score_delta     # => -0.33
+diff.new_cases       # => cases added since baseline
+diff.removed_cases   # => cases removed since baseline (treated as regression if passing)
+```
+
+### CI gate on regressions
+
+```ruby
+# RSpec — block merge if any previously-passing case now fails
+expect(ClassifyTicket).to pass_eval("regression")
+  .with_context(model: "gpt-4.1-nano")
+  .without_regressions
+```
+
+```ruby
+# Rake — auto-save baseline after green, fail on regression
+RubyLLM::Contract::RakeTask.new do |t|
+  t.minimum_score = 0.8
+  t.fail_on_regression = true
+  t.save_baseline = true
+end
+```
+
+### What counts as a regression
+
+- A case that **passed** in baseline but **fails** now
+- A case that **passed** in baseline but is **missing** from current eval (removed or skipped)
+- Score drop alone is NOT a regression — use `with_minimum_score` for that
+
+### Baseline file format
+
+Baselines are JSON files in `.eval_baselines/` — add to git:
+
+```
+.eval_baselines/
+  ClassifyTicket/
+    regression_gpt-4_1-nano.json
+    regression_gpt-4_1-mini.json
+  EvaluatePersona/
+    smoke.json
+```
+
+Each file contains dataset name, step name, score, and per-case results. No timestamps — re-saving an identical baseline produces no git diff.
