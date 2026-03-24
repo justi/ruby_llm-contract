@@ -112,6 +112,13 @@ module RubyLLM
         end
 
         def max_cost(amount = nil, on_unknown_pricing: nil)
+          if amount == :default
+            @max_cost = nil
+            @max_cost_explicitly_unset = true
+            @on_unknown_pricing = nil
+            return nil
+          end
+
           if amount
             unless amount.is_a?(Numeric) && amount.positive?
               raise ArgumentError, "max_cost must be positive, got #{amount}"
@@ -121,16 +128,16 @@ module RubyLLM
               raise ArgumentError, "on_unknown_pricing must be :refuse or :warn, got #{on_unknown_pricing.inspect}"
             end
 
+            @max_cost_explicitly_unset = false
             @max_cost = amount
             @on_unknown_pricing = on_unknown_pricing || :refuse
             return @max_cost
           end
 
-          if defined?(@max_cost)
-            @max_cost
-          elsif superclass.respond_to?(:max_cost)
-            superclass.max_cost
-          end
+          return @max_cost if defined?(@max_cost) && !@max_cost_explicitly_unset
+          return nil if @max_cost_explicitly_unset
+
+          superclass.max_cost if superclass.respond_to?(:max_cost)
         end
 
         def on_unknown_pricing
@@ -144,31 +151,43 @@ module RubyLLM
         end
 
         def model(name = nil)
+          if name == :default
+            @model = nil
+            @model_explicitly_unset = true
+            return nil
+          end
+
           if name
+            @model_explicitly_unset = false
             return @model = name
           end
 
-          if defined?(@model)
-            @model
-          elsif superclass.respond_to?(:model)
-            superclass.model
-          end
+          return @model if defined?(@model) && !@model_explicitly_unset
+          return nil if @model_explicitly_unset
+
+          superclass.model if superclass.respond_to?(:model)
         end
 
         def temperature(value = nil)
+          if value == :default
+            @temperature = nil
+            @temperature_explicitly_unset = true
+            return nil
+          end
+
           if value
             unless value.is_a?(Numeric) && value >= 0 && value <= 2
               raise ArgumentError, "temperature must be 0.0-2.0, got #{value}"
             end
 
+            @temperature_explicitly_unset = false
             return @temperature = value
           end
 
-          if defined?(@temperature)
-            @temperature
-          elsif superclass.respond_to?(:temperature)
-            superclass.temperature
-          end
+          return @temperature if defined?(@temperature) && !@temperature_explicitly_unset
+          return nil if @temperature_explicitly_unset
+
+          superclass.temperature if superclass.respond_to?(:temperature)
         end
 
         def around_call(&block)

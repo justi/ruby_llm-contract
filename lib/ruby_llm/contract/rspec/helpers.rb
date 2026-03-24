@@ -67,6 +67,7 @@ module RubyLLM
           previous = {}
 
           stubs.each do |step_class, opts|
+            opts = opts.transform_keys(&:to_sym)
             adapter = build_test_adapter(**opts)
             previous[step_class] = overrides[step_class]
             overrides[step_class] = adapter
