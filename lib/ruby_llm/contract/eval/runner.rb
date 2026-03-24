@@ -6,6 +6,7 @@ module RubyLLM
       class Runner
         include TraitEvaluator
         include ContractDetailBuilder
+        include Concerns::ContextHelpers
 
         def self.run(step:, dataset:, context: {}, concurrency: nil)
           new(step: step, dataset: dataset, context: context, concurrency: concurrency).run
@@ -61,7 +62,7 @@ module RubyLLM
               per_case_adapter = Adapters::Test.new(response: response)
               @context.merge(adapter: per_case_adapter)
             else
-              dup_context_for_concurrency(@context)
+              isolate_context(@context)
             end
           end
         end
@@ -83,20 +84,6 @@ module RubyLLM
           raise unless e.message.include?("No adapter configured")
 
           skipped_result(test_case, e.message)
-        end
-
-        def dup_context_for_concurrency(context)
-          context.transform_values do |v|
-            if v.respond_to?(:clone_for_concurrency)
-              v.clone_for_concurrency
-            elsif v.respond_to?(:dup)
-              v.dup
-            else
-              v
-            end
-          rescue TypeError
-            v
-          end
         end
 
         def evaluate_case(test_case)

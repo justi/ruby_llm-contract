@@ -4,6 +4,7 @@ module RubyLLM
   module Contract
     module Concerns
       module EvalHost
+        include ContextHelpers
         def define_eval(name, &)
           @eval_definitions ||= {}
           @file_sourced_evals ||= Set.new
@@ -36,7 +37,7 @@ module RubyLLM
         end
 
         def run_eval(name = nil, context: {}, concurrency: nil)
-          context ||= {}
+          context = safe_context(context)
           if name
             run_single_eval(name, context, concurrency: concurrency)
           else
@@ -45,10 +46,10 @@ module RubyLLM
         end
 
         def compare_models(eval_name, models:, context: {})
-          context ||= {}
+          context = safe_context(context)
           models = models.uniq
           reports = models.each_with_object({}) do |model, hash|
-            model_context = deep_dup_context(context).merge(model: model)
+            model_context = isolate_context(context).merge(model: model)
             hash[model] = run_single_eval(eval_name, model_context)
           end
           Eval::ModelComparison.new(eval_name: eval_name, reports: reports)
@@ -77,7 +78,7 @@ module RubyLLM
 
         def run_all_own_evals(context, concurrency: nil)
           all_eval_definitions.transform_values do |defn|
-            isolated_context = deep_dup_context(context)
+            isolated_context = isolate_context(context)
             effective_context = eval_context(defn, isolated_context)
             Eval::Runner.run(step: self, dataset: defn.build_dataset, context: effective_context,
                              concurrency: concurrency)
@@ -85,7 +86,7 @@ module RubyLLM
         end
 
         def eval_context(defn, context)
-          context = (context || {}).transform_keys { |k| k.respond_to?(:to_sym) ? k.to_sym : k }
+          context = safe_context(context)
           return context if context[:adapter]
 
           sample_adapter = defn.build_adapter
@@ -107,13 +108,6 @@ module RubyLLM
           end
         end
 
-        def deep_dup_context(context)
-          context.transform_values do |v|
-            v.respond_to?(:dup) ? v.dup : v
-          rescue TypeError
-            v
-          end
-        end
       end
     end
   end
