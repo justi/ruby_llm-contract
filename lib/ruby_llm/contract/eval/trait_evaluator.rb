@@ -19,8 +19,11 @@ module RubyLLM
         end
 
         def check_trait(output, key, expectation, errors)
-          value = output.is_a?(Hash) ? output[key] : nil
-          error_msg = trait_error(key, value, expectation)
+          unless output.is_a?(Hash) && output.key?(key)
+            errors << "#{key}: missing key"
+            return
+          end
+          error_msg = trait_error(key, output[key], expectation)
           errors << error_msg if error_msg
         end
 

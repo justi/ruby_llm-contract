@@ -4,14 +4,16 @@ module RubyLLM
   module Contract
     module Prompt
       class Builder
+        NOT_PROVIDED = Object.new.freeze
+
         def initialize(block)
           @block = block
           @nodes = []
         end
 
-        def build(input = nil)
+        def build(input = NOT_PROVIDED)
           @nodes = []
-          if !input.nil? && @block.arity >= 1
+          if input != NOT_PROVIDED && @block.arity >= 1
             instance_exec(input, &@block)
           else
             instance_eval(&@block)
@@ -39,7 +41,7 @@ module RubyLLM
           @nodes << Nodes::SectionNode.new(name, text)
         end
 
-        def self.build(input: nil, &block)
+        def self.build(input: NOT_PROVIDED, &block)
           new(block).build(input)
         end
       end

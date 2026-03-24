@@ -9,8 +9,8 @@ module RubyLLM
         def initialize(baseline_cases:, current_cases:)
           @baseline = index_by_name(baseline_cases)
           @current = index_by_name(current_cases)
-          @baseline_score = baseline_cases.empty? ? 0.0 : baseline_cases.sum { |c| c[:score] } / baseline_cases.length
-          @current_score = current_cases.empty? ? 0.0 : current_cases.sum { |c| c[:score] } / current_cases.length
+          @baseline_score = compute_score(baseline_cases)
+          @current_score = compute_score(current_cases)
           freeze
         end
 
@@ -77,6 +77,14 @@ module RubyLLM
         end
 
         private
+
+        def compute_score(cases)
+          # Exclude skipped cases from score (consistent with Report#score)
+          evaluated = cases.reject { |c| c[:details]&.start_with?("skipped:") }
+          return 0.0 if evaluated.empty?
+
+          evaluated.sum { |c| c[:score] } / evaluated.length
+        end
 
         def index_by_name(cases)
           cases.each_with_object({}) { |c, h| h[c[:name]] = c }
