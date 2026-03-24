@@ -156,3 +156,10 @@ threads = 10.times.map do |i|
 end
 results = threads.map(&:value)
 ```
+
+**Note:** In tests, `stub_step` overrides are thread-local. If your orchestrator spawns threads, propagate overrides manually:
+
+```ruby
+overrides = RubyLLM::Contract.step_adapter_overrides.dup
+Thread.new { RubyLLM::Contract.step_adapter_overrides = overrides; GenerateBatch.run(input) }
+```
