@@ -98,7 +98,7 @@ module RubyLLM
       end
 
       def task_prerequisites
-        Rake::Task.task_defined?(:environment) ? [:environment] : []
+        defined?(::Rails) ? [:environment] : []
       end
     end
   end
