@@ -28,8 +28,15 @@ module RubyLLM
           errors
         end
 
+        # Default output estimate when max_output is not set.
+        # Uses input token count as a conservative proxy — most LLM responses
+        # are shorter than the input, so this overestimates slightly.
+        # Without this, output cost is zero and max_cost can be bypassed
+        # for models expensive on completion side.
+        DEFAULT_OUTPUT_RATIO = 1
+
         def append_cost_error(estimated, errors)
-          estimated_output = effective_max_output || 0
+          estimated_output = effective_max_output || (estimated * DEFAULT_OUTPUT_RATIO)
           estimated_cost = CostCalculator.calculate(
             model_name: @model,
             usage: { input_tokens: estimated, output_tokens: estimated_output }
