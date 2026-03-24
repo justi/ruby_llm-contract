@@ -96,6 +96,45 @@ module RubyLLM
         end
       end
 
+      # Stub multiple steps at once with different responses.
+      # Takes a hash of step_class => options. Requires a block.
+      #
+      #   stub_steps(
+      #     ClassifyTicket => { response: { priority: "high" } },
+      #     RouteToTeam => { response: { team: "billing" } }
+      #   ) do
+      #     result = TicketPipeline.run("test")
+      #   end
+      #
+      def stub_steps(stubs, &block)
+        raise ArgumentError, "stub_steps requires a block" unless block
+
+        overrides = RubyLLM::Contract.step_adapter_overrides
+        previous = {}
+
+        stubs.each do |step_class, opts|
+          adapter = if opts[:responses]
+                      Adapters::Test.new(responses: opts[:responses])
+                    else
+                      Adapters::Test.new(response: opts[:response])
+                    end
+          previous[step_class] = overrides[step_class]
+          overrides[step_class] = adapter
+        end
+
+        begin
+          yield
+        ensure
+          stubs.each_key do |step_class|
+            if previous[step_class]
+              overrides[step_class] = previous[step_class]
+            else
+              overrides.delete(step_class)
+            end
+          end
+        end
+      end
+
       # Set a global test adapter for ALL steps.
       #
       #   stub_all_steps(response: { default: true })

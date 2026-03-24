@@ -27,6 +27,25 @@ module RubyLLM
           yield if block
         end
 
+        # Stub multiple steps at once with different responses.
+        # Takes a hash of step_class => options. Requires a block.
+        #
+        #   stub_steps(
+        #     ClassifyTicket => { response: { priority: "high" } },
+        #     RouteToTeam => { response: { team: "billing" } }
+        #   ) do
+        #     result = TicketPipeline.run("test")
+        #   end
+        #
+        def stub_steps(stubs, &block)
+          raise ArgumentError, "stub_steps requires a block" unless block
+
+          stubs.each do |step_class, opts|
+            stub_step(step_class, **opts)
+          end
+          yield
+        end
+
         # Set a global test adapter for ALL steps.
         #
         #   stub_all_steps(response: { default: true })
