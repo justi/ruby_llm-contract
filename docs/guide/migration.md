@@ -109,6 +109,15 @@ RubyLLM::Contract::RakeTask.new do |t|
 end
 ```
 
+**Rails apps:** If your adapter is configured in an initializer, use a Proc so context is resolved after Rails boots:
+
+```ruby
+RubyLLM::Contract::RakeTask.new do |t|
+  t.context = -> { { adapter: RubyLLM::Contract.configuration.default_adapter } }
+  t.minimum_score = 0.8
+end
+```
+
 ## Common patterns
 
 | Old pattern | New pattern |
