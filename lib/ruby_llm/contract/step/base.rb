@@ -82,7 +82,8 @@ module RubyLLM
 
           def build_messages(input)
             dynamic = prompt.arity >= 1
-            ast = Prompt::Builder.build(input: dynamic ? input : nil, &prompt)
+            builder_input = dynamic ? input : Prompt::Builder::NOT_PROVIDED
+            ast = Prompt::Builder.build(input: builder_input, &prompt)
             variables = dynamic ? {} : { input: input }
             variables.merge!(input.transform_keys(&:to_sym)) if !dynamic && input.is_a?(Hash)
             Prompt::Renderer.render(ast, variables: variables)

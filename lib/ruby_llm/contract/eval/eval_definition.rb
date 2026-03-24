@@ -106,15 +106,14 @@ module RubyLLM
           return if errors.empty?
 
           raise ArgumentError, "sample_response does not satisfy step schema: #{errors.join(", ")}"
-        rescue JSON::ParserError => e
-          # Non-JSON string with a structured schema = clear error
+        rescue JSON::ParserError, RubyLLM::Contract::ParseError => e
           raise ArgumentError, "sample_response is not valid JSON: #{e.message}"
         end
 
         def validate_sample_against_schema(schema)
           parsed = case @sample_response
                    when Hash, Array then @sample_response
-                   when String then JSON.parse(@sample_response)
+                   when String then Parser.parse(@sample_response, strategy: :json)
                    else @sample_response
                    end
           symbolized = deep_symbolize(parsed)
