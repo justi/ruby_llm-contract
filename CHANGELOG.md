@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.4.1 (2026-03-24)
+
+- **RakeTask `:environment` fix** — uses `defined?(::Rails)` instead of `Rake::Task.task_defined?(:environment)`. Works in Rails 8 without manual `Rake::Task.enhance`.
+- **Concurrent eval deterministic** — `clone_for_concurrency` protocol, `ContextHelpers` extracted.
+- **README** — added eval history, concurrency, quality tracking examples.
+
 ## 0.4.0 (2026-03-24)
 
 Observability & Scale — see what changed, run it fast, debug it easily.
