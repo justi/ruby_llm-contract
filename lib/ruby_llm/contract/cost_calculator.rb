@@ -3,6 +3,33 @@
 module RubyLLM
   module Contract
     module CostCalculator
+      # Simple struct for custom-registered model pricing
+      RegisteredModel = Struct.new(:input_price_per_million, :output_price_per_million, keyword_init: true)
+
+      @custom_models = {}
+
+      # Register pricing for custom or fine-tuned models not in the RubyLLM registry.
+      #
+      #   CostCalculator.register_model("ft:gpt-4o-custom",
+      #     input_per_1m: 3.0, output_per_1m: 6.0)
+      #
+      def self.register_model(model_name, input_per_1m:, output_per_1m:)
+        @custom_models[model_name] = RegisteredModel.new(
+          input_price_per_million: input_per_1m,
+          output_price_per_million: output_per_1m
+        )
+      end
+
+      # Remove a previously registered custom model. Mainly useful in tests.
+      def self.unregister_model(model_name)
+        @custom_models.delete(model_name)
+      end
+
+      # Reset all custom model registrations. Mainly useful in tests.
+      def self.reset_custom_models!
+        @custom_models.clear
+      end
+
       def self.calculate(model_name:, usage:)
         return nil unless model_name && usage.is_a?(Hash)
 
@@ -25,6 +52,10 @@ module RubyLLM
       end
 
       def self.find_model(model_name)
+        # Check custom registry first
+        custom = @custom_models[model_name]
+        return custom if custom
+
         return nil unless defined?(RubyLLM)
 
         RubyLLM.models.find(model_name)

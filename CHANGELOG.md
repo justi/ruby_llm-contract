@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.4.3 (2026-03-24)
+
+Production feedback release — driven by ADR-0016 (real Rails 8.1 deployment).
+
+### Features
+
+- **`stub_step` block form** — `stub_step(Step, response: x) { test }` auto-resets adapter after block. Works in RSpec and Minitest. Eliminates leaked test state.
+- **Minitest per-step routing** — `stub_step(StepA, ...)` now actually routes to StepA only (was setting global adapter, ignoring step class).
+- **`track_history` in RakeTask** — `t.track_history = true` auto-appends every eval run (pass and fail) to `.eval_history/`. Drift detection without manual `save_history!` calls.
+- **`max_cost` fail closed** — unknown model pricing now refuses the call instead of silently skipping. Set `on_unknown_pricing: :warn` for old behavior.
+- **`CostCalculator.register_model`** — register pricing for custom/fine-tuned models: `register_model("ft:gpt-4o", input_per_1m: 3.0, output_per_1m: 6.0)`.
+
 ## 0.4.2 (2026-03-24)
 
 - **RakeTask lazy context** — `t.context` now accepts a Proc, resolved at task runtime (after `:environment`). Fixes adapter not being available at Rake load time in Rails apps.

@@ -7,7 +7,7 @@ module RubyLLM
   module Contract
     class RakeTask < ::Rake::TaskLib
       attr_accessor :name, :context, :fail_on_empty, :minimum_score, :maximum_cost,
-                    :eval_dirs, :save_baseline, :fail_on_regression
+                    :eval_dirs, :save_baseline, :fail_on_regression, :track_history
 
       def initialize(name = :"ruby_llm_contract:eval", &block)
         super()
@@ -19,6 +19,7 @@ module RubyLLM
         @eval_dirs = []      # directories to load eval files from (non-Rails)
         @save_baseline = false
         @fail_on_regression = false
+        @track_history = false
         block&.call(self)
         define_task
       end
@@ -47,12 +48,14 @@ module RubyLLM
           suite_cost = 0.0
 
           passed_reports = []
+          all_reports = []
 
           results.each do |host, reports|
             puts "\n#{host.name || host.to_s}"
             reports.each_value do |report|
               report.print_summary
               suite_cost += report.total_cost
+              all_reports << report
               report_ok = report_meets_score?(report) && !check_regression(report)
               gate_passed = false unless report_ok
               passed_reports << report if report_ok
@@ -68,6 +71,10 @@ module RubyLLM
 
           # Save baselines only after ALL gates pass
           passed_reports.each { |r| save_baseline!(r) } if @save_baseline
+
+          # Save history for ALL reports (pass and fail — failures are valuable trend data)
+          save_all_history!(all_reports, context) if @track_history
+
           puts "\nAll evals passed."
         end
       end
@@ -96,6 +103,14 @@ module RubyLLM
       def save_baseline!(report)
         path = report.save_baseline!
         puts "  Baseline saved: #{path}"
+      end
+
+      def save_all_history!(reports, context)
+        model = context[:model] if context.is_a?(Hash)
+        reports.each do |report|
+          path = report.save_history!(model: model)
+          puts "  History saved: #{path}"
+        end
       end
 
       def task_prerequisites

@@ -117,6 +117,7 @@ module RubyLLM
               prompt_block: prompt, contract_definition: effective_contract,
               adapter: adapter, model: model, output_schema: output_schema,
               max_output: max_output, max_input: max_input, max_cost: max_cost,
+              on_unknown_pricing: on_unknown_pricing,
               temperature: effective_temp, extra_options: extra_options
             ).call(input)
           rescue ArgumentError => e

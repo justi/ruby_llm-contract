@@ -36,12 +36,22 @@ module RubyLLM
           )
 
           if estimated_cost.nil?
-            warn "[ruby_llm-contract] max_cost is configured but model '#{@model}' " \
-                 "has no pricing data — cost limit not enforced"
+            handle_unknown_pricing(errors)
           elsif estimated_cost > @max_cost
             errors << "Cost limit exceeded: estimated $#{format("%.6f", estimated_cost)} " \
                       "(#{estimated} input + #{estimated_output} output tokens), " \
                       "max $#{format("%.6f", @max_cost)}"
+          end
+        end
+
+        def handle_unknown_pricing(errors)
+          if @on_unknown_pricing == :warn
+            warn "[ruby_llm-contract] max_cost is configured but model '#{@model}' " \
+                 "has no pricing data — cost limit not enforced"
+          else
+            errors << "max_cost is set but model '#{@model}' has no pricing data. " \
+                      "Register pricing via CostCalculator.register_model or set " \
+                      "on_unknown_pricing: :warn to proceed without cost checks."
           end
         end
 

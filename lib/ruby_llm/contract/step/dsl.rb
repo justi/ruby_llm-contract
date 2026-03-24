@@ -111,19 +111,35 @@ module RubyLLM
           end
         end
 
-        def max_cost(amount = nil)
+        def max_cost(amount = nil, on_unknown_pricing: nil)
           if amount
             unless amount.is_a?(Numeric) && amount.positive?
               raise ArgumentError, "max_cost must be positive, got #{amount}"
             end
 
-            return @max_cost = amount
+            if on_unknown_pricing && !%i[refuse warn].include?(on_unknown_pricing)
+              raise ArgumentError, "on_unknown_pricing must be :refuse or :warn, got #{on_unknown_pricing.inspect}"
+            end
+
+            @max_cost = amount
+            @on_unknown_pricing = on_unknown_pricing || :refuse
+            return @max_cost
           end
 
           if defined?(@max_cost)
             @max_cost
           elsif superclass.respond_to?(:max_cost)
             superclass.max_cost
+          end
+        end
+
+        def on_unknown_pricing
+          if defined?(@on_unknown_pricing)
+            @on_unknown_pricing
+          elsif superclass.respond_to?(:on_unknown_pricing)
+            superclass.on_unknown_pricing
+          else
+            :refuse
           end
         end
 
