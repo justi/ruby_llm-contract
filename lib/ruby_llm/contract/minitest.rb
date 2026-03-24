@@ -5,10 +5,17 @@ require "ruby_llm/contract"
 module RubyLLM
   module Contract
     module MinitestHelpers
-      # Auto-cleanup: clear all step adapter overrides after each test.
-      # This prevents non-block stub_step calls from leaking between tests.
+      # Snapshot adapter before each test so teardown can restore it.
+      def setup
+        super if defined?(super)
+        @_contract_original_adapter = RubyLLM::Contract.configuration.default_adapter
+      end
+
+      # Auto-cleanup: clear overrides AND restore original adapter.
+      # Prevents both non-block stub_step and stub_all_steps from leaking.
       def teardown
         RubyLLM::Contract.step_adapter_overrides.clear
+        RubyLLM::Contract.configuration.default_adapter = @_contract_original_adapter
         super if defined?(super)
       end
 

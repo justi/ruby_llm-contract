@@ -24,7 +24,7 @@ module RubyLLM
           end
 
           def estimate_cost(input:, model: nil)
-            model_name = model || RubyLLM::Contract.configuration.default_model
+            model_name = model || (self.model if respond_to?(:model)) || RubyLLM::Contract.configuration.default_model
             messages = build_messages(input)
             input_tokens = TokenEstimator.estimate(messages)
             output_tokens = max_output || 256 # conservative default
@@ -46,7 +46,8 @@ module RubyLLM
             defn = send(:all_eval_definitions)[eval_name.to_s]
             raise ArgumentError, "No eval '#{eval_name}' defined" unless defn
 
-            model_list = models || [RubyLLM::Contract.configuration.default_model].compact
+            step_model = (self.model if respond_to?(:model))
+            model_list = models || [step_model || RubyLLM::Contract.configuration.default_model].compact
             cases = defn.build_dataset.cases
 
             model_list.each_with_object({}) do |model_name, result|
