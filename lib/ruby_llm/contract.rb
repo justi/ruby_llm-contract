@@ -18,6 +18,7 @@ module RubyLLM
 
       def reset_configuration!
         @configuration = Configuration.new
+        step_adapter_overrides.clear
       end
 
       # --- Eval host registry ---

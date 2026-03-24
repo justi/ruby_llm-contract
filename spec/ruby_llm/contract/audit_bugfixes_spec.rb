@@ -131,14 +131,14 @@ RSpec.describe "Audit bugfixes" do
       expect {
         RubyLLM::Contract::CostCalculator.register_model("ft:neg",
           input_per_1m: -1.0, output_per_1m: 1.0)
-      }.to raise_error(ArgumentError, /input_per_1m must be non-negative/)
+      }.to raise_error(ArgumentError, /input_per_1m must be a non-negative number/)
     end
 
     it "rejects negative output_per_1m" do
       expect {
         RubyLLM::Contract::CostCalculator.register_model("ft:neg",
           input_per_1m: 1.0, output_per_1m: -1.0)
-      }.to raise_error(ArgumentError, /output_per_1m must be non-negative/)
+      }.to raise_error(ArgumentError, /output_per_1m must be a non-negative number/)
     end
 
     it "accepts zero prices" do
@@ -146,6 +146,20 @@ RSpec.describe "Audit bugfixes" do
         RubyLLM::Contract::CostCalculator.register_model("ft:free",
           input_per_1m: 0.0, output_per_1m: 0.0)
       }.not_to raise_error
+    end
+
+    it "rejects string values" do
+      expect {
+        RubyLLM::Contract::CostCalculator.register_model("ft:str",
+          input_per_1m: "1.0", output_per_1m: 1.0)
+      }.to raise_error(ArgumentError, /non-negative number/)
+    end
+
+    it "rejects nil values" do
+      expect {
+        RubyLLM::Contract::CostCalculator.register_model("ft:nil",
+          input_per_1m: nil, output_per_1m: 1.0)
+      }.to raise_error(ArgumentError, /non-negative number/)
     end
   end
 
@@ -246,6 +260,76 @@ RSpec.describe "Audit bugfixes" do
           task_name = :"audit_strkey_#{rand(1000)}"
           RubyLLM::Contract::RakeTask.new(task_name) do |t|
             t.context = { "adapter" => adapter, "model" => "gpt-4o" }
+            t.track_history = true
+            t.fail_on_empty = false
+          end
+
+          Rake::Task[task_name].invoke
+
+          history_files = Dir[File.join(dir, ".eval_history", "*.jsonl")]
+          expect(history_files.any? { |f| f.include?("gpt-4o") }).to be true
+        end
+      end
+    end
+  end
+
+  # -----------------------------------------------------------------------
+  # Bug 10: max_cost preflight uses output estimate when max_output unset
+  # -----------------------------------------------------------------------
+  describe "Bug 10: max_cost accounts for output cost" do
+    it "refuses call for output-expensive model even without max_output" do
+      RubyLLM::Contract::CostCalculator.register_model("ft:output-expensive",
+        input_per_1m: 0.0, output_per_1m: 1000.0)
+
+      step = Class.new(RubyLLM::Contract::Step::Base) do
+        prompt "Analyze {input}"
+        max_cost 0.0001
+        # no max_output set
+      end
+
+      adapter = RubyLLM::Contract::Adapters::Test.new(response: '{"v":1}')
+      result = step.run("hello world test input", context: { adapter: adapter, model: "ft:output-expensive" })
+
+      expect(result.status).to eq(:limit_exceeded)
+    end
+  end
+
+  # -----------------------------------------------------------------------
+  # Bug 11: reset_configuration! clears step_adapter_overrides
+  # -----------------------------------------------------------------------
+  describe "Bug 11: reset_configuration! clears overrides" do
+    include RubyLLM::Contract::MinitestHelpers
+
+    it "clears step_adapter_overrides on reset" do
+      stub_step(AuditStepA, response: '{"from":"stubbed"}')
+      expect(RubyLLM::Contract.step_adapter_overrides).not_to be_empty
+
+      RubyLLM::Contract.reset_configuration!
+
+      expect(RubyLLM::Contract.step_adapter_overrides).to be_empty
+    end
+  end
+
+  # -----------------------------------------------------------------------
+  # Bug 12: track_history picks model from step DSL when context has none
+  # -----------------------------------------------------------------------
+  describe "Bug 12: track_history uses step DSL model as fallback" do
+    it "includes step-level model in history filename" do
+      Dir.mktmpdir do |dir|
+        Dir.chdir(dir) do
+          step = Class.new(RubyLLM::Contract::Step::Base) do
+            prompt { user "{input}" }
+            model "gpt-4o"
+          end
+
+          adapter = RubyLLM::Contract::Adapters::Test.new(response: '{"ok":true}')
+          step.define_eval("dslmodel") do
+            add_case "test", input: "hello", expected: { ok: true }
+          end
+
+          task_name = :"audit_dslmodel_#{rand(1000)}"
+          RubyLLM::Contract::RakeTask.new(task_name) do |t|
+            t.context = { adapter: adapter } # no model in context
             t.track_history = true
             t.fail_on_empty = false
           end

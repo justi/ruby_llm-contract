@@ -14,8 +14,8 @@ module RubyLLM
       #     input_per_1m: 3.0, output_per_1m: 6.0)
       #
       def self.register_model(model_name, input_per_1m:, output_per_1m:)
-        raise ArgumentError, "input_per_1m must be non-negative, got #{input_per_1m}" if input_per_1m.negative?
-        raise ArgumentError, "output_per_1m must be non-negative, got #{output_per_1m}" if output_per_1m.negative?
+        raise ArgumentError, "input_per_1m must be a non-negative number, got #{input_per_1m.inspect}" unless input_per_1m.is_a?(Numeric) && !input_per_1m.negative?
+        raise ArgumentError, "output_per_1m must be a non-negative number, got #{output_per_1m.inspect}" unless output_per_1m.is_a?(Numeric) && !output_per_1m.negative?
 
         @custom_models[model_name] = RegisteredModel.new(
           input_price_per_million: input_per_1m,

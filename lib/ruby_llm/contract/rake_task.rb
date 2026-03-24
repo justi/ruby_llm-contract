@@ -55,7 +55,7 @@ module RubyLLM
             reports.each_value do |report|
               report.print_summary
               suite_cost += report.total_cost
-              all_reports << report
+              all_reports << [host, report]
               report_ok = report_meets_score?(report) && !check_regression(report)
               gate_passed = false unless report_ok
               passed_reports << report if report_ok
@@ -105,9 +105,13 @@ module RubyLLM
         puts "  Baseline saved: #{path}"
       end
 
-      def save_all_history!(reports, context)
-        model = (context[:model] || context["model"]) if context.is_a?(Hash)
-        reports.each do |report|
+      def save_all_history!(host_reports, context)
+        context_model = (context[:model] || context["model"]) if context.is_a?(Hash)
+        host_reports.each do |host, report|
+          # Model priority: context > step DSL > default config
+          model = context_model
+          model ||= (host.model if host.respond_to?(:model))
+          model ||= RubyLLM::Contract.configuration.default_model rescue nil
           path = report.save_history!(model: model)
           puts "  History saved: #{path}"
         end
