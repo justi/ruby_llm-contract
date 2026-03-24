@@ -171,6 +171,63 @@ RSpec.describe "Audit bugfixes" do
   end
 
   # -----------------------------------------------------------------------
+  # Bug 7: Minitest non-block stub_step auto-cleanup via teardown
+  # -----------------------------------------------------------------------
+  describe "Bug 7: Minitest teardown clears overrides" do
+    include RubyLLM::Contract::MinitestHelpers
+
+    it "teardown clears step_adapter_overrides" do
+      stub_step(AuditStepA, response: '{"from":"stubbed"}')
+      expect(RubyLLM::Contract.step_adapter_overrides).not_to be_empty
+
+      # Simulate Minitest teardown
+      teardown
+
+      expect(RubyLLM::Contract.step_adapter_overrides).to be_empty
+    end
+  end
+
+  # -----------------------------------------------------------------------
+  # Bug 8: Pipeline token_budget rejects negative values
+  # -----------------------------------------------------------------------
+  describe "Bug 8: Pipeline token_budget validates positive" do
+    it "rejects negative token_budget" do
+      expect {
+        Class.new(RubyLLM::Contract::Pipeline::Base) do
+          token_budget(-100)
+        end
+      }.to raise_error(ArgumentError, /token_budget must be positive/)
+    end
+
+    it "rejects zero token_budget" do
+      expect {
+        Class.new(RubyLLM::Contract::Pipeline::Base) do
+          token_budget(0)
+        end
+      }.to raise_error(ArgumentError, /token_budget must be positive/)
+    end
+  end
+
+  # -----------------------------------------------------------------------
+  # Bug 9: Minitest stub_steps handles string keys in options
+  # -----------------------------------------------------------------------
+  describe "Bug 9: Minitest stub_steps normalizes string-keyed options" do
+    include RubyLLM::Contract::MinitestHelpers
+
+    it "works with string keys in options hash" do
+      fallback = RubyLLM::Contract::Adapters::Test.new(response: '{"from":"fallback"}')
+      RubyLLM::Contract.configuration.default_adapter = fallback
+
+      stub_steps(
+        AuditStepA => { "response" => '{"from":"string_key"}' }
+      ) do
+        result = AuditStepA.run("x")
+        expect(result.parsed_output).to eq({ from: "string_key" })
+      end
+    end
+  end
+
+  # -----------------------------------------------------------------------
   # Bug 6: save_all_history! respects string key "model"
   # -----------------------------------------------------------------------
   describe "Bug 6: track_history handles string key model in context" do
