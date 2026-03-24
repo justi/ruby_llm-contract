@@ -29,7 +29,11 @@ module RubyLLM
           end
 
           def token_budget(limit = nil)
-            return @token_budget = limit if limit
+            if limit
+              raise ArgumentError, "token_budget must be positive, got #{limit}" unless limit.positive?
+
+              return @token_budget = limit
+            end
 
             @token_budget
           end

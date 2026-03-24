@@ -5,6 +5,13 @@ require "ruby_llm/contract"
 module RubyLLM
   module Contract
     module MinitestHelpers
+      # Auto-cleanup: clear all step adapter overrides after each test.
+      # This prevents non-block stub_step calls from leaking between tests.
+      def teardown
+        RubyLLM::Contract.step_adapter_overrides.clear
+        super if defined?(super)
+      end
+
       def assert_satisfies_contract(result, msg = nil)
         assert result.ok?, msg || "Expected step result to satisfy contract, " \
           "but got status: #{result.status}. Errors: #{result.validation_errors.join(", ")}"
@@ -87,6 +94,7 @@ module RubyLLM
         previous = {}
 
         stubs.each do |step_class, opts|
+          opts = opts.transform_keys(&:to_sym)
           adapter = if opts[:responses]
                       Adapters::Test.new(responses: opts[:responses])
                     else
