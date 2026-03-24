@@ -199,3 +199,7 @@ Works with any ruby_llm provider (OpenAI, Anthropic, Gemini, etc).
 ## License
 
 MIT
+
+## Links
+
+[![Hypercommit](https://img.shields.io/badge/Hypercommit-DB2475)](https://hypercommit.com/ruby-llm-contract)
