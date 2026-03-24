@@ -101,9 +101,40 @@ RSpec.describe ClassifyIntent do
 end
 ```
 
+## Offline vs Online Eval
+
+Evals run in two modes depending on how the eval is defined and what context is passed:
+
+| Has `sample_response`? | Context has adapter? | Mode | API calls |
+|------------------------|---------------------|------|-----------|
+| Yes | No | **Offline** — uses sample_response as canned answer | Zero |
+| Yes | Yes | **Online** — ignores sample_response, calls real LLM | Real |
+| No | Yes | **Online** — calls real LLM | Real |
+| No | No | **Skipped** — returns `:skipped`, excluded from score | Zero |
+
+**Default is offline.** If your eval has `sample_response`, `run_eval` uses it as a test adapter automatically. No API key needed.
+
+**To force online:** pass adapter or model in context:
+```ruby
+# Online — calls real LLM
+report = Step.run_eval("regression", context: { model: "gpt-4.1-nano" })
+
+# Offline — uses sample_response (default)
+report = Step.run_eval("smoke")
+```
+
+**In Rake task:**
+```ruby
+RubyLLM::Contract::RakeTask.new do |t|
+  # Without context: runs offline (sample_response)
+  # With context: runs online
+  t.context = { model: "gpt-4.1-nano" }  # online
+end
+```
+
 ## Eval with Test Cases
 
-v0.2 adds `add_case` inside `define_eval` for dataset-driven evaluation:
+`add_case` inside `define_eval` for dataset-driven evaluation:
 
 ```ruby
 ClassifyTicket.define_eval("regression") do
