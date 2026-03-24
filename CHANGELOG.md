@@ -1,5 +1,27 @@
 # Changelog
 
+## 0.4.0 (2026-03-24)
+
+Observability & Scale — see what changed, run it fast, debug it easily.
+
+### Features
+
+- **Structured logging** — `Contract.configure { |c| c.logger = Rails.logger }`. Auto-logs model, status, latency, tokens, cost on every `step.run`.
+- **Batch eval concurrency** — `run_eval("regression", concurrency: 4)`. Parallel case execution via Concurrent::Future. 4x faster CI for large eval suites.
+- **Eval history & trending** — `report.save_history!` appends to JSONL. `report.eval_history` returns `EvalHistory` with `score_trend`, `drift?`, run-by-run scores.
+- **Pipeline per-step eval** — `add_case(..., step_expectations: { classify: { priority: "high" } })`. See which step in a pipeline regressed.
+- **Minitest support** — `assert_satisfies_contract`, `assert_eval_passes`, `stub_step` for Minitest users. `require "ruby_llm/contract/minitest"`.
+
+### Game changer continuity
+
+```
+v0.2: "Which model?"          → compare_models (snapshot)
+v0.3: "Did it change?"        → baseline regression (binary)
+v0.4: "Show me the trend"     → eval history (time series)
+      "Which step changed?"   → pipeline per-step eval
+      "Run it fast"           → batch concurrency
+```
+
 ## 0.3.7 (2026-03-24)
 
 - **Trait missing key = error** — `expected_traits: { title: 0..5 }` on output `{}` now fails instead of silently passing.

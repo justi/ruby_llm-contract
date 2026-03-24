@@ -82,6 +82,24 @@ module RubyLLM
           lines.join("\n")
         end
 
+        def save_history!(path: nil, model: nil)
+          file = path || default_history_path(model: model)
+          run_data = {
+            date: Time.now.strftime("%Y-%m-%d"),
+            score: score,
+            total_cost: total_cost,
+            pass_rate: pass_rate,
+            cases_count: evaluated_results.length
+          }
+          EvalHistory.append(file, run_data)
+          file
+        end
+
+        def eval_history(path: nil, model: nil)
+          file = path || default_history_path(model: model)
+          EvalHistory.load(file)
+        end
+
         def save_baseline!(path: nil, model: nil)
           file = path || default_baseline_path(model: model)
           FileUtils.mkdir_p(File.dirname(file))
@@ -131,6 +149,15 @@ module RubyLLM
 
         def evaluated_results
           results.reject { |r| r.step_status == :skipped }
+        end
+
+        def default_history_path(model: nil)
+          parts = [".eval_history"]
+          parts << sanitize_name(@step_name) if @step_name
+          name = sanitize_name(dataset_name)
+          name = "#{name}_#{sanitize_name(model)}" if model
+          parts << "#{name}.jsonl"
+          File.join(*parts)
         end
 
         def default_baseline_path(model: nil)

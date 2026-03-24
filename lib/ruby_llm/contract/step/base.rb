@@ -77,6 +77,7 @@ module RubyLLM
                                 context_temperature: ctx_temp, extra_options: extra)
                      end
 
+            log_result(result)
             invoke_around_call(input, result)
           end
 
@@ -119,6 +120,19 @@ module RubyLLM
           rescue ArgumentError => e
             Result.new(status: :input_error, raw_output: nil, parsed_output: nil,
                        validation_errors: [e.message])
+          end
+
+          def log_result(result)
+            logger = RubyLLM::Contract.configuration.logger
+            return unless logger
+
+            trace = result.trace
+            msg = "[ruby_llm-contract] #{name || self} " \
+                  "model=#{trace.model} status=#{result.status} " \
+                  "latency=#{trace.latency_ms}ms " \
+                  "tokens=#{trace.usage&.dig(:input_tokens) || 0}+#{trace.usage&.dig(:output_tokens) || 0} " \
+                  "cost=$#{format("%.6f", trace.cost || 0)}"
+            logger.info(msg)
           end
 
           def invoke_around_call(input, result)

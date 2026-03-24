@@ -31,7 +31,7 @@ module RubyLLM
           Adapters::Test.new(response: @sample_response)
         end
 
-        def add_case(description, input: nil, expected: nil, expected_traits: nil, evaluator: nil)
+        def add_case(description, input: nil, expected: nil, expected_traits: nil, evaluator: nil, step_expectations: nil)
           case_input = input.nil? ? @default_input : input
           raise ArgumentError, "add_case requires input (set default_input or pass input:)" if case_input.nil?
           validate_unique_case_name!(description)
@@ -41,7 +41,8 @@ module RubyLLM
             input: case_input,
             expected: expected,
             expected_traits: expected_traits,
-            evaluator: evaluator
+            evaluator: evaluator,
+            step_expectations: step_expectations
           }
         end
 
@@ -72,7 +73,8 @@ module RubyLLM
             eval_cases.each do |eval_case|
               add_case(eval_case[:name], input: eval_case[:input], expected: eval_case[:expected],
                                          expected_traits: eval_case[:expected_traits],
-                                         evaluator: eval_case[:evaluator])
+                                         evaluator: eval_case[:evaluator],
+                                         step_expectations: eval_case[:step_expectations])
             end
           end
         end
