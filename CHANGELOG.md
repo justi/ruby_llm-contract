@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.4.5 (2026-03-24)
+
+Audit hardening — 18 bugs fixed across 4 audit rounds.
+
+### Fixes
+
+- **RakeTask history before abort** — `track_history` now saves all reports (pass and fail) before gating, so failed runs appear in eval history.
+- **RSpec/Minitest stub scoping** — block form `stub_step` uses thread-local overrides with real cleanup. Non-block `stub_all_steps` auto-restored by RSpec `around(:each)` hook and Minitest `setup`/`teardown`.
+- **StepAdapterOverride** — handles `context: nil` and respects string key `"adapter"`. Moved to `contract.rb` so both test frameworks share one mechanism.
+- **max_cost fail closed output estimate** — preflight uses 1x input tokens as output estimate when `max_output` not set, preventing cost bypass for output-expensive models.
+- **reset_configuration! clears overrides** — `step_adapter_overrides` now cleared on reset.
+- **CostCalculator.register_model** — validates `Numeric`, `finite?`, non-negative. Rejects NaN, Infinity, strings, nil.
+- **Pipeline token_budget** — rejects negative and zero values (parity with `timeout_ms`).
+- **track_history model fallback** — uses step DSL `model`, then `default_model` when context has no model. Handles string key `"model"`.
+- **estimate_cost / estimate_eval_cost** — falls back to step DSL model when no explicit model arg given.
+- **stub_steps string keys** — both RSpec and Minitest normalize string-keyed options with `transform_keys(:to_sym)`.
+- **DSL `:default` reset** — `model(:default)`, `temperature(:default)`, `max_cost(:default)` reset inherited parent values.
+
 ## 0.4.4 (2026-03-24)
 
 - **`stub_steps` (plural)** — stub multiple steps with different responses in one block. No nesting needed. Works in RSpec and Minitest:
