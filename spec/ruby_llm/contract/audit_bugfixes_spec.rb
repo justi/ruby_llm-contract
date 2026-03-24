@@ -148,4 +148,57 @@ RSpec.describe "Audit bugfixes" do
       }.not_to raise_error
     end
   end
+
+  # -----------------------------------------------------------------------
+  # Bug 5: non-block stub_step overwrites explicit context[:adapter]
+  # -----------------------------------------------------------------------
+  describe "Bug 5: non-block stub_step respects explicit adapter in context" do
+    it "uses caller's adapter when context[:adapter] is set" do
+      stub_step(AuditStepA, response: '{"from":"stubbed"}')
+
+      custom_adapter = RubyLLM::Contract::Adapters::Test.new(response: '{"from":"custom"}')
+      result = AuditStepA.run("x", context: { adapter: custom_adapter })
+      expect(result.parsed_output).to eq({ from: "custom" })
+    end
+
+    it "uses caller's adapter when context has string key" do
+      stub_step(AuditStepA, response: '{"from":"stubbed"}')
+
+      custom_adapter = RubyLLM::Contract::Adapters::Test.new(response: '{"from":"custom"}')
+      result = AuditStepA.run("x", context: { "adapter" => custom_adapter })
+      expect(result.parsed_output).to eq({ from: "custom" })
+    end
+  end
+
+  # -----------------------------------------------------------------------
+  # Bug 6: save_all_history! respects string key "model"
+  # -----------------------------------------------------------------------
+  describe "Bug 6: track_history handles string key model in context" do
+    it "includes model in history filename from string key context" do
+      Dir.mktmpdir do |dir|
+        Dir.chdir(dir) do
+          step = Class.new(RubyLLM::Contract::Step::Base) do
+            prompt { user "{input}" }
+          end
+
+          adapter = RubyLLM::Contract::Adapters::Test.new(response: '{"ok":true}')
+          step.define_eval("strkey") do
+            add_case "test", input: "hello", expected: { ok: true }
+          end
+
+          task_name = :"audit_strkey_#{rand(1000)}"
+          RubyLLM::Contract::RakeTask.new(task_name) do |t|
+            t.context = { "adapter" => adapter, "model" => "gpt-4o" }
+            t.track_history = true
+            t.fail_on_empty = false
+          end
+
+          Rake::Task[task_name].invoke
+
+          history_files = Dir[File.join(dir, ".eval_history", "*.jsonl")]
+          expect(history_files.any? { |f| f.include?("gpt-4o") }).to be true
+        end
+      end
+    end
+  end
 end

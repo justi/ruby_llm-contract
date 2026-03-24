@@ -106,7 +106,7 @@ module RubyLLM
       end
 
       def save_all_history!(reports, context)
-        model = context[:model] if context.is_a?(Hash)
+        model = (context[:model] || context["model"]) if context.is_a?(Hash)
         reports.each do |report|
           path = report.save_history!(model: model)
           puts "  History saved: #{path}"
