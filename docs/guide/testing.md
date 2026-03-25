@@ -73,10 +73,39 @@ For multiple responses:
 stub_step(described_class, responses: [{ intent: "billing" }, { intent: "sales" }])
 ```
 
+### Block form (auto-cleanup)
+
+Stub is scoped to the block — automatically cleaned up after:
+
+```ruby
+stub_step(ClassifyTicket, response: { priority: "high" }) do
+  result = ClassifyTicket.run("test")
+  # stub active here
+end
+# stub gone — original behavior restored
+```
+
+### Multiple steps at once
+
+`stub_steps` stubs multiple steps with different responses in one block:
+
+```ruby
+stub_steps(
+  ClassifyTicket => { response: { priority: "high" } },
+  RouteToTeam => { response: { team: "billing" } }
+) do
+  result = TicketPipeline.run("I was charged twice")
+end
+```
+
+### Global stub
+
 To stub ALL steps globally:
 ```ruby
 stub_all_steps(response: { default: true })
 ```
+
+In RSpec, non-block stubs are auto-cleaned after each example. In Minitest, `teardown` restores the original adapter automatically (via `MinitestHelpers`).
 
 ## RSpec Matchers
 
@@ -182,6 +211,9 @@ require "ruby_llm/contract/rake_task"
 RubyLLM::Contract::RakeTask.new do |t|
   t.minimum_score = 0.8
   t.maximum_cost = 0.05
+  t.track_history = true       # auto-append every run to .eval_history/
+  t.fail_on_regression = true  # block if previously-passing case now fails
+  t.save_baseline = true       # save baseline after green run
 end
 ```
 

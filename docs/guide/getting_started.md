@@ -68,6 +68,13 @@ result.validation_errors # => ["Input token limit exceeded: estimated 32000 toke
 # LLM was never called. Zero tokens spent. Zero cost.
 ```
 
+`max_cost` refuses the call when model pricing is unknown (fail closed). Register pricing for custom or fine-tuned models:
+
+```ruby
+RubyLLM::Contract::CostCalculator.register_model("ft:gpt-4o-custom",
+  input_per_1m: 3.0, output_per_1m: 6.0)
+```
+
 **Eval verifies your contract — offline or online:**
 
 Offline mode (zero API calls) — uses a canned response to verify schema + validates:
