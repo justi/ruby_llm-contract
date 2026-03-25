@@ -123,6 +123,9 @@ RSpec::Matchers.define :pass_eval do |eval_name|
       cd_empty = @prompt_diff.candidate_empty?
       if bl_empty || cd_empty
         msg += "  One side has no evaluated cases (all skipped or no adapter?)\n"
+        if sample_response_only_compare?
+          msg += "  compare_with ignores sample_response; pass model: or with_context(adapter: ...)\n"
+        end
         msg += "  Candidate score: #{@prompt_diff.candidate_score}, Baseline score: #{@prompt_diff.baseline_score}"
         next msg
       end
@@ -181,5 +184,15 @@ RSpec::Matchers.define :pass_eval do |eval_name|
 
   failure_message_when_negated do
     "expected #{@eval_name} eval NOT to pass, but it passed with score: #{@report.score.round(2)}"
+  end
+
+  def sample_response_only_compare?
+    return false unless @comparison_step
+    return false if @context[:adapter] || @context[:model]
+
+    defn = @comparison_step.send(:all_eval_definitions)[@eval_name.to_s]
+    defn&.build_adapter
+  rescue StandardError
+    false
   end
 end

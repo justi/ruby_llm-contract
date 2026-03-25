@@ -24,8 +24,12 @@ RSpec.describe "Cost of Quality — real LLM", :online do
       c.anthropic_api_key = ENV.fetch("ANTHROPIC_API_KEY", nil) if has_anthropic
     end
 
-    @provider = has_openai ? :openai : :anthropic
-    @models = if has_openai
+    @provider = if has_openai
+                  :openai
+                else
+                  :anthropic
+                end
+    @models = if @provider == :openai
                 %w[gpt-4.1-nano gpt-4.1-mini]
               else
                 %w[claude-haiku-4-5-20251001 claude-sonnet-4-5-20250514]
@@ -47,6 +51,19 @@ RSpec.describe "Cost of Quality — real LLM", :online do
       end
 
       validate("valid priority") { |o| %w[low medium high urgent].include?(o[:priority]) }
+    end
+  end
+
+  let(:exact_json_step) do
+    Class.new(RubyLLM::Contract::Step::Base) do
+      prompt do
+        system 'Return EXACTLY this JSON and nothing else: {"answer":"ok"}'
+        rule "Do not add markdown."
+        rule "Do not add explanations."
+        user "{input}"
+      end
+
+      validate("exact answer") { |o| o == { answer: "ok" } }
     end
   end
 
@@ -129,6 +146,40 @@ RSpec.describe "Cost of Quality — real LLM", :online do
       table = comparison.table
       @models.each { |m| expect(table).to include(m) }
     end
+
+    it "deduplicates repeated model names before making real calls" do
+      exact_json_step.define_eval("dedup") do
+        add_case "exact",
+                 input: "Return the exact JSON payload",
+                 expected: { answer: "ok" }
+      end
+
+      models = [@models.first, @models.first, @models.last]
+      comparison = exact_json_step.compare_models("dedup", models: models)
+
+      expect(comparison.models).to eq(@models)
+      expect(comparison.reports.keys).to eq(@models)
+      @models.each do |model|
+        expect(comparison.cost_for(model)).to be > 0
+      end
+    end
+
+    it "best_for(1.0) returns the cheapest fully passing model on a deterministic task" do
+      exact_json_step.define_eval("deterministic") do
+        add_case "exact",
+                 input: "Return the exact JSON payload",
+                 expected: { answer: "ok" }
+      end
+
+      comparison = exact_json_step.compare_models("deterministic", models: @models)
+
+      expect(comparison.models).to eq(@models)
+      cheapest_passing = comparison.best_for(min_score: 1.0)
+      expect(cheapest_passing).not_to be_nil
+
+      min_cost_model = @models.min_by { |model| comparison.cost_for(model) }
+      expect(cheapest_passing).to eq(min_cost_model)
+    end
   end
 
   # ===========================================================================
@@ -147,6 +198,44 @@ RSpec.describe "Cost of Quality — real LLM", :online do
         .with_context(model: @models.first)
         .with_minimum_score(0.5)
         .with_maximum_cost(1.0) # generous budget for test
+    end
+
+    it "fails with_maximum_cost when the real spend exceeds a zero budget" do
+      exact_json_step.define_eval("strict_budget") do
+        add_case "exact",
+                 input: "Return the exact JSON payload",
+                 expected: { answer: "ok" }
+      end
+
+      expect(exact_json_step).not_to pass_eval("strict_budget")
+        .with_context(model: @models.first)
+        .with_minimum_score(1.0)
+        .with_maximum_cost(0.0)
+    end
+  end
+
+  describe "compare_with with a real LLM" do
+    it "is safe to switch when comparing the same deterministic step against itself" do
+      exact_json_step.define_eval("ab") do
+        add_case "exact",
+                 input: "Return the exact JSON payload",
+                 expected: { answer: "ok" }
+      end
+
+      diff = exact_json_step.compare_with(
+        exact_json_step,
+        eval: "ab",
+        model: @models.first,
+        context: { temperature: 0.0 }
+      )
+
+      expect(diff.baseline_empty?).to be false
+      expect(diff.candidate_empty?).to be false
+      expect(diff.case_names_match?).to be true
+      expect(diff.cases_comparable?).to be true
+      expect(diff.safe_to_switch?).to be true
+      expect(diff.baseline_report.total_cost).to be > 0
+      expect(diff.candidate_report.total_cost).to be > 0
     end
   end
 end

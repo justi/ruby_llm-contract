@@ -1,0 +1,8 @@
+paths:
+  - lib
+
+formats:
+  - console
+
+minimum_score: 80
+no_browser: true

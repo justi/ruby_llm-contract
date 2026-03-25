@@ -1,5 +1,8 @@
 # frozen_string_literal: true
 
+require "simplecov"
+SimpleCov.start
+
 require "ruby_llm/contract"
 
 # Define Types shortcut for specs (no longer auto-defined at top level)

@@ -9,21 +9,22 @@ module RubyLLM
         private
 
         def safe_context(context)
-          (context || {}).transform_keys { |k| k.respond_to?(:to_sym) ? k.to_sym : k }
+          (context || {}).transform_keys { |key| key.respond_to?(:to_sym) ? key.to_sym : key }
         end
 
         def isolate_context(context)
-          context.transform_values do |v|
-            if v.respond_to?(:clone_for_concurrency)
-              v.clone_for_concurrency
-            elsif v.respond_to?(:dup)
-              v.dup
-            else
-              v
-            end
+          context.transform_values do |value|
+            duplicate_context_value(value)
           rescue TypeError
-            v
+            value
           end
+        end
+
+        def duplicate_context_value(value)
+          return value.clone_for_concurrency if value.respond_to?(:clone_for_concurrency)
+          return value.dup if value.respond_to?(:dup)
+
+          value
         end
       end
     end

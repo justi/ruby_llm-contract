@@ -4,6 +4,8 @@ module RubyLLM
   module Contract
     module Step
       class Base
+        DEFAULT_OUTPUT_TOKENS = 256
+
         def self.inherited(subclass)
           super
           Contract.register_eval_host(subclass) if respond_to?(:eval_defined?) && eval_defined?
@@ -15,30 +17,23 @@ module RubyLLM
           include Dsl
 
           def eval_case(input:, expected: nil, expected_traits: nil, evaluator: nil, context: {})
-            dataset = Eval::Dataset.define("single_case") do
-              add_case("inline", input: input, expected: expected,
-                                 expected_traits: expected_traits, evaluator: evaluator)
-            end
-            report = Eval::Runner.run(step: self, dataset: dataset, context: context)
-            report.results.first
+            Eval::Runner.run(step: self, dataset: inline_dataset(input, expected, expected_traits, evaluator),
+                             context: context).results.first
           end
 
           def estimate_cost(input:, model: nil)
-            model_name = model || (self.model if respond_to?(:model)) || RubyLLM::Contract.configuration.default_model
-            messages = build_messages(input)
-            input_tokens = TokenEstimator.estimate(messages)
-            output_tokens = max_output || 256 # conservative default
-
+            model_name = estimated_model_name(model)
             model_info = CostCalculator.send(:find_model, model_name)
             return nil unless model_info
 
-            estimated = CostCalculator.send(:compute_cost, model_info,
-                                            { input_tokens: input_tokens, output_tokens: output_tokens })
+            input_tokens = TokenEstimator.estimate(build_messages(input))
+            output_tokens = max_output || DEFAULT_OUTPUT_TOKENS
+
             {
               model: model_name,
               input_tokens: input_tokens,
               output_tokens_estimate: output_tokens,
-              estimated_cost: estimated
+              estimated_cost: estimated_cost_for(model_info, input_tokens, output_tokens)
             }
           end
 
@@ -46,16 +41,11 @@ module RubyLLM
             defn = send(:all_eval_definitions)[eval_name.to_s]
             raise ArgumentError, "No eval '#{eval_name}' defined" unless defn
 
-            step_model = (self.model if respond_to?(:model))
-            model_list = models || [step_model || RubyLLM::Contract.configuration.default_model].compact
+            model_list = models || [estimated_model_name].compact
             cases = defn.build_dataset.cases
 
             model_list.each_with_object({}) do |model_name, result|
-              per_case = cases.sum do |c|
-                est = estimate_cost(input: c.input, model: model_name)
-                est ? est[:estimated_cost] : 0.0
-              end
-              result[model_name] = per_case.round(6)
+              result[model_name] = estimate_eval_cost_for_model(cases, model_name)
             end
           end
 
@@ -66,20 +56,8 @@ module RubyLLM
           def run(input, context: {})
             context = safe_context(context)
             warn_unknown_context_keys(context)
-            adapter = resolve_adapter(context)
-            default_model = context[:model] || model || RubyLLM::Contract.configuration.default_model
-            policy = retry_policy
 
-            ctx_temp = context[:temperature]
-            extra = context.slice(:provider, :assume_model_exists, :max_tokens)
-            result = if policy
-                       run_with_retry(input, adapter: adapter, default_model: default_model,
-                                      policy: policy, context_temperature: ctx_temp, extra_options: extra)
-                     else
-                       run_once(input, adapter: adapter, model: default_model,
-                                context_temperature: ctx_temp, extra_options: extra)
-                     end
-
+            result = dispatch_run(input, context)
             log_result(result)
             invoke_around_call(input, result)
           end
@@ -88,12 +66,42 @@ module RubyLLM
             dynamic = prompt.arity >= 1
             builder_input = dynamic ? input : Prompt::Builder::NOT_PROVIDED
             ast = Prompt::Builder.build(input: builder_input, &prompt)
-            variables = dynamic ? {} : { input: input }
-            variables.merge!(input.transform_keys(&:to_sym)) if !dynamic && input.is_a?(Hash)
-            Prompt::Renderer.render(ast, variables: variables)
+            Prompt::Renderer.render(ast, variables: prompt_variables(input, dynamic))
           end
 
           private
+
+          def inline_dataset(input, expected, expected_traits, evaluator)
+            Eval::Dataset.define("single_case") do
+              add_case("inline", input: input, expected: expected,
+                                 expected_traits: expected_traits, evaluator: evaluator)
+            end
+          end
+
+          def estimated_model_name(model = nil)
+            model || (self.model if respond_to?(:model)) || RubyLLM::Contract.configuration.default_model
+          end
+
+          def estimated_cost_for(model_info, input_tokens, output_tokens)
+            CostCalculator.send(
+              :compute_cost,
+              model_info,
+              { input_tokens: input_tokens, output_tokens: output_tokens }
+            )
+          end
+
+          def estimate_eval_cost_for_model(cases, model_name)
+            cases.sum do |test_case|
+              estimate = estimate_cost(input: test_case.input, model: model_name)
+              estimate ? estimate[:estimated_cost] : 0.0
+            end.round(6)
+          end
+
+          def prompt_variables(input, dynamic)
+            variables = dynamic ? {} : { input: input }
+            variables.merge!(input.transform_keys(&:to_sym)) if !dynamic && input.is_a?(Hash)
+            variables
+          end
 
           def warn_unknown_context_keys(context)
             unknown = context.keys - KNOWN_CONTEXT_KEYS
@@ -101,6 +109,39 @@ module RubyLLM
 
             warn "[ruby_llm-contract] Unknown context keys: #{unknown.inspect}. " \
                  "Known keys: #{KNOWN_CONTEXT_KEYS.inspect}"
+          end
+
+          def dispatch_run(input, context)
+            adapter = resolve_adapter(context)
+            runtime = runtime_settings(context)
+
+            if runtime[:policy]
+              run_with_retry(
+                input,
+                adapter: adapter,
+                default_model: runtime[:model],
+                policy: runtime[:policy],
+                context_temperature: runtime[:temperature],
+                extra_options: runtime[:extra_options]
+              )
+            else
+              run_once(
+                input,
+                adapter: adapter,
+                model: runtime[:model],
+                context_temperature: runtime[:temperature],
+                extra_options: runtime[:extra_options]
+              )
+            end
+          end
+
+          def runtime_settings(context)
+            {
+              model: context[:model] || model || RubyLLM::Contract.configuration.default_model,
+              temperature: context[:temperature],
+              extra_options: context.slice(:provider, :assume_model_exists, :max_tokens),
+              policy: retry_policy
+            }
           end
 
           def resolve_adapter(context)

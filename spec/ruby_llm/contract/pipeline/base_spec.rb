@@ -240,6 +240,29 @@ RSpec.describe RubyLLM::Contract::Pipeline::Base do
     end
   end
 
+  describe "inheritance" do
+    it "inherits parent pipeline steps" do
+      child_step = Class.new(RubyLLM::Contract::Step::Base) do
+        input_type RubyLLM::Contract::Types::String
+        output_type RubyLLM::Contract::Types::Hash
+        prompt { user "{input}" }
+        contract { parse :json }
+      end
+
+      parent = Class.new(described_class) do
+        step child_step, as: :only
+      end
+
+      child = Class.new(parent)
+      adapter = RubyLLM::Contract::Adapters::Test.new(response: '{"value":"ok"}')
+
+      result = child.run("hello", context: { adapter: adapter })
+
+      expect(result.ok?).to be true
+      expect(result.outputs_by_step).to have_key(:only)
+    end
+  end
+
   describe "pipeline trace" do
     it "populates trace on successful pipeline" do
       adapter = RubyLLM::Contract::Adapters::Test.new(response: '{"v": 1}')

@@ -63,6 +63,25 @@ RSpec.describe RubyLLM::Contract::SchemaValidator do
         errors = described_class.validate(output, schema)
         expect(errors).to include(match(/intent.*expected string.*Integer/i))
       end
+
+      it "accepts false for boolean fields" do
+        boolean_schema = Class.new do
+          def to_json_schema
+            {
+              schema: {
+                type: "object",
+                properties: {
+                  active: { type: "boolean" }
+                },
+                required: ["active"]
+              }
+            }
+          end
+        end
+
+        errors = described_class.validate({ active: false }, boolean_schema.new)
+        expect(errors).to be_empty
+      end
     end
 
     context "multiple violations" do

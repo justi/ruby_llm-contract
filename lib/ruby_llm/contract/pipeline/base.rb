@@ -25,7 +25,16 @@ module RubyLLM
 
           # Internal mutable steps list for registration
           def steps_registry
-            @steps_registry ||= []
+            @steps_registry ||= begin
+              inherited_steps =
+                if superclass.respond_to?(:steps_registry, true)
+                  superclass.send(:steps_registry).map(&:dup)
+                else
+                  []
+                end
+
+              inherited_steps
+            end
           end
 
           def token_budget(limit = nil)

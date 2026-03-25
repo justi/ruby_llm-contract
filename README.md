@@ -170,7 +170,8 @@ diff.improvements     # => [{case: "outage", ...}]
 diff.score_delta      # => +0.33
 ```
 
-Requires `model:` or adapter — won't use `sample_response` (A/B needs real calls).
+Requires `model:` or `context: { adapter: ... }`.
+`compare_with` ignores `sample_response`; without a real model/adapter both sides are skipped and the A/B result is not meaningful.
 
 CI gate:
 ```ruby

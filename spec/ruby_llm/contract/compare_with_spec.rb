@@ -75,8 +75,6 @@ RSpec.describe "compare_with — prompt A/B testing" do
     end
 
     it "safe_to_switch? is false when regressions exist" do
-      # Candidate returns bad responses, baseline returns good responses.
-      # Both use baseline's eval definition (same dataset), but different adapters.
       candidate = build_step_with_forced_adapter(bad_response)
       baseline = build_step_with_forced_adapter(good_response)
 
@@ -86,7 +84,6 @@ RSpec.describe "compare_with — prompt A/B testing" do
     end
 
     it "detects improvements when candidate passes where baseline failed" do
-      # Candidate returns good responses, baseline returns bad responses.
       candidate = build_step_with_forced_adapter(good_response)
       baseline = build_step_with_forced_adapter(bad_response)
 
@@ -120,7 +117,6 @@ RSpec.describe "compare_with — prompt A/B testing" do
 
   describe "RSpec matcher: pass_eval.compared_with.without_regressions" do
     it "passes when candidate has no regressions vs baseline" do
-      # Both use same adapter, both pass -> no regressions
       candidate = build_step_with_forced_adapter(good_response)
       baseline = build_step_with_forced_adapter(good_response)
 
@@ -139,11 +135,6 @@ RSpec.describe "compare_with — prompt A/B testing" do
     end
   end
 
-  # -- helpers --
-
-  # Build a step where the adapter is baked into the step's `run` method.
-  # This ensures compare_with (which calls Runner.run -> step.run) always
-  # uses this adapter, regardless of what context compare_with passes.
   def build_step_with_forced_adapter(fixed_response)
     adapter = RubyLLM::Contract::Adapters::Test.new(response: fixed_response)
     step = Class.new(RubyLLM::Contract::Step::Base) do
@@ -158,14 +149,12 @@ RSpec.describe "compare_with — prompt A/B testing" do
         verify "high confidence", ->(o) { o[:confidence] > 0.5 }
       end
     end
-    # Override run to force the adapter into context, so Runner always uses it
     step.define_singleton_method(:run) do |input, context: {}|
       super(input, context: context.merge(adapter: adapter))
     end
     step
   end
 
-  # Legacy helper kept for tests that pass a shared adapter via context
   def build_step_with_eval(fixed_response)
     adapter = RubyLLM::Contract::Adapters::Test.new(response: fixed_response)
     step = Class.new(RubyLLM::Contract::Step::Base) do
@@ -187,8 +176,6 @@ RSpec.describe "compare_with — prompt A/B testing" do
     step
   end
 
-  # -- Bug fix tests --
-
   describe "context isolation (stateful adapter)" do
     it "isolates context so stateful adapters don't cross-contaminate" do
       step = Class.new(RubyLLM::Contract::Step::Base) do
@@ -202,14 +189,11 @@ RSpec.describe "compare_with — prompt A/B testing" do
         end
       end
 
-      # Stateful adapter with responses: consumes in order. If contexts share
-      # the adapter, candidate eats responses meant for baseline.
       adapter = RubyLLM::Contract::Adapters::Test.new(
         responses: ['{"v":"good"}', '{"v":"bad"}']
       )
       diff = step.compare_with(step, eval: "smoke", context: { adapter: adapter })
 
-      # Same step vs itself must give identical scores regardless of adapter state
       expect(diff.candidate_score).to eq(diff.baseline_score)
       expect(diff.score_delta).to eq(0)
       expect(diff.safe_to_switch?).to be true
@@ -218,7 +202,6 @@ RSpec.describe "compare_with — prompt A/B testing" do
 
   describe "baseline's eval definition is the single source of truth" do
     it "uses baseline's dataset even when candidate defines a different eval" do
-      # Baseline has a strict eval with expected: { intent: "support" }
       baseline_adapter = RubyLLM::Contract::Adapters::Test.new(response: '{"intent":"support"}')
       baseline = Class.new(RubyLLM::Contract::Step::Base) do
         input_type String
@@ -233,8 +216,6 @@ RSpec.describe "compare_with — prompt A/B testing" do
         super(input, context: context.merge(adapter: baseline_adapter))
       end
 
-      # Candidate defines a DIFFERENT eval (easy expected: { intent: "billing" })
-      # but compare_with should ignore it and use baseline's expected: { intent: "support" }
       candidate_adapter = RubyLLM::Contract::Adapters::Test.new(response: '{"intent":"billing"}')
       candidate = Class.new(RubyLLM::Contract::Step::Base) do
         input_type String
@@ -251,13 +232,8 @@ RSpec.describe "compare_with — prompt A/B testing" do
 
       diff = candidate.compare_with(baseline, eval: "regression")
 
-      # Both sides run against baseline's dataset: input="query", expected={ intent: "support" }
-      # Baseline returns "support" -> passes
-      # Candidate returns "billing" -> fails (expected "support", got "billing")
       expect(diff.candidate_score).to be < diff.baseline_score
       expect(diff.safe_to_switch?).to be false
-
-      # Verify the dataset used is baseline's (both sides have same case names/inputs/expected)
       expect(diff.case_names_match?).to be true
       expect(diff.cases_comparable?).to be true
     end
@@ -285,14 +261,12 @@ RSpec.describe "compare_with — prompt A/B testing" do
     end
 
     it "candidate does not need its own eval definition" do
-      # Candidate has NO eval defined, but compare_with uses baseline's
       candidate_adapter = RubyLLM::Contract::Adapters::Test.new(response: good_response)
       candidate = Class.new(RubyLLM::Contract::Step::Base) do
         input_type String
         output_type Hash
         prompt { user "{input}" }
         validate("has intent") { |o| !o[:intent].to_s.empty? }
-        # No define_eval here
       end
       candidate.define_singleton_method(:run) do |input, context: {}|
         super(input, context: context.merge(adapter: candidate_adapter))
@@ -317,7 +291,6 @@ RSpec.describe "compare_with — prompt A/B testing" do
 
       diff = candidate.compare_with(baseline, eval: "accuracy")
 
-      # Both return good response, same dataset -> safe to switch
       expect(diff.safe_to_switch?).to be true
       expect(diff.candidate_score).to eq(diff.baseline_score)
     end
@@ -343,12 +316,33 @@ RSpec.describe "compare_with — prompt A/B testing" do
         prompt { user "{input}" }
       end
 
-      # Without adapter, compare_with does NOT use sample_response.
-      # Cases get skipped → both sides empty → not safe.
       diff = candidate.compare_with(baseline, eval: "accuracy")
       expect(diff.baseline_empty?).to be true
       expect(diff.candidate_empty?).to be true
       expect(diff.safe_to_switch?).to be false
+    end
+
+    it "warns that sample_response is ignored" do
+      baseline = Class.new(RubyLLM::Contract::Step::Base) do
+        input_type String
+        output_type Hash
+        prompt { user "{input}" }
+
+        define_eval("accuracy") do
+          default_input "test"
+          sample_response({ intent: "billing", confidence: 0.9 })
+          verify "has intent", { intent: /billing/ }
+        end
+      end
+
+      candidate = Class.new(RubyLLM::Contract::Step::Base) do
+        input_type String
+        output_type Hash
+        prompt { user "{input}" }
+      end
+
+      expect(candidate).to receive(:warn).with(/compare_with ignores sample_response.*both sides will be skipped/m)
+      candidate.compare_with(baseline, eval: "accuracy")
     end
   end
 
@@ -372,7 +366,6 @@ RSpec.describe "compare_with — prompt A/B testing" do
 
   describe "score-only regression" do
     it "safe_to_switch? is false when score drops even if both fail" do
-      # Baseline: partial match (intent matches but confidence is low)
       baseline_adapter = RubyLLM::Contract::Adapters::Test.new(response: '{"intent":"billing","confidence":0.3}')
       baseline = Class.new(RubyLLM::Contract::Step::Base) do
         input_type String
@@ -387,7 +380,6 @@ RSpec.describe "compare_with — prompt A/B testing" do
         super(input, context: context.merge(adapter: baseline_adapter))
       end
 
-      # Candidate: no match at all (wrong intent)
       candidate_adapter = RubyLLM::Contract::Adapters::Test.new(response: '{"intent":"wrong","confidence":0.1}')
       candidate = Class.new(RubyLLM::Contract::Step::Base) do
         input_type String
@@ -412,8 +404,6 @@ RSpec.describe "compare_with — prompt A/B testing" do
 
   describe "per-case score regression masked by average" do
     it "safe_to_switch? is false when one case drops even if another improves" do
-      # Both sides use baseline's dataset: cases "a" and "b"
-      # Baseline: both cases return "partial" -> both match expected
       baseline_adapter = RubyLLM::Contract::Adapters::Test.new(
         responses: ['{"v":"partial"}', '{"v":"partial"}']
       )
@@ -431,7 +421,6 @@ RSpec.describe "compare_with — prompt A/B testing" do
         super(input, context: context.merge(adapter: baseline_adapter))
       end
 
-      # Candidate: case "a" passes, case "b" returns wrong value
       candidate_adapter = RubyLLM::Contract::Adapters::Test.new(
         responses: ['{"v":"partial"}', '{"v":"wrong"}']
       )
@@ -456,12 +445,8 @@ RSpec.describe "compare_with — prompt A/B testing" do
     end
   end
 
-  # -------------------------------------------------------------------------
-  # Proof that candidate's eval definition is ignored — baseline is truth
-  # -------------------------------------------------------------------------
   describe "candidate eval manipulation is ignored (baseline is source of truth)" do
     it "candidate's different evaluator is ignored" do
-      # Baseline: strict evaluator requiring intent == "billing"
       baseline = Class.new(RubyLLM::Contract::Step::Base) do
         input_type String
         output_type Hash
@@ -478,7 +463,6 @@ RSpec.describe "compare_with — prompt A/B testing" do
         ))
       end
 
-      # Candidate: lenient evaluator (always passes) — should be IGNORED
       candidate = Class.new(RubyLLM::Contract::Step::Base) do
         input_type String
         output_type Hash
@@ -486,7 +470,7 @@ RSpec.describe "compare_with — prompt A/B testing" do
 
         define_eval("test") do
           default_input "x"
-          verify "lenient", ->(o) { true } # always passes
+          verify "lenient", ->(o) { true }
         end
       end
       candidate.define_singleton_method(:run) do |input, context: {}|
@@ -497,52 +481,44 @@ RSpec.describe "compare_with — prompt A/B testing" do
 
       diff = candidate.compare_with(baseline, eval: "test")
 
-      # Baseline's strict evaluator is used for both:
-      # - baseline returns "billing" → passes strict check
-      # - candidate returns "wrong" → fails strict check
       expect(diff.baseline_score).to eq(1.0)
       expect(diff.candidate_score).to eq(0.0)
       expect(diff.safe_to_switch?).to be false
     end
 
     it "candidate's different expected_traits is ignored" do
-      # Baseline: expects intent to match /billing/
       baseline = Class.new(RubyLLM::Contract::Step::Base) do
         input_type String
         output_type Hash
         prompt { user "{input}" }
 
         define_eval("test") do
-          add_case "c1", input: "x", expected: { intent: "billing" }
+          add_case "c1", input: "x", expected_traits: { score: (80..100) }
         end
       end
       baseline.define_singleton_method(:run) do |input, context: {}|
         super(input, context: context.merge(
-          adapter: RubyLLM::Contract::Adapters::Test.new(response: '{"intent":"billing"}')
+          adapter: RubyLLM::Contract::Adapters::Test.new(response: '{"score":90}')
         ))
       end
 
-      # Candidate: expects intent == "anything" — should be IGNORED
       candidate = Class.new(RubyLLM::Contract::Step::Base) do
         input_type String
         output_type Hash
         prompt { user "{input}" }
 
         define_eval("test") do
-          add_case "c1", input: "x", expected: { intent: "anything" }
+          add_case "c1", input: "x", expected_traits: { score: (0..100) }
         end
       end
       candidate.define_singleton_method(:run) do |input, context: {}|
         super(input, context: context.merge(
-          adapter: RubyLLM::Contract::Adapters::Test.new(response: '{"intent":"anything"}')
+          adapter: RubyLLM::Contract::Adapters::Test.new(response: '{"score":10}')
         ))
       end
 
       diff = candidate.compare_with(baseline, eval: "test")
 
-      # Baseline's expected { intent: "billing" } is used for BOTH:
-      # - baseline returns "billing" → matches → score 1.0
-      # - candidate returns "anything" → doesn't match "billing" → score 0.0
       expect(diff.baseline_score).to eq(1.0)
       expect(diff.candidate_score).to eq(0.0)
       expect(diff.safe_to_switch?).to be false
@@ -569,14 +545,39 @@ RSpec.describe "compare_with — prompt A/B testing" do
         prompt { user "{input}" }
       end
 
-      # Without adapter/model, cases get skipped → not safe
       expect(candidate).not_to pass_eval("smoke").compared_with(baseline)
+    end
+
+    it "explains that sample_response is ignored" do
+      baseline = Class.new(RubyLLM::Contract::Step::Base) do
+        input_type String
+        output_type Hash
+        prompt { user "{input}" }
+
+        define_eval("smoke") do
+          default_input "test"
+          sample_response({ intent: "billing", confidence: 0.9 })
+          verify "has intent", { intent: /billing/ }
+        end
+      end
+
+      candidate = Class.new(RubyLLM::Contract::Step::Base) do
+        input_type String
+        output_type Hash
+        prompt { user "{input}" }
+      end
+
+      expect {
+        expect(candidate).to pass_eval("smoke").compared_with(baseline)
+      }.to raise_error(
+        RSpec::Expectations::ExpectationNotMetError,
+        /compare_with ignores sample_response; pass model: or with_context\(adapter: \.\.\.\)/
+      )
     end
   end
 
   describe "step_expectations in compare_with (pipeline)" do
     it "uses baseline's step_expectations for both sides" do
-      # Define two simple steps
       step_a = Class.new(RubyLLM::Contract::Step::Base) do
         input_type String
         output_type Hash
@@ -589,7 +590,6 @@ RSpec.describe "compare_with — prompt A/B testing" do
         prompt { user "{input}" }
       end
 
-      # Baseline pipeline with step_expectations
       baseline_pipeline = Class.new(RubyLLM::Contract::Pipeline::Base) do
         step step_a, as: :classify
         step step_b, as: :route
@@ -606,17 +606,14 @@ RSpec.describe "compare_with — prompt A/B testing" do
           step_expectations: { classify: { priority: "high" } }
       end
 
-      # Candidate pipeline — same steps, same structure
       candidate_pipeline = Class.new(RubyLLM::Contract::Pipeline::Base) do
         step step_a, as: :classify
         step step_b, as: :route
       end
 
-      # compare_with uses baseline's eval (with step_expectations)
       diff = candidate_pipeline.compare_with(baseline_pipeline,
         eval: "e2e", context: { adapter: adapter })
 
-      # Both sides use same adapter + same eval → identical results
       expect(diff.candidate_score).to eq(diff.baseline_score)
       expect(diff.safe_to_switch?).to be true
     end

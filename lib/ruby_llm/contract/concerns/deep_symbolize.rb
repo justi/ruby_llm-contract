@@ -3,12 +3,22 @@
 module RubyLLM
   module Contract
     module Concerns
+      # Recursively converts Hash keys to symbols while preserving array shape.
       module DeepSymbolize
-        def deep_symbolize(obj)
-          case obj
-          when Hash then obj.transform_keys(&:to_sym).transform_values { |val| deep_symbolize(val) }
-          when Array then obj.map { |val| deep_symbolize(val) }
-          else obj
+        def deep_symbolize(object)
+          case object
+          when Hash then symbolize_hash(object)
+          when Array then object.map { |value| deep_symbolize(value) }
+          else
+            object
+          end
+        end
+
+        private
+
+        def symbolize_hash(hash)
+          hash.each_with_object({}) do |(key, value), symbolized|
+            symbolized[key.to_sym] = deep_symbolize(value)
           end
         end
       end

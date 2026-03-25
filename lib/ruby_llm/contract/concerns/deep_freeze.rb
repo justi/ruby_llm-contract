@@ -8,14 +8,20 @@ module RubyLLM
       module DeepFreeze
         private
 
-        def deep_dup_freeze(obj)
-          case obj
-          when NilClass, Integer, Float, Symbol, TrueClass, FalseClass then obj
-          when Hash then obj.transform_values { |v| deep_dup_freeze(v) }.freeze
-          when Array then obj.map { |v| deep_dup_freeze(v) }.freeze
-          when String then obj.frozen? ? obj : obj.dup.freeze
-          else obj.frozen? ? obj : obj.dup.freeze
+        IMMUTABLE_TYPES = [NilClass, Integer, Float, Symbol, TrueClass, FalseClass].freeze
+
+        def deep_dup_freeze(object)
+          case object
+          when *IMMUTABLE_TYPES then object
+          when Hash then object.transform_values { |value| deep_dup_freeze(value) }.freeze
+          when Array then object.map { |value| deep_dup_freeze(value) }.freeze
+          else
+            frozen_copy(object)
           end
+        end
+
+        def frozen_copy(object)
+          object.frozen? ? object : object.dup.freeze
         end
       end
     end

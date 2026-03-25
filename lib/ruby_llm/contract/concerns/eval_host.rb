@@ -5,6 +5,11 @@ module RubyLLM
     module Concerns
       module EvalHost
         include ContextHelpers
+
+        SAMPLE_RESPONSE_COMPARE_WARNING = "[ruby_llm-contract] compare_with ignores sample_response. " \
+                                          "Without model: or context: { adapter: ... }, both sides will be skipped " \
+                                          "and the A/B comparison is not meaningful.".freeze
+
         def define_eval(name, &)
           @eval_definitions ||= {}
           @file_sourced_evals ||= Set.new
@@ -46,35 +51,21 @@ module RubyLLM
         end
 
         # Compare this step (candidate) with another step (baseline) using the
-        # BASELINE's eval definition. This ensures identical dataset, evaluators,
-        # and expected values — the only variable is the prompt/step logic.
-        # Compare this step (candidate) with another step (baseline) using the
-        # BASELINE's eval definition as single source of truth.
+        # baseline's eval definition as single source of truth.
         #
-        # Requires a real adapter or model in context — sample_response is
+        # Requires a real adapter or model in context. sample_response is
         # intentionally NOT used, because A/B testing with canned data
-        # gives identical results for both sides (not a real comparison).
+        # gives identical results for both sides rather than a real comparison.
         def compare_with(other_step, eval:, model: nil, context: {})
-          ctx = model ? safe_context(context).merge(model: model) : safe_context(context)
-
-          baseline_defn = other_step.send(:all_eval_definitions)[eval.to_s]
+          ctx = comparison_context(context, model)
+          baseline_defn = baseline_eval_definition(other_step, eval)
           raise ArgumentError, "No eval '#{eval}' on baseline step #{other_step}" unless baseline_defn
 
           dataset = baseline_defn.build_dataset
+          warn_sample_response_compare(ctx, baseline_defn)
 
-          # Skip sample_response fallback — A/B with canned data is meaningless.
-          # Pass adapter or model explicitly for real comparisons.
-          if !ctx[:adapter] && !ctx[:model] && baseline_defn.build_adapter
-            warn "[ruby_llm-contract] compare_with without adapter/model uses baseline's " \
-                 "sample_response — both sides get identical canned output. " \
-                 "Pass model: or context: { adapter: ... } for a real A/B comparison."
-          end
-
-          candidate_ctx = isolate_context(ctx)
-          baseline_ctx = isolate_context(ctx)
-
-          my_report = Eval::Runner.run(step: self, dataset: dataset, context: candidate_ctx)
-          other_report = Eval::Runner.run(step: other_step, dataset: dataset, context: baseline_ctx)
+          my_report = Eval::Runner.run(step: self, dataset: dataset, context: isolate_context(ctx))
+          other_report = Eval::Runner.run(step: other_step, dataset: dataset, context: isolate_context(ctx))
 
           Eval::PromptDiff.new(candidate: my_report, baseline: other_report)
         end
@@ -91,6 +82,21 @@ module RubyLLM
 
         private
 
+        def comparison_context(context, model)
+          base_context = safe_context(context)
+          model ? base_context.merge(model: model) : base_context
+        end
+
+        def baseline_eval_definition(other_step, eval_name)
+          other_step.send(:all_eval_definitions)[eval_name.to_s]
+        end
+
+        def warn_sample_response_compare(context, baseline_defn)
+          return if context[:adapter] || context[:model] || !baseline_defn.build_adapter
+
+          warn SAMPLE_RESPONSE_COMPARE_WARNING
+        end
+
         def all_eval_definitions
           inherited = if superclass.respond_to?(:all_eval_definitions, true)
                         superclass.send(:all_eval_definitions)
@@ -105,18 +111,22 @@ module RubyLLM
           defn = all_eval_definitions[name.to_s]
           raise ArgumentError, "No eval '#{name}' defined. Available: #{all_eval_definitions.keys}" unless defn
 
-          effective_context = eval_context(defn, context)
-          Eval::Runner.run(step: self, dataset: defn.build_dataset, context: effective_context,
-                           concurrency: concurrency)
+          run_eval_definition(defn, context, concurrency: concurrency)
         end
 
         def run_all_own_evals(context, concurrency: nil)
           all_eval_definitions.transform_values do |defn|
-            isolated_context = isolate_context(context)
-            effective_context = eval_context(defn, isolated_context)
-            Eval::Runner.run(step: self, dataset: defn.build_dataset, context: effective_context,
-                             concurrency: concurrency)
+            run_eval_definition(defn, isolate_context(context), concurrency: concurrency)
           end
+        end
+
+        def run_eval_definition(defn, context, concurrency: nil)
+          Eval::Runner.run(
+            step: self,
+            dataset: defn.build_dataset,
+            context: eval_context(defn, context),
+            concurrency: concurrency
+          )
         end
 
         def eval_context(defn, context)
