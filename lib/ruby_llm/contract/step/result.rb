@@ -4,13 +4,14 @@ module RubyLLM
   module Contract
     module Step
       class Result
-        attr_reader :status, :raw_output, :parsed_output, :validation_errors, :trace
+        attr_reader :status, :raw_output, :parsed_output, :validation_errors, :trace, :observations
 
-        def initialize(status:, raw_output:, parsed_output:, validation_errors: [], trace: nil)
+        def initialize(status:, raw_output:, parsed_output:, validation_errors: [], trace: nil, observations: [])
           @status = status
           @raw_output = raw_output
           @parsed_output = parsed_output
           @validation_errors = validation_errors.freeze
+          @observations = observations.freeze
           @trace = normalize_trace(trace)
           freeze
         end

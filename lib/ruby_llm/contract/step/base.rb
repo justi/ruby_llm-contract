@@ -119,7 +119,8 @@ module RubyLLM
               adapter: adapter, model: model, output_schema: output_schema,
               max_output: max_output, max_input: max_input, max_cost: max_cost,
               on_unknown_pricing: on_unknown_pricing,
-              temperature: effective_temp, extra_options: extra_options
+              temperature: effective_temp, extra_options: extra_options,
+              observers: class_observers
             ).call(input)
           rescue ArgumentError => e
             Result.new(status: :input_error, raw_output: nil, parsed_output: nil,
@@ -137,6 +138,19 @@ module RubyLLM
                   "tokens=#{trace.usage&.dig(:input_tokens) || 0}+#{trace.usage&.dig(:output_tokens) || 0} " \
                   "cost=$#{format("%.6f", trace.cost || 0)}"
             logger.info(msg)
+
+            log_failed_observations(result, logger)
+          end
+
+          def log_failed_observations(result, logger)
+            failed = result.observations.select { |o| !o[:passed] }
+            return if failed.empty?
+
+            failed.each do |obs|
+              msg = "[ruby_llm-contract] #{name || self} observation failed: #{obs[:description]}"
+              msg += " (#{obs[:error]})" if obs[:error]
+              logger.warn(msg)
+            end
           end
 
           def invoke_around_call(input, result)

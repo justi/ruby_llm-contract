@@ -45,6 +45,40 @@ module RubyLLM
           end
         end
 
+        # Compare this step (candidate) with another step (baseline) using the
+        # BASELINE's eval definition. This ensures identical dataset, evaluators,
+        # and expected values — the only variable is the prompt/step logic.
+        # Compare this step (candidate) with another step (baseline) using the
+        # BASELINE's eval definition as single source of truth.
+        #
+        # Requires a real adapter or model in context — sample_response is
+        # intentionally NOT used, because A/B testing with canned data
+        # gives identical results for both sides (not a real comparison).
+        def compare_with(other_step, eval:, model: nil, context: {})
+          ctx = model ? safe_context(context).merge(model: model) : safe_context(context)
+
+          baseline_defn = other_step.send(:all_eval_definitions)[eval.to_s]
+          raise ArgumentError, "No eval '#{eval}' on baseline step #{other_step}" unless baseline_defn
+
+          dataset = baseline_defn.build_dataset
+
+          # Skip sample_response fallback — A/B with canned data is meaningless.
+          # Pass adapter or model explicitly for real comparisons.
+          if !ctx[:adapter] && !ctx[:model] && baseline_defn.build_adapter
+            warn "[ruby_llm-contract] compare_with without adapter/model uses baseline's " \
+                 "sample_response — both sides get identical canned output. " \
+                 "Pass model: or context: { adapter: ... } for a real A/B comparison."
+          end
+
+          candidate_ctx = isolate_context(ctx)
+          baseline_ctx = isolate_context(ctx)
+
+          my_report = Eval::Runner.run(step: self, dataset: dataset, context: candidate_ctx)
+          other_report = Eval::Runner.run(step: other_step, dataset: dataset, context: baseline_ctx)
+
+          Eval::PromptDiff.new(candidate: my_report, baseline: other_report)
+        end
+
         def compare_models(eval_name, models:, context: {})
           context = safe_context(context)
           models = models.uniq

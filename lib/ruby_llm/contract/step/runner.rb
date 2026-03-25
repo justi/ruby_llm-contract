@@ -9,7 +9,7 @@ module RubyLLM
         def initialize(input_type:, output_type:, prompt_block:, contract_definition:,
                        adapter:, model:, output_schema: nil, max_output: nil,
                        max_input: nil, max_cost: nil, on_unknown_pricing: :refuse,
-                       temperature: nil, extra_options: {})
+                       temperature: nil, extra_options: {}, observers: [])
           @input_type = input_type
           @output_type = output_type
           @prompt_block = prompt_block
@@ -23,6 +23,7 @@ module RubyLLM
           @on_unknown_pricing = on_unknown_pricing
           @temperature = temperature
           @extra_options = extra_options
+          @observers = observers
         end
 
         def call(input)
@@ -114,12 +115,19 @@ module RubyLLM
           validation_result = validate_output(raw_output, input)
           trace = Trace.new(messages: messages, model: @model, latency_ms: latency_ms, usage: response.usage)
 
+          observations = if validation_result[:status] == :ok && @observers.any?
+                           Validator.run_observations(@observers, validation_result[:parsed_output], input: input)
+                         else
+                           []
+                         end
+
           Result.new(
             status: validation_result[:status],
             raw_output: raw_output,
             parsed_output: validation_result[:parsed_output],
             validation_errors: validation_result[:errors],
-            trace: trace
+            trace: trace,
+            observations: observations
           )
         end
 

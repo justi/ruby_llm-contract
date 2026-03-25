@@ -68,15 +68,28 @@ RSpec::Matchers.define :pass_eval do |eval_name|
     @check_regressions = true
   end
 
+  chain :compared_with do |other_step|
+    @comparison_step = other_step
+    @check_regressions = true # compared_with implies regression check
+  end
+
   match do |step_or_pipeline|
     @eval_name = eval_name
     @context ||= {}
     @minimum_score ||= nil
     @maximum_cost ||= nil
     @check_regressions ||= false
+    @comparison_step ||= nil
     @error = nil
     @diff = nil
-    @report = step_or_pipeline.run_eval(eval_name, context: @context)
+    @prompt_diff = nil
+
+    if @comparison_step && @check_regressions
+      @prompt_diff = step_or_pipeline.compare_with(@comparison_step, eval: eval_name, context: @context)
+      @report = @prompt_diff.candidate_report
+    else
+      @report = step_or_pipeline.run_eval(eval_name, context: @context)
+    end
 
     score_ok = if @minimum_score
                  @report.score >= @minimum_score
@@ -86,7 +99,9 @@ RSpec::Matchers.define :pass_eval do |eval_name|
 
     cost_ok = @maximum_cost ? @report.total_cost <= @maximum_cost : true
 
-    regression_ok = if @check_regressions && @report.baseline_exists?
+    regression_ok = if @prompt_diff
+                      @prompt_diff.safe_to_switch?
+                    elsif @check_regressions && @report.baseline_exists?
                       @diff = @report.compare_with_baseline
                       !@diff.regressed?
                     else
@@ -100,11 +115,64 @@ RSpec::Matchers.define :pass_eval do |eval_name|
   end
 
   failure_message do
+    if @prompt_diff && !@prompt_diff.safe_to_switch?
+      msg = "expected #{@eval_name} eval to be safe to switch from baseline prompt\n"
+
+      # Check empty sides first — most fundamental problem
+      bl_empty = @prompt_diff.baseline_empty?
+      cd_empty = @prompt_diff.candidate_empty?
+      if bl_empty || cd_empty
+        msg += "  One side has no evaluated cases (all skipped or no adapter?)\n"
+        msg += "  Candidate score: #{@prompt_diff.candidate_score}, Baseline score: #{@prompt_diff.baseline_score}"
+        next msg
+      end
+
+      # Check dataset comparability — names, inputs, AND expected must match
+      unless @prompt_diff.cases_comparable?
+        unless @prompt_diff.case_names_match?
+          mm = @prompt_diff.mismatched_cases
+          msg += "  Case set mismatch — candidate and baseline must have identical cases:\n"
+          mm[:only_in_baseline].each { |n| msg += "    only in baseline: #{n}\n" }
+          mm[:only_in_candidate].each { |n| msg += "    only in candidate: #{n}\n" }
+        end
+        @prompt_diff.input_mismatches.each do |m|
+          msg += "  Input mismatch for '#{m[:case]}' — same name but different inputs\n"
+        end
+        @prompt_diff.expected_mismatches.each do |m|
+          msg += "  Expected mismatch for '#{m[:case]}' — same name/input but different expected values\n"
+        end
+        next msg
+      end
+
+      # Check per-case score regressions (even if global average is flat)
+      if @prompt_diff.score_regressions.any?
+        msg += "  Per-case score regressions (#{@prompt_diff.score_regressions.length}):\n"
+        @prompt_diff.score_regressions.each do |r|
+          msg += "    #{r[:case]}: #{r[:baseline_score]} -> #{r[:candidate_score]} (#{r[:delta]})\n"
+        end
+        msg += "  Score delta: #{@prompt_diff.score_delta}"
+        next msg
+      end
+
+      # Check pass/fail regressions and removed cases
+      removed = @prompt_diff.removed_passing_cases
+      reg_count = @prompt_diff.regressions.length + removed.length
+      msg += "  Found #{reg_count} regression(s):\n"
+      @prompt_diff.regressions.each do |r|
+        msg += "    #{r[:case]}: was PASS, now FAIL -- #{r[:detail]}\n"
+      end
+      removed.each do |name|
+        msg += "    #{name}: REMOVED (was passing in baseline)\n"
+      end
+      msg += "  Score delta: #{@prompt_diff.score_delta}"
+      next msg
+    end
+
     msg = format_failure_message(@eval_name, @error, @report, @minimum_score, @maximum_cost)
     if @diff&.regressed?
       msg += "\n\nRegressions from baseline:\n"
       @diff.regressions.each do |r|
-        msg += "  #{r[:case]}: was PASS, now FAIL — #{r[:detail]}\n"
+        msg += "  #{r[:case]}: was PASS, now FAIL -- #{r[:detail]}\n"
       end
       msg += "  Score delta: #{@diff.score_delta}"
     end

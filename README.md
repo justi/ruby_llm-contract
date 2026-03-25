@@ -157,6 +157,43 @@ report = ClassifyTicket.run_eval("regression",
   concurrency: 4)
 ```
 
+## Prompt A/B testing
+
+Changed a prompt? Compare old vs new with regression safety:
+
+```ruby
+diff = ClassifyTicketV2.compare_with(ClassifyTicketV1,
+  eval: "regression", model: "gpt-4.1-mini")
+
+diff.safe_to_switch?  # => true (no regressions, no per-case score drops)
+diff.improvements     # => [{case: "outage", ...}]
+diff.score_delta      # => +0.33
+```
+
+Requires `model:` or adapter — won't use `sample_response` (A/B needs real calls).
+
+CI gate:
+```ruby
+expect(ClassifyTicketV2).to pass_eval("regression")
+  .compared_with(ClassifyTicketV1)
+  .with_minimum_score(0.8)
+```
+
+## Soft observations
+
+Log suspicious-but-not-invalid output without failing the contract:
+
+```ruby
+class EvaluateComparative < RubyLLM::Contract::Step::Base
+  validate("scores in range") { |o| (1..10).include?(o[:score_a]) }
+  observe("scores should differ") { |o| o[:score_a] != o[:score_b] }
+end
+
+result = EvaluateComparative.run(input)
+result.ok?            # => true (observe never fails)
+result.observations   # => [{description: "scores should differ", passed: false}]
+```
+
 ## Predict cost before running
 
 ```ruby
@@ -190,11 +227,13 @@ Works with any ruby_llm provider (OpenAI, Anthropic, Gemini, etc).
 
 ## Roadmap
 
-**v0.4 (current):** Observability & scale — eval history with trending, batch eval with concurrency, pipeline per-step eval, Minitest support, structured logging.
+**v0.5 (current):** Data-driven prompt engineering — `compare_with(OtherStep)` for prompt A/B testing with regression safety. `observe` DSL for soft observations that log but never fail.
+
+**v0.4:** Observability & scale — eval history with trending, batch eval with concurrency, pipeline per-step eval, Minitest support, structured logging. Audit hardening (18 bugfixes).
 
 **v0.3:** Baseline regression detection, migration guide, production hardening.
 
-**v0.5:** Prompt A/B testing — `compare_with(OtherStep)` for data-driven prompt engineering with regression safety. Cross-provider comparison docs.
+**v0.6:** Model recommendation based on eval history data. Cross-provider comparison docs.
 
 ## License
 

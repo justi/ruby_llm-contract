@@ -1,5 +1,24 @@
 # Changelog
 
+## 0.5.0 (2026-03-25)
+
+Data-Driven Prompt Engineering — see ADR-0015.
+
+### Features
+
+- **`observe` DSL** — soft observations that log but never fail. `observe("scores differ") { |o| o[:a] != o[:b] }`. Results in `result.observations`. Logged via `Contract.logger` when they fail. Runs only when validation passes.
+- **`compare_with`** — prompt A/B testing. `StepV2.compare_with(StepV1, eval: "regression", model: "nano")` returns `PromptDiff` with `improvements`, `regressions`, `score_delta`, `safe_to_switch?`. Reuses `BaselineDiff` internally.
+- **RSpec `compared_with` chain** — `expect(StepV2).to pass_eval("x").compared_with(StepV1).without_regressions` blocks merge if new prompt regresses any case.
+
+### Game changer continuity
+
+```
+v0.2: "Which model?"          → compare_models (snapshot)
+v0.3: "Did it change?"        → baseline regression (binary)
+v0.4: "Show me the trend"     → eval history (time series)
+v0.5: "Which prompt is better?" → compare_with (A/B testing)
+```
+
 ## 0.4.5 (2026-03-24)
 
 Audit hardening — 18 bugs fixed across 4 audit rounds.

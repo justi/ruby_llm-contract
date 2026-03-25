@@ -131,14 +131,14 @@ RSpec.describe "Audit bugfixes" do
       expect {
         RubyLLM::Contract::CostCalculator.register_model("ft:neg",
           input_per_1m: -1.0, output_per_1m: 1.0)
-      }.to raise_error(ArgumentError, /input_per_1m must be a non-negative number/)
+      }.to raise_error(ArgumentError, /input_per_1m must be a finite non-negative number/)
     end
 
     it "rejects negative output_per_1m" do
       expect {
         RubyLLM::Contract::CostCalculator.register_model("ft:neg",
           input_per_1m: 1.0, output_per_1m: -1.0)
-      }.to raise_error(ArgumentError, /output_per_1m must be a non-negative number/)
+      }.to raise_error(ArgumentError, /output_per_1m must be a finite non-negative number/)
     end
 
     it "accepts zero prices" do

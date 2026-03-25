@@ -79,6 +79,16 @@ module RubyLLM
           inherited + own
         end
 
+        def observe(description, &block)
+          (@class_observers ||= []) << Invariant.new(description, block)
+        end
+
+        def class_observers
+          own = defined?(@class_observers) ? @class_observers : []
+          inherited = superclass.respond_to?(:class_observers) ? superclass.class_observers : []
+          inherited + own
+        end
+
         def max_output(tokens = nil)
           if tokens
             unless tokens.is_a?(Numeric) && tokens.positive?

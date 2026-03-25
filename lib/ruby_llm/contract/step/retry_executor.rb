@@ -32,6 +32,7 @@ module RubyLLM
           Result.new(
             status: last.status, raw_output: last.raw_output,
             parsed_output: last.parsed_output, validation_errors: last.validation_errors,
+            observations: last.observations,
             trace: last.trace.merge(
               attempts: attempt_log, usage: aggregated_usage,
               cost: total_cost, latency_ms: total_latency

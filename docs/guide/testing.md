@@ -261,6 +261,57 @@ end
 - A case that **passed** in baseline but is **missing** from current eval (removed or skipped)
 - Score drop alone is NOT a regression — use `with_minimum_score` for that
 
+## Prompt A/B Testing
+
+Compare two prompts side-by-side with regression safety:
+
+```ruby
+diff = ClassifyTicketV2.compare_with(ClassifyTicketV1,
+  eval: "regression", model: "gpt-4.1-mini")
+
+diff.safe_to_switch?    # => true (no regressions, no score drop, identical cases)
+diff.improvements       # => [{case: "outage", ...}]
+diff.regressions        # => []
+diff.score_delta        # => +0.33
+diff.score_regressions  # => per-case score drops
+```
+
+`safe_to_switch?` enforces:
+- Both sides have evaluated cases (no empty/skipped)
+- Identical case names, inputs, AND expected values (no dataset manipulation)
+- No pass→fail regressions or removed passing cases
+- No per-case score drops (even if the average stays flat)
+
+**Important:** `compare_with` requires a real adapter or model — it will NOT use `sample_response`. A/B testing with canned data gives identical results for both sides. Pass `model:` for real LLM calls, or explicit test adapters per step for deterministic tests.
+
+### CI gate for prompt changes
+
+```ruby
+# Block merge if new prompt regresses any case
+expect(ClassifyTicketV2).to pass_eval("regression")
+  .compared_with(ClassifyTicketV1)
+  .with_minimum_score(0.8)
+```
+
+`compared_with` implies regression check — `.without_regressions` is optional.
+
+## Soft Observations
+
+Log suspicious-but-not-invalid output without failing the contract:
+
+```ruby
+class EvaluateComparative < RubyLLM::Contract::Step::Base
+  validate("scores in range") { |o| (1..10).include?(o[:score_a]) }
+  observe("scores should differ") { |o| o[:score_a] != o[:score_b] }
+end
+
+result = EvaluateComparative.run(input)
+result.ok?            # => true (observe never fails)
+result.observations   # => [{description: "scores should differ", passed: false}]
+```
+
+Observations run only when validation passes. Failed observations are logged via `Contract.logger`.
+
 ### Baseline file format
 
 Baselines are JSON files in `.eval_baselines/` — add to git:

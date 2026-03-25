@@ -19,6 +19,15 @@ module RubyLLM
                      input: input, schema: schema)
       end
 
+      def self.run_observations(observers, parsed_output, input: nil)
+        observers.map do |obs|
+          passed = obs.call(parsed_output, input: input)
+          { description: obs.description, passed: !!passed }
+        rescue StandardError => e
+          { description: obs.description, passed: false, error: "#{e.class}: #{e.message}" }
+        end
+      end
+
       private
 
       def parse_error?(parsed_output)
