@@ -38,6 +38,18 @@ result.trace[:model]     # => "gpt-4.1-nano"
 
 Bad JSON? Auto-retry. Wrong value? Escalate to a smarter model. Schema violated? Caught client-side even if the provider ignores it. All with cost tracking.
 
+## Start Here: Eval-First
+
+The most powerful way to use this gem is simple:
+
+- define evals before changing prompts
+- compare prompt versions on the same dataset
+- merge only when the eval stays green
+
+Read: [Eval-First](docs/guide/eval_first.md)
+
+This is the workflow that gives prompt engineering teeth. No vibes, no cherry-picked examples, no "it felt better in the playground". Just cases, regressions, baselines, and measured wins.
+
 ## Which model should I use?
 
 Define test cases. Compare models. Get data.
@@ -220,6 +232,7 @@ Works with any ruby_llm provider (OpenAI, Anthropic, Gemini, etc).
 | Guide | |
 |-------|-|
 | [Getting Started](docs/guide/getting_started.md) | Features walkthrough, model escalation, eval |
+| [Eval-First](docs/guide/eval_first.md) | Practical workflow for prompt engineering with datasets, baselines, and A/B gates |
 | [Best Practices](docs/guide/best_practices.md) | 6 patterns for bulletproof validates |
 | [Output Schema](docs/guide/output_schema.md) | Full schema reference + constraints |
 | [Pipeline](docs/guide/pipeline.md) | Multi-step composition, timeout, fail-fast |
