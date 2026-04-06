@@ -49,7 +49,7 @@ module RubyLLM
             end
           end
 
-          KNOWN_CONTEXT_KEYS = %i[adapter model temperature max_tokens provider assume_model_exists].freeze
+          KNOWN_CONTEXT_KEYS = %i[adapter model temperature max_tokens provider assume_model_exists reasoning_effort].freeze
 
           include Concerns::ContextHelpers
 
@@ -139,7 +139,7 @@ module RubyLLM
             {
               model: context[:model] || model || RubyLLM::Contract.configuration.default_model,
               temperature: context[:temperature],
-              extra_options: context.slice(:provider, :assume_model_exists, :max_tokens),
+              extra_options: context.slice(:provider, :assume_model_exists, :max_tokens, :reasoning_effort),
               policy: retry_policy
             }
           end
