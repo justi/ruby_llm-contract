@@ -52,7 +52,10 @@ module RubyLLM
           CHAT_OPTION_METHODS.each do |key, method_name|
             chat.public_send(method_name, options[key]) if options[key]
           end
-          chat.with_params(max_tokens: options[:max_tokens]) if options[:max_tokens]
+          params = {}
+          params[:max_tokens] = options[:max_tokens] if options[:max_tokens]
+          params[:reasoning_effort] = options[:reasoning_effort] if options[:reasoning_effort]
+          chat.with_params(**params) if params.any?
         end
 
         def build_response(response)

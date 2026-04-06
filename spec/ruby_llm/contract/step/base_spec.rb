@@ -172,4 +172,19 @@ RSpec.describe RubyLLM::Contract::Step::Base do
       expect(step.eval_names).to eq(["smoke"])
     end
   end
+
+  describe "reasoning_effort forwarding" do
+    it "passes reasoning_effort from context through to adapter" do
+      step = Class.new(described_class) { prompt "test {input}" }
+      adapter = RubyLLM::Contract::Adapters::Test.new(response: '{"v": 1}')
+
+      allow(adapter).to receive(:call).and_call_original
+
+      step.run("hello", context: { adapter: adapter, reasoning_effort: "low" })
+
+      expect(adapter).to have_received(:call).with(
+        hash_including(messages: anything, reasoning_effort: "low")
+      )
+    end
+  end
 end

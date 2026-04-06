@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.5.2 (2026-04-06)
+
+### Features
+
+- **`reasoning_effort` forwarded to provider** — `context: { reasoning_effort: "low" }` now passed through `with_params` to the LLM. Previously accepted as a known context key but silently ignored by the RubyLLM adapter.
+
 ## 0.5.0 (2026-03-25)
 
 Data-Driven Prompt Engineering — see ADR-0015.

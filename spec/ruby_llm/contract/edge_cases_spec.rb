@@ -176,6 +176,14 @@ RSpec.describe "Edge cases" do
         expect(step).not_to receive(:warn)
         step.run("hello", context: { adapter: adapter, model: "gpt-4" })
       end
+
+      it "does not warn for reasoning_effort" do
+        step = Class.new(described_class) { prompt "test {input}" }
+        adapter = RubyLLM::Contract::Adapters::Test.new(response: '{"v": 1}')
+
+        expect(step).not_to receive(:warn)
+        step.run("hello", context: { adapter: adapter, reasoning_effort: "low" })
+      end
     end
 
     describe ".prompt when never set" do
