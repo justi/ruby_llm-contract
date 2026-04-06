@@ -260,7 +260,7 @@ Use the gem like this:
 
 1. Write `define_eval` before touching the prompt.
 2. Treat `sample_response` as smoke only.
-3. Use `run_eval(..., model: ...)` for real quality measurement.
+3. Use `run_eval("name", context: { model: "..." })` for real quality measurement.
 4. Use `compare_with` for every serious prompt change.
 5. Gate merges with `pass_eval`.
 6. Feed every production miss back into the eval dataset.
