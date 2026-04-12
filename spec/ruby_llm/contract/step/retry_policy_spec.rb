@@ -127,5 +127,109 @@ RSpec.describe RubyLLM::Contract::Step::RetryPolicy do
       policy = described_class.new(attempts: 4)
       expect(policy.max_attempts).to eq(4)
     end
+
+    it "keyword models: works with config_list" do
+      policy = described_class.new(models: %w[gpt-4.1-nano gpt-4.1-mini])
+      expect(policy.config_list).to eq([{ model: "gpt-4.1-nano" }, { model: "gpt-4.1-mini" }])
+    end
+  end
+
+  describe "config-based features (v0.6)" do
+    describe "#config_list with string args" do
+      it "returns normalized configs for string escalation" do
+        policy = described_class.new { escalate "gpt-4.1-nano", "gpt-4.1-mini" }
+        expect(policy.config_list).to eq([{ model: "gpt-4.1-nano" }, { model: "gpt-4.1-mini" }])
+      end
+    end
+
+    describe "#config_list with hash args" do
+      it "preserves reasoning_effort in config" do
+        policy = described_class.new do
+          escalate({ model: "gpt-4.1-nano" }, { model: "gpt-4.1-mini", reasoning_effort: "high" })
+        end
+
+        expect(policy.config_list).to eq([
+          { model: "gpt-4.1-nano" },
+          { model: "gpt-4.1-mini", reasoning_effort: "high" }
+        ])
+      end
+    end
+
+    describe "#config_list with mixed args" do
+      it "normalizes strings and hashes correctly" do
+        policy = described_class.new do
+          escalate "gpt-4.1-nano", { model: "gpt-4.1-mini", reasoning_effort: "high" }
+        end
+
+        expect(policy.config_list).to eq([
+          { model: "gpt-4.1-nano" },
+          { model: "gpt-4.1-mini", reasoning_effort: "high" }
+        ])
+      end
+    end
+
+    describe "#config_for_attempt" do
+      let(:policy) do
+        described_class.new do
+          escalate(
+            { model: "gpt-4.1-nano" },
+            { model: "gpt-4.1-mini", reasoning_effort: "high" }
+          )
+        end
+      end
+
+      it "returns correct config per attempt" do
+        expect(policy.config_for_attempt(0, {})).to eq({ model: "gpt-4.1-nano" })
+        expect(policy.config_for_attempt(1, {})).to eq({ model: "gpt-4.1-mini", reasoning_effort: "high" })
+      end
+
+      it "returns last config for overflow index" do
+        expect(policy.config_for_attempt(5, {})).to eq({ model: "gpt-4.1-mini", reasoning_effort: "high" })
+      end
+
+      it "returns default_config when no configs" do
+        empty_policy = described_class.new { attempts 3 }
+        default = { model: "gpt-5-mini" }
+        expect(empty_policy.config_for_attempt(0, default)).to eq(default)
+        expect(empty_policy.config_for_attempt(2, default)).to eq(default)
+      end
+    end
+
+    describe "#model_for_attempt backward compatibility" do
+      it "returns string model name even with hash configs" do
+        policy = described_class.new do
+          escalate({ model: "gpt-4.1-nano", reasoning_effort: "low" }, { model: "gpt-4.1-mini" })
+        end
+
+        expect(policy.model_for_attempt(0, "default")).to eq("gpt-4.1-nano")
+        expect(policy.model_for_attempt(1, "default")).to eq("gpt-4.1-mini")
+      end
+    end
+
+    describe "#model_list" do
+      it "returns frozen array of model name strings" do
+        policy = described_class.new do
+          escalate({ model: "gpt-4.1-nano" }, { model: "gpt-4.1-mini", reasoning_effort: "high" })
+        end
+
+        list = policy.model_list
+        expect(list).to eq(%w[gpt-4.1-nano gpt-4.1-mini])
+        expect(list).to be_frozen
+      end
+    end
+
+    describe "normalize_config raises on invalid type" do
+      it "raises ArgumentError for non-String/Hash via escalate" do
+        expect do
+          described_class.new { escalate 42 }
+        end.to raise_error(ArgumentError, /Expected String or Hash, got Integer/)
+      end
+
+      it "raises ArgumentError for Symbol via escalate" do
+        expect do
+          described_class.new { escalate :some_model }
+        end.to raise_error(ArgumentError, /Expected String or Hash, got Symbol/)
+      end
+    end
   end
 end

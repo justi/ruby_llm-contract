@@ -49,6 +49,16 @@ module RubyLLM
             end
           end
 
+          def recommend(eval_name, candidates:, min_score: 0.95, min_first_try_pass_rate: 0.8, context: {})
+            comparison = compare_models(eval_name, candidates: candidates, context: context)
+            Eval::Recommender.new(
+              comparison: comparison,
+              min_score: min_score,
+              min_first_try_pass_rate: min_first_try_pass_rate,
+              current_config: current_model_config
+            ).recommend
+          end
+
           KNOWN_CONTEXT_KEYS = %i[adapter model temperature max_tokens provider assume_model_exists reasoning_effort].freeze
 
           include Concerns::ContextHelpers
@@ -142,6 +152,17 @@ module RubyLLM
               extra_options: context.slice(:provider, :assume_model_exists, :max_tokens, :reasoning_effort),
               policy: retry_policy
             }
+          end
+
+          def current_model_config
+            policy = retry_policy
+            if policy && policy.config_list.any?
+              policy.config_list.first
+            elsif respond_to?(:model) && model
+              { model: model }
+            elsif RubyLLM::Contract.configuration.default_model
+              { model: RubyLLM::Contract.configuration.default_model }
+            end
           end
 
           def resolve_adapter(context)

@@ -88,6 +88,27 @@ comparison.reports["gpt-4.1-nano"].failures.each do |f|
 end
 ```
 
+## Get a recommendation
+
+Don't just compare — get actionable advice. Supports `model + reasoning_effort` combinations:
+
+```ruby
+rec = ClassifyTicket.recommend("regression",
+  candidates: [
+    { model: "gpt-4.1-nano" },
+    { model: "gpt-4.1-mini" },
+    { model: "gpt-5-mini", reasoning_effort: "low" },
+    { model: "gpt-5-mini", reasoning_effort: "high" },
+  ],
+  min_score: 0.95
+)
+
+rec.best           # => { model: "gpt-4.1-mini" }
+rec.retry_chain    # => [{ model: "gpt-4.1-nano" }, { model: "gpt-4.1-mini" }]
+rec.savings        # => { per_call: 0.0017, monthly_at: { 10000 => 17.0 } }
+rec.to_dsl         # => "retry_policy models: %w[gpt-4.1-nano gpt-4.1-mini]"
+```
+
 ## Pipeline
 
 Chain steps with fail-fast. Hallucination in step 1 stops before step 2 spends tokens.
@@ -241,13 +262,13 @@ Works with any ruby_llm provider (OpenAI, Anthropic, Gemini, etc).
 
 ## Roadmap
 
-**v0.5 (current):** Data-driven prompt engineering — `compare_with(OtherStep)` for prompt A/B testing with regression safety. `observe` DSL for soft observations that log but never fail.
+**v0.6 (current):** "What should I do?" — `Step.recommend("eval", candidates: [...])` returns optimal model, reasoning effort, and retry chain. Supports `model + reasoning_effort` combinations as candidates. `compare_models` extended with `candidates:` parameter. Per-attempt `reasoning_effort` in retry policies.
+
+**v0.5:** Data-driven prompt engineering — `compare_with(OtherStep)` for prompt A/B testing with regression safety. `observe` DSL for soft observations that log but never fail.
 
 **v0.4:** Observability & scale — eval history with trending, batch eval with concurrency, pipeline per-step eval, Minitest support, structured logging. Audit hardening (18 bugfixes).
 
 **v0.3:** Baseline regression detection, migration guide, production hardening.
-
-**v0.6 (next):** "What should I do?" — model + configuration recommendation based on eval data. `Step.recommend("eval", candidates: [...])` returns optimal model, reasoning effort, and retry chain. Supports model+reasoning_effort combinations as candidates. Extends `compare_models` with actionable advice instead of raw tables.
 
 ## License
 

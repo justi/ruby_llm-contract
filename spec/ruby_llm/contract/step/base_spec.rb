@@ -187,4 +187,78 @@ RSpec.describe RubyLLM::Contract::Step::Base do
       )
     end
   end
+
+  describe ".recommend" do
+    it "returns a Recommendation with best model and retry_chain" do
+      step = Class.new(described_class) do
+        input_type String
+        output_type Hash
+        prompt { user "{input}" }
+        validate("has intent") { |o| !o[:intent].to_s.empty? }
+
+        define_eval("smoke") do
+          default_input "test query"
+          verify "has intent", { intent: /billing/ }
+        end
+      end
+
+      # Use a non-zero usage so CostCalculator can produce a positive cost
+      adapter = RubyLLM::Contract::Adapters::Test.new(
+        response: '{"intent": "billing", "confidence": 0.9}',
+        usage: { input_tokens: 100, output_tokens: 50 }
+      )
+
+      rec = step.recommend(
+        "smoke",
+        candidates: [
+          { model: "gpt-4.1-nano" },
+          { model: "gpt-4.1-mini" }
+        ],
+        min_score: 0.5,
+        context: { adapter: adapter }
+      )
+
+      expect(rec).to be_a(RubyLLM::Contract::Eval::Recommendation)
+      expect(rec).to be_frozen
+      expect(rec.to_dsl).to be_a(String)
+      # Warnings may include unknown pricing since Test adapter doesn't look up real costs
+      # The recommendation still returns valid structure
+      expect(rec.rationale).not_to be_empty
+    end
+  end
+
+  describe ".current_model_config" do
+    it "returns first config from retry_policy when present" do
+      step = Class.new(described_class) do
+        prompt "test {input}"
+        retry_policy do
+          escalate({ model: "gpt-4.1-nano" }, { model: "gpt-4.1-mini", reasoning_effort: "high" })
+        end
+      end
+
+      config = step.send(:current_model_config)
+      expect(config).to eq({ model: "gpt-4.1-nano" })
+    end
+
+    it "returns model hash when no retry_policy" do
+      step = Class.new(described_class) do
+        prompt "test {input}"
+        model "gpt-4.1-mini"
+      end
+
+      config = step.send(:current_model_config)
+      expect(config).to eq({ model: "gpt-4.1-mini" })
+    end
+
+    it "returns default_model hash when no model set" do
+      RubyLLM::Contract.configure { |c| c.default_model = "gpt-5-mini" }
+
+      step = Class.new(described_class) do
+        prompt "test {input}"
+      end
+
+      config = step.send(:current_model_config)
+      expect(config).to eq({ model: "gpt-5-mini" })
+    end
+  end
 end

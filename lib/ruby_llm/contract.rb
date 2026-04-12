@@ -78,6 +78,14 @@ module RubyLLM
         Thread.current[:ruby_llm_contract_reloading] = false
       end
 
+      def normalize_candidate_config(entry)
+        case entry
+        when String then { model: entry }
+        when Hash then entry
+        else raise ArgumentError, "Expected String or Hash, got #{entry.class}"
+        end
+      end
+
       private
 
       # Filter stale hosts, deduplicate by name (last wins), prune registry in-place

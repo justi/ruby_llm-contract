@@ -33,7 +33,9 @@ RubyLLM::Contract::Eval             # quality measurement
   ├── Eval::Runner               # execution
   ├── Eval::Report               # score, pass_rate, per-case results
   ├── Eval::CaseResult           # value object (name, passed?, output, expected, mismatches, cost)
-  └── Eval::ModelComparison      # compare_models result (table, best_for, cost_per_point)
+  ├── Eval::ModelComparison      # compare_models result (table, best_for, candidate configs)
+  ├── Eval::Recommender          # model recommendation algorithm (candidates → optimal config)
+  └── Eval::Recommendation       # recommendation result (best, retry_chain, savings, to_dsl)
 
 RubyLLM::Contract::CI               # CI / Rails integration
   ├── RakeTask                   # rake ruby_llm_contract:eval

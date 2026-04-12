@@ -9,13 +9,13 @@ module RubyLLM
         DEFAULT_RETRY_ON = %i[validation_failed parse_error adapter_error].freeze
 
         def initialize(models: nil, attempts: nil, retry_on: nil, &block)
-          @models = []
+          @configs = []
           @retryable_statuses = DEFAULT_RETRY_ON.dup
 
           if block
             @max_attempts = 1
             instance_eval(&block)
-            warn_no_retry! if @max_attempts == 1 && @models.empty?
+            warn_no_retry! if @max_attempts == 1 && @configs.empty?
           else
             apply_keywords(models: models, attempts: attempts, retry_on: retry_on)
           end
@@ -28,14 +28,18 @@ module RubyLLM
           validate_max_attempts!
         end
 
-        def escalate(*model_list)
-          @models = model_list.flatten
-          @max_attempts = @models.length if @max_attempts < @models.length
+        def escalate(*config_list)
+          @configs = config_list.flatten.map { |c| normalize_config(c).freeze }.freeze
+          @max_attempts = @configs.length if @max_attempts < @configs.length
         end
         alias models escalate
 
         def model_list
-          @models
+          @configs.map { |c| c[:model] }.freeze
+        end
+
+        def config_list
+          @configs
         end
 
         def retry_on(*statuses)
@@ -46,24 +50,32 @@ module RubyLLM
           retryable_statuses.include?(result.status)
         end
 
-        def model_for_attempt(attempt, default_model)
-          if @models.any?
-            @models[attempt] || @models.last
+        def config_for_attempt(attempt, default_config)
+          if @configs.any?
+            @configs[attempt] || @configs.last
           else
-            default_model
+            default_config
           end
+        end
+
+        def model_for_attempt(attempt, default_model)
+          config_for_attempt(attempt, { model: default_model })[:model]
         end
 
         private
 
         def apply_keywords(models:, attempts:, retry_on:)
           if models
-            @models = Array(models).dup.freeze
-            @max_attempts = @models.length
+            @configs = Array(models).map { |m| normalize_config(m).freeze }.freeze
+            @max_attempts = @configs.length
           else
             @max_attempts = attempts || 1
           end
           @retryable_statuses = Array(retry_on).dup if retry_on
+        end
+
+        def normalize_config(entry)
+          RubyLLM::Contract.normalize_candidate_config(entry)
         end
 
         def warn_no_retry!
