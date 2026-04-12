@@ -100,7 +100,7 @@ result.trace[:model]  # => "gpt-4.1-nano" (first model that passed)
 result.trace[:cost]   # => 0.000032
 ```
 
-Bad JSON? Retried automatically. Wrong answer? Escalated to a smarter model. Schema violated? Caught client-side. You pay for the cheapest model that works — not the most expensive one "just in case".
+Bad JSON? Retried automatically. Wrong answer? Escalated to a smarter model. Schema violated? Caught client-side. The contract guarantees every response meets your rules — you pay for the cheapest model that passes.
 
 ## Install
 
@@ -117,16 +117,16 @@ Works with any ruby_llm provider (OpenAI, Anthropic, Gemini, etc).
 
 ## Save money with model escalation
 
-Without contracts, you use gpt-4.1 for everything because you can't tell when a cheaper model gets it wrong. With contracts, you start on nano and only escalate when the answer fails validation:
+Without a contract, you use gpt-4.1 for everything because you can't tell when a cheaper model gets it wrong. With a contract, you start on nano and only escalate when the answer fails the contract:
 
 ```ruby
 retry_policy models: %w[gpt-4.1-nano gpt-4.1-mini gpt-4.1]
 ```
 
 ```
-Attempt 1: gpt-4.1-nano  → validation_failed  ($0.0001)
-Attempt 2: gpt-4.1-mini  → ok                  ($0.0004)
-           gpt-4.1       → never called         ($0.00)
+Attempt 1: gpt-4.1-nano  → contract failed  ($0.0001)
+Attempt 2: gpt-4.1-mini  → contract passed  ($0.0004)
+           gpt-4.1       → never called      ($0.00)
 ```
 
 Most requests succeed on the cheapest model. You pay full price only for the ones that need it. How many? Run `compare_models` and find out.
@@ -227,7 +227,7 @@ expect(ClassifyTicketV2).to pass_eval("regression")
 
 ## Chain steps with fail-fast
 
-Pipeline stops at the first contract failure. No wasted tokens on downstream steps:
+Pipeline stops at the first contract failure — no wasted tokens on downstream steps:
 
 ```ruby
 class TicketPipeline < RubyLLM::Contract::Pipeline::Base
