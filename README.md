@@ -15,8 +15,8 @@ The missing link between LLM cost and quality. Stop choosing between "cheap but 
   max_cost 0.01                   estimate tokens, check price,   No surprise bills
                                   refuse before calling LLM
 
-  output_schema { ... }           force JSON structure, parse,    Zero parsing code
-                                  validate client-side
+  output_schema { ... }           send JSON schema to provider,   Zero parsing code
+                                  validate response client-side
 
   define_eval { ... }             test cases + baselines,          Regressions caught
                                   run in CI with real LLM          before deploy
@@ -52,17 +52,17 @@ The missing link between LLM cost and quality. Stop choosing between "cheap but 
   │ THE GEM HANDLES THE REST                                        │
   │                                                                 │
   │   request ──→ ┌──────┐   ┌──────────┐                           │
-  │               │ nano │─→ │ validate │──→ ✓ pass (90%) → done   │
+  │               │ nano │─→ │ validate │──→ ✓ pass → done         │
   │               └──────┘   └────┬─────┘                           │
   │                               │ ✗ fail                          │
   │                               ▼                                 │
   │               ┌──────┐   ┌──────────┐                           │
-  │               │ mini │─→ │ validate │──→ ✓ pass  (9%) → done   │
+  │               │ mini │─→ │ validate │──→ ✓ pass → done         │
   │               └──────┘   └────┬─────┘                           │
   │                               │ ✗ fail                          │
   │                               ▼                                 │
   │               ┌──────┐   ┌──────────┐                           │
-  │               │ full │─→ │ validate │──→ ✓ pass  (1%) → done   │
+  │               │ full │─→ │ validate │──→ ✓ pass → done         │
   │               └──────┘   └──────────┘                           │
   └───────────────────────────┬─────────────────────────────────────┘
                               │
@@ -71,7 +71,7 @@ The missing link between LLM cost and quality. Stop choosing between "cheap but 
   │ YOU GET                                                         │
   │                                                                 │
   │   ✓ Valid output guaranteed — schema + business rules enforced  │
-  │   ✓ Cheapest model that works — nano price 90% of the time     │
+  │   ✓ Cheapest model that works — most requests stay on nano     │
   │   ✓ Cost, latency, tokens — tracked on every call              │
   │   ✓ Eval scores per model — data instead of gut feeling        │
   │   ✓ Regressions caught — before deploy, not after              │
@@ -97,7 +97,7 @@ end
 result = ClassifyTicket.run("I was charged twice")
 result.parsed_output  # => {priority: "high", category: "billing"}
 result.trace[:model]  # => "gpt-4.1-nano" (first model that passed)
-result.trace[:cost]   # => $0.000032
+result.trace[:cost]   # => 0.000032
 ```
 
 Bad JSON? Retried automatically. Wrong answer? Escalated to a smarter model. Schema violated? Caught client-side. You pay for the cheapest model that works — not the most expensive one "just in case".
@@ -129,7 +129,7 @@ Attempt 2: gpt-4.1-mini  → ok                  ($0.0004)
            gpt-4.1       → never called         ($0.00)
 ```
 
-90% of requests succeed on nano. You pay full price only for the 10% that need it.
+Most requests succeed on the cheapest model. You pay full price only for the ones that need it. How many? Run `compare_models` and find out.
 
 ## Know which model to use — with data
 
@@ -175,11 +175,11 @@ rec = ClassifyTicket.recommend("regression",
 
 rec.best           # => { model: "gpt-4.1-mini" }
 rec.retry_chain    # => [{ model: "gpt-4.1-nano" }, { model: "gpt-4.1-mini" }]
-rec.savings        # => { per_call: 0.0017, monthly_at: { 10000 => 17.0 } }
 rec.to_dsl         # => "retry_policy models: %w[gpt-4.1-nano gpt-4.1-mini]"
+rec.savings        # => savings vs your current model (if configured)
 ```
 
-Copy `rec.to_dsl` into your step. Done. Savings calculated automatically vs your current model.
+Copy `rec.to_dsl` into your step. Done.
 
 ## Catch regressions before users do
 
