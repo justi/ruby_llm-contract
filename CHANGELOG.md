@@ -8,7 +8,7 @@
 
 ## 0.5.0 (2026-03-25)
 
-Data-Driven Prompt Engineering — see ADR-0015.
+Data-Driven Prompt Engineering.
 
 ### Features
 
@@ -55,7 +55,7 @@ Audit hardening — 18 bugs fixed across 4 audit rounds.
 
 ## 0.4.3 (2026-03-24)
 
-Production feedback release — driven by ADR-0016 (real Rails 8.1 deployment).
+Production feedback release.
 
 ### Features
 
