@@ -1,16 +1,16 @@
 # ruby_llm-contract
 
-Stop guessing which model to use. Stop hoping your prompts still work after changes. Get contracts, cost tracking, and data-driven model selection for [ruby_llm](https://github.com/crmne/ruby_llm).
+The missing link between LLM cost and quality. Stop choosing between "cheap but wrong" and "accurate but expensive" — get both. Contracts, model escalation, and data-driven recommendations for [ruby_llm](https://github.com/crmne/ruby_llm).
 
 ```
   YOU WRITE                       THE GEM HANDLES                 YOU GET
   ─────────                       ───────────────                 ───────
 
-  validate { |o| ... }            catch bad answers, retry,       Zero garbage
-                                  escalate to smarter model       in production
+  validate { |o| ... }            catch bad answers — combined     Zero garbage
+                                  with retry_policy, auto-retry   in production
 
-  retry_policy                    start cheap, escalate only      $7/mo not $200
-  models: %w[nano mini full]      when validation fails           (10k calls)
+  retry_policy                    start cheap, escalate only      Pay for the cheapest
+  models: %w[nano mini full]      when validation fails           model that works
 
   max_cost 0.01                   estimate tokens, check price,   No surprise bills
                                   refuse before calling LLM
@@ -46,7 +46,7 @@ end
 
 result = ClassifyTicket.run("I was charged twice")
 result.parsed_output  # => {priority: "high", category: "billing"}
-result.trace[:model]  # => "gpt-4.1-nano" (cheapest model that passed)
+result.trace[:model]  # => "gpt-4.1-nano" (first model that passed)
 result.trace[:cost]   # => $0.000032
 ```
 
@@ -79,7 +79,7 @@ Attempt 2: gpt-4.1-mini  → ok                  ($0.0004)
            gpt-4.1       → never called         ($0.00)
 ```
 
-90% of requests succeed on nano. At 10k requests/month: **~$40 instead of ~$200**.
+90% of requests succeed on nano. You pay full price only for the 10% that need it.
 
 ## Know which model to use — with data
 
@@ -129,7 +129,7 @@ rec.savings        # => { per_call: 0.0017, monthly_at: { 10000 => 17.0 } }
 rec.to_dsl         # => "retry_policy models: %w[gpt-4.1-nano gpt-4.1-mini]"
 ```
 
-Copy `rec.to_dsl` into your step. Done. **$17/month saved at 10k calls**.
+Copy `rec.to_dsl` into your step. Done. Savings calculated automatically vs your current model.
 
 ## Catch regressions before users do
 
