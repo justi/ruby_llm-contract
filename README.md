@@ -22,7 +22,7 @@ Stop guessing which model to use. Stop hoping your prompts still work after chan
                                   baselines, gate merge           in CI not prod
 
   recommend(candidates: [...])    evaluate all configs, pick      Optimal model +
-                                  cheapest that passes            $17/mo saved
+                                  cheapest that passes            retry chain
 ```
 
 ## The problem
