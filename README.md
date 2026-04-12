@@ -39,11 +39,11 @@ The missing link between LLM cost and quality. Stop choosing between "cheap but 
                          ⬇  add ruby_llm-contract
 
   ┌─────────────────────────────────────────────────────────────────┐
-  │ YOU CONFIGURE (4 lines)                                         │
+  │ YOU DEFINE A CONTRACT                                            │
   │                                                                 │
-  │   validate("valid priority") { |o| ... }   ← quality rules     │
-  │   output_schema { string :priority }       ← guaranteed JSON    │
-  │   retry_policy models: %w[nano mini full]  ← cheapest first    │
+  │   output_schema { string :priority }       ← valid structure   │
+  │   validate("valid priority") { |o| ... }   ← business rules    │
+  │   retry_policy models: %w[nano mini full]  ← escalation chain  │
   │   max_cost 0.01                            ← budget cap         │
   └───────────────────────────┬─────────────────────────────────────┘
                               │
@@ -52,17 +52,17 @@ The missing link between LLM cost and quality. Stop choosing between "cheap but 
   │ THE GEM HANDLES THE REST                                        │
   │                                                                 │
   │   request ──→ ┌──────┐   ┌──────────┐                           │
-  │               │ nano │─→ │ validate │──→ ✓ pass → done         │
+  │               │ nano │─→ │ contract │──→ ✓ pass → done         │
   │               └──────┘   └────┬─────┘                           │
   │                               │ ✗ fail                          │
   │                               ▼                                 │
   │               ┌──────┐   ┌──────────┐                           │
-  │               │ mini │─→ │ validate │──→ ✓ pass → done         │
+  │               │ mini │─→ │ contract │──→ ✓ pass → done         │
   │               └──────┘   └────┬─────┘                           │
   │                               │ ✗ fail                          │
   │                               ▼                                 │
   │               ┌──────┐   ┌──────────┐                           │
-  │               │ full │─→ │ validate │──→ ✓ pass → done         │
+  │               │ full │─→ │ contract │──→ ✓ pass → done         │
   │               └──────┘   └──────────┘                           │
   └───────────────────────────┬─────────────────────────────────────┘
                               │
