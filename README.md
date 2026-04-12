@@ -18,8 +18,8 @@ Stop guessing which model to use. Stop hoping your prompts still work after chan
   output_schema { ... }           force JSON structure, parse,    Zero parsing code
                                   validate client-side
 
-  define_eval { ... }             run cases every PR, compare     Regressions caught
-                                  baselines, gate merge           in CI not prod
+  define_eval { ... }             run cases against LLM or         Quality measured,
+                                  offline with sample_response     regressions caught
 
   recommend(candidates: [...])    evaluate all configs, pick      Optimal model +
                                   cheapest that passes            retry chain
