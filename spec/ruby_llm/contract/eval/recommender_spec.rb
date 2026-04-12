@@ -53,7 +53,20 @@ RSpec.describe RubyLLM::Contract::Eval::Recommender do
       expect(rec.best[:model]).to eq("gpt-4.1-nano")
     end
 
-    it "uses tiebreaker: equal cost -> lower latency -> lexicographic" do
+    it "uses tiebreaker: equal cost -> lower latency wins" do
+      comparison = build_comparison([
+        { config: { model: "gpt-4.1-beta" },
+          cases: [{ passed: true, cost: 0.001, duration_ms: 300 }] },
+        { config: { model: "gpt-4.1-alpha" },
+          cases: [{ passed: true, cost: 0.001, duration_ms: 100 }] }
+      ])
+
+      rec = described_class.new(comparison: comparison, min_score: 0.95).recommend
+
+      expect(rec.best[:model]).to eq("gpt-4.1-alpha")
+    end
+
+    it "uses tiebreaker: equal cost, equal latency -> lexicographic" do
       comparison = build_comparison([
         { config: { model: "gpt-4.1-beta" },
           cases: [{ passed: true, cost: 0.001, duration_ms: 200 }] },
@@ -63,8 +76,21 @@ RSpec.describe RubyLLM::Contract::Eval::Recommender do
 
       rec = described_class.new(comparison: comparison, min_score: 0.95).recommend
 
-      # Same cost, same latency -> lexicographic label wins
       expect(rec.best[:model]).to eq("gpt-4.1-alpha")
+    end
+
+    it "does not favor candidates with unknown latency in tiebreaking" do
+      comparison = build_comparison([
+        { config: { model: "gpt-4.1-fast" },
+          cases: [{ passed: true, cost: 0.001, duration_ms: 100 }] },
+        { config: { model: "gpt-4.1-unknown" },
+          cases: [{ passed: true, cost: 0.001, duration_ms: nil }] }
+      ])
+
+      rec = described_class.new(comparison: comparison, min_score: 0.95).recommend
+
+      # Unknown latency should NOT win over known 100ms
+      expect(rec.best[:model]).to eq("gpt-4.1-fast")
     end
 
     it "excludes candidates with nil/zero cost, flags in warnings" do
@@ -79,6 +105,21 @@ RSpec.describe RubyLLM::Contract::Eval::Recommender do
 
       expect(rec.best[:model]).to eq("gpt-4.1-mini")
       expect(rec.warnings).to include(match(/gpt-4.1-nano.*unknown pricing/))
+    end
+
+    it "shows 'unknown pricing' instead of $0.0000 in rationale for zero-cost candidates" do
+      comparison = build_comparison([
+        { config: { model: "gpt-4.1-nano" },
+          cases: [{ passed: true, cost: 0.0 }] },
+        { config: { model: "gpt-4.1-mini" },
+          cases: [{ passed: true, cost: 0.01 }] }
+      ])
+
+      rec = described_class.new(comparison: comparison, min_score: 0.95).recommend
+
+      nano_line = rec.rationale.find { |r| r.include?("gpt-4.1-nano") }
+      expect(nano_line).to include("unknown pricing")
+      expect(nano_line).not_to include("$0.0000")
     end
 
     it "returns nil best and empty chain when no candidate meets min_score" do

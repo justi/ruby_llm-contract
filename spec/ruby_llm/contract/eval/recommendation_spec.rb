@@ -21,6 +21,23 @@ RSpec.describe RubyLLM::Contract::Eval::Recommendation do
       expect(rec.savings).to be_frozen
       expect(rec.warnings).to be_frozen
     end
+
+    it "is deeply frozen — nested hashes cannot be mutated" do
+      rec = described_class.new(
+        best: { model: "gpt-4.1-mini" },
+        retry_chain: [{ model: "gpt-4.1-mini" }],
+        score: 0.95,
+        cost_per_call: 0.001,
+        rationale: ["line one"],
+        current_config: { model: "gpt-4.1" },
+        savings: { per_call: 0.01 },
+        warnings: ["warning"]
+      )
+
+      expect { rec.retry_chain.first[:model] = "hacked" }.to raise_error(FrozenError)
+      expect { rec.savings[:per_call] = 999 }.to raise_error(FrozenError)
+      expect { rec.best[:model] = "hacked" }.to raise_error(FrozenError)
+    end
   end
 
   describe "attribute access" do
