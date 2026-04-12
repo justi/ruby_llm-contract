@@ -25,9 +25,59 @@ The missing link between LLM cost and quality. Stop choosing between "cheap but 
                                   cheapest that passes            retry chain
 ```
 
-## The problem
+## Before and after
 
-You call an LLM. Sometimes it returns garbage. You retry manually. You pick gpt-4.1 "because it's good" but it costs 20x more than nano — and nano handles 90% of your requests just fine. You change a prompt, eyeball a few outputs, and deploy. Two weeks later, a model update quietly drops your accuracy from 95% to 70%. Nobody notices until users complain.
+```
+  ┌─────────────────────────────────────────────────────────────────┐
+  │ BEFORE: pick one model, hope for the best                      │
+  │                                                                 │
+  │   expensive model → accurate, but you overpay on every call     │
+  │   cheap model     → fast, but wrong answers slip to production  │
+  │   prompt change   → "looks good to me" → deploy → users suffer │
+  └─────────────────────────────────────────────────────────────────┘
+
+                         ⬇  add ruby_llm-contract
+
+  ┌─────────────────────────────────────────────────────────────────┐
+  │ YOU CONFIGURE (4 lines)                                         │
+  │                                                                 │
+  │   validate("valid priority") { |o| ... }   ← quality rules     │
+  │   output_schema { string :priority }       ← guaranteed JSON    │
+  │   retry_policy models: %w[nano mini full]  ← cheapest first    │
+  │   max_cost 0.01                            ← budget cap         │
+  └───────────────────────────┬─────────────────────────────────────┘
+                              │
+                              ▼
+  ┌─────────────────────────────────────────────────────────────────┐
+  │ THE GEM HANDLES THE REST                                        │
+  │                                                                 │
+  │   request ──→ ┌──────┐   ┌──────────┐                           │
+  │               │ nano │─→ │ validate │──→ ✓ pass (90%) → done   │
+  │               └──────┘   └────┬─────┘                           │
+  │                               │ ✗ fail                          │
+  │                               ▼                                 │
+  │               ┌──────┐   ┌──────────┐                           │
+  │               │ mini │─→ │ validate │──→ ✓ pass  (9%) → done   │
+  │               └──────┘   └────┬─────┘                           │
+  │                               │ ✗ fail                          │
+  │                               ▼                                 │
+  │               ┌──────┐   ┌──────────┐                           │
+  │               │ full │─→ │ validate │──→ ✓ pass  (1%) → done   │
+  │               └──────┘   └──────────┘                           │
+  └───────────────────────────┬─────────────────────────────────────┘
+                              │
+                              ▼
+  ┌─────────────────────────────────────────────────────────────────┐
+  │ YOU GET                                                         │
+  │                                                                 │
+  │   ✓ Valid output guaranteed — schema + business rules enforced  │
+  │   ✓ Cheapest model that works — nano price 90% of the time     │
+  │   ✓ Cost, latency, tokens — tracked on every call              │
+  │   ✓ Eval scores per model — data instead of gut feeling        │
+  │   ✓ Regressions caught — before deploy, not after              │
+  │   ✓ Recommendation — "use nano+mini, drop full, save $X/mo"   │
+  └─────────────────────────────────────────────────────────────────┘
+```
 
 ## 30-second version
 
