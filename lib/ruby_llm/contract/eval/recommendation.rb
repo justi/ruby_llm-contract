@@ -15,10 +15,10 @@ module RubyLLM
           @retry_chain = deep_dup_freeze(retry_chain)
           @score = score
           @cost_per_call = cost_per_call
-          @rationale = rationale.freeze
+          @rationale = deep_dup_freeze(rationale)
           @current_config = deep_dup_freeze(current_config)
           @savings = deep_dup_freeze(savings)
-          @warnings = warnings.freeze
+          @warnings = deep_dup_freeze(warnings)
           freeze
         end
 

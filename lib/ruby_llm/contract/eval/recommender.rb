@@ -47,7 +47,7 @@ module RubyLLM
               config: config,
               score: report.score,
               cost_per_call: cost_per_call,
-              latency: report.avg_latency_ms || 0,
+              latency: report.avg_latency_ms || Float::INFINITY,
               pass_rate_ratio: report.pass_rate_ratio,
               total_cost: report.total_cost
             }
@@ -79,7 +79,8 @@ module RubyLLM
         end
 
         def rationale_line(candidate, best)
-          header = "#{candidate[:label]}, score #{format("%.2f", candidate[:score])}, at $#{format("%.4f", candidate[:cost_per_call])}/call"
+          cost_str = cost_known?(candidate) ? "$#{format("%.4f", candidate[:cost_per_call])}/call" : "unknown pricing"
+          header = "#{candidate[:label]}, score #{format("%.2f", candidate[:score])}, at #{cost_str}"
           notes = rationale_notes(candidate, best)
           notes.any? ? "#{header} — #{notes.join(", ")}" : header
         end
