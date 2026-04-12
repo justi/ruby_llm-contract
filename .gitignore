@@ -11,3 +11,4 @@ Gemfile.lock
 .claude/
 /internal/
 /doc/decisions/
+/docs/ideas/
