@@ -80,9 +80,22 @@ module RubyLLM
 
       def normalize_candidate_config(entry)
         case entry
-        when String then { model: entry }
-        when Hash then entry
-        else raise ArgumentError, "Expected String or Hash, got #{entry.class}"
+        when String
+          raise ArgumentError, "Candidate model must be a non-empty String" if entry.strip.empty?
+
+          { model: entry.strip }
+        when Hash
+          model = entry[:model] || entry["model"]
+          unless model.is_a?(String) && !model.strip.empty?
+            raise ArgumentError, "Candidate config must include a non-empty String :model"
+          end
+
+          normalized = { model: model.strip }
+          effort = entry[:reasoning_effort] || entry["reasoning_effort"]
+          normalized[:reasoning_effort] = effort if effort
+          normalized
+        else
+          raise ArgumentError, "Expected String or Hash, got #{entry.class}"
         end
       end
 

@@ -74,7 +74,7 @@ module RubyLLM
         end
 
         def build_rationale(scored, best)
-          sorted = scored.sort_by { |s| [s[:cost_per_call], s[:latency], s[:label]] }
+          sorted = scored.sort_by { |s| [cost_known?(s) ? 0 : 1, s[:cost_per_call], s[:latency], s[:label]] }
           sorted.map { |s| rationale_line(s, best) }
         end
 

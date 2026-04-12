@@ -79,8 +79,9 @@ module RubyLLM
         end
 
         def warn_no_retry!
-          warn "[ruby_llm-contract] retry_policy has max_attempts=1 with no models. " \
-               "This means no actual retry will happen. Add `attempts 2` or `escalate %w[model1 model2]`."
+          warn "[ruby_llm-contract] retry_policy has max_attempts=1 with no configs. " \
+               "This means no actual retry will happen. Add `attempts 2` or " \
+               '`escalate "model1", "model2"`.'
         end
 
         def validate_max_attempts!

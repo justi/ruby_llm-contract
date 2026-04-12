@@ -4,18 +4,20 @@ module RubyLLM
   module Contract
     module Eval
       class Recommendation
+        include Concerns::DeepFreeze
+
         attr_reader :best, :retry_chain, :score, :cost_per_call,
                     :rationale, :current_config, :savings, :warnings
 
         def initialize(best:, retry_chain:, score:, cost_per_call:,
                        rationale:, current_config:, savings:, warnings:)
-          @best = best&.freeze
-          @retry_chain = retry_chain.freeze
+          @best = deep_dup_freeze(best)
+          @retry_chain = deep_dup_freeze(retry_chain)
           @score = score
           @cost_per_call = cost_per_call
           @rationale = rationale.freeze
-          @current_config = current_config&.freeze
-          @savings = savings.freeze
+          @current_config = deep_dup_freeze(current_config)
+          @savings = deep_dup_freeze(savings)
           @warnings = warnings.freeze
           freeze
         end
