@@ -13,25 +13,29 @@ module RubyLLM
           @stats = stats
         end
 
-        def save_history!(path: nil, model: nil)
-          file = path || storage_path(Report::HISTORY_DIR, "jsonl", model: model)
-          EvalHistory.append(file, history_entry)
+        def save_history!(path: nil, model: nil, reasoning_effort: nil)
+          file = path || storage_path(Report::HISTORY_DIR, "jsonl", model: model, reasoning_effort: reasoning_effort)
+          entry = history_entry
+          entry[:model] = model if model
+          entry[:reasoning_effort] = reasoning_effort if reasoning_effort
+          EvalHistory.append(file, entry)
           file
         end
 
-        def eval_history(path: nil, model: nil)
-          EvalHistory.load(path || storage_path(Report::HISTORY_DIR, "jsonl", model: model))
+        def eval_history(path: nil, model: nil, reasoning_effort: nil)
+          EvalHistory.load(path || storage_path(Report::HISTORY_DIR, "jsonl", model: model,
+                                                                              reasoning_effort: reasoning_effort))
         end
 
-        def save_baseline!(path: nil, model: nil)
-          file = path || storage_path(Report::BASELINE_DIR, "json", model: model)
+        def save_baseline!(path: nil, model: nil, reasoning_effort: nil)
+          file = path || storage_path(Report::BASELINE_DIR, "json", model: model, reasoning_effort: reasoning_effort)
           FileUtils.mkdir_p(File.dirname(file))
           File.write(file, JSON.pretty_generate(serialize_for_baseline))
           file
         end
 
-        def compare_with_baseline(path: nil, model: nil)
-          file = path || storage_path(Report::BASELINE_DIR, "json", model: model)
+        def compare_with_baseline(path: nil, model: nil, reasoning_effort: nil)
+          file = path || storage_path(Report::BASELINE_DIR, "json", model: model, reasoning_effort: reasoning_effort)
           raise ArgumentError, "No baseline found at #{file}" unless File.exist?(file)
 
           baseline_data = JSON.parse(File.read(file), symbolize_names: true)
@@ -43,8 +47,8 @@ module RubyLLM
           )
         end
 
-        def baseline_exists?(path: nil, model: nil)
-          File.exist?(path || storage_path(Report::BASELINE_DIR, "json", model: model))
+        def baseline_exists?(path: nil, model: nil, reasoning_effort: nil)
+          File.exist?(path || storage_path(Report::BASELINE_DIR, "json", model: model, reasoning_effort: reasoning_effort))
         end
 
         private
@@ -55,6 +59,7 @@ module RubyLLM
             score: @stats.score,
             total_cost: @stats.total_cost,
             pass_rate: @stats.pass_rate,
+            pass_rate_ratio: @stats.pass_rate_ratio,
             cases_count: @stats.evaluated_results_count
           }
         end
@@ -79,12 +84,13 @@ module RubyLLM
           }
         end
 
-        def storage_path(root_dir, extension, model:)
+        def storage_path(root_dir, extension, model:, reasoning_effort: nil)
           parts = [root_dir]
           parts << sanitize_name(@report.step_name) if @report.step_name
 
           dataset_name = sanitize_name(@report.dataset_name)
           dataset_name = "#{dataset_name}_#{sanitize_name(model)}" if model
+          dataset_name = "#{dataset_name}_effort_#{sanitize_name(reasoning_effort)}" if reasoning_effort
 
           File.join(*parts, "#{dataset_name}.#{extension}")
         end

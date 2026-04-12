@@ -60,7 +60,7 @@ result.trace[:attempts]
 
 **Model priority:** `retry_policy models: %w[nano mini full]` tries models left to right. First model is always tried first. `context: { model: "..." }` is ignored when `retry_policy` is set — the policy controls model selection. Without `retry_policy`, the model comes from `context[:model]` or `default_model`.
 
-**Reasoning effort:** For models that support it (o3, etc.), control how much the model "thinks" before answering:
+**Reasoning effort:** For models that support it, control how much the model "thinks" before answering:
 ```ruby
 result = ClassifyTicket.run(ticket, context: { reasoning_effort: "low" })
 # "low" / "medium" / "high" — passed to the provider via with_params

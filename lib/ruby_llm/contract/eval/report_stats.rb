@@ -35,6 +35,12 @@ module RubyLLM
           "#{passed}/#{evaluated_results.length}"
         end
 
+        def pass_rate_ratio
+          return 0.0 if evaluated_results.empty?
+
+          passed.to_f / evaluated_results.length
+        end
+
         def total_cost
           @results.sum { |result| result.cost || 0.0 }
         end

@@ -70,17 +70,36 @@ module RubyLLM
           Eval::PromptDiff.new(candidate: my_report, baseline: other_report)
         end
 
-        def compare_models(eval_name, models:, context: {})
+        def compare_models(eval_name, models: [], candidates: [], context: {})
+          raise ArgumentError, "Pass either models: or candidates:, not both" if models.any? && candidates.any?
+
           context = safe_context(context)
-          models = models.uniq
-          reports = models.each_with_object({}) do |model, hash|
-            model_context = isolate_context(context).merge(model: model)
-            hash[model] = run_single_eval(eval_name, model_context)
+          candidate_configs = normalize_candidates(models, candidates)
+
+          reports = {}
+          configs = {}
+          candidate_configs.each do |config|
+            label = Eval::ModelComparison.candidate_label(config)
+            model_context = isolate_context(context).merge(model: config[:model])
+            model_context[:reasoning_effort] = config[:reasoning_effort] if config[:reasoning_effort]
+            reports[label] = run_single_eval(eval_name, model_context)
+            configs[label] = config
           end
-          Eval::ModelComparison.new(eval_name: eval_name, reports: reports)
+
+          Eval::ModelComparison.new(eval_name: eval_name, reports: reports, configs: configs)
         end
 
         private
+
+        def normalize_candidates(models, candidates)
+          if candidates.any?
+            candidates.map { |c| RubyLLM::Contract.normalize_candidate_config(c) }.uniq
+          elsif models.any?
+            models.uniq.map { |m| { model: m } }
+          else
+            raise ArgumentError, "Pass models: or candidates: with at least one entry"
+          end
+        end
 
         def comparison_context(context, model)
           base_context = safe_context(context)

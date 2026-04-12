@@ -10,12 +10,16 @@ module RubyLLM
 
         def run_with_retry(input, adapter:, default_model:, policy:, context_temperature: nil, extra_options: {})
           all_attempts = []
+          default_config = { model: default_model }.merge(extra_options.slice(:reasoning_effort).compact)
 
           policy.max_attempts.times do |attempt_index|
-            model = policy.model_for_attempt(attempt_index, default_model)
+            config = policy.config_for_attempt(attempt_index, default_config)
+            model = config[:model]
+            attempt_extra = extra_options.merge(config.except(:model))
+
             result = run_once(input, adapter: adapter, model: model,
-                              context_temperature: context_temperature, extra_options: extra_options)
-            all_attempts << { attempt: attempt_index + 1, model: model, result: result }
+                              context_temperature: context_temperature, extra_options: attempt_extra)
+            all_attempts << { attempt: attempt_index + 1, model: model, config: config, result: result }
             break unless policy.retryable?(result)
           end
 
@@ -43,6 +47,8 @@ module RubyLLM
         def build_attempt_entry(attempt)
           trace = attempt[:result].trace
           entry = { attempt: attempt[:attempt], model: attempt[:model], status: attempt[:result].status }
+          config = attempt[:config]
+          entry[:config] = config if config && config.keys != [:model]
           append_trace_fields(entry, trace)
         end
 

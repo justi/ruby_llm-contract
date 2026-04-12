@@ -14,8 +14,8 @@ module RubyLLM
         HISTORY_DIR = ".eval_history"
         BASELINE_DIR = ".eval_baselines"
 
-        def_delegators :@stats, :score, :passed, :failed, :skipped, :failures, :pass_rate, :total_cost, :avg_latency_ms,
-                       :passed?
+        def_delegators :@stats, :score, :passed, :failed, :skipped, :failures, :pass_rate, :pass_rate_ratio,
+                       :total_cost, :avg_latency_ms, :passed?
         def_delegators :@presenter, :summary, :to_s, :print_summary
         def_delegators :@storage, :save_history!, :eval_history, :save_baseline!, :compare_with_baseline,
                        :baseline_exists?

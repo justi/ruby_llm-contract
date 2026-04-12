@@ -1,24 +1,89 @@
 # ruby_llm-contract
 
-Contracts for LLM quality. Know which model to use, what it costs, and when accuracy drops.
+The missing link between LLM cost and quality. Stop choosing between "cheap but wrong" and "accurate but expensive" — get both. Contracts, model escalation, and data-driven recommendations for [ruby_llm](https://github.com/crmne/ruby_llm).
 
-Companion gem for [ruby_llm](https://github.com/crmne/ruby_llm).
+```
+  YOU WRITE                       THE GEM HANDLES                 YOU GET
+  ─────────                       ───────────────                 ───────
 
-## The problem
+  validate { |o| ... }            catch bad answers — combined     Zero garbage
+                                  with retry_policy, auto-retry   in production
 
-Which model should you use? The expensive one is accurate but costs 4x more. The cheap one is fast but hallucinates on edge cases. You tweak a prompt — did accuracy improve or drop? You have no data. Just gut feeling.
+  retry_policy                    start cheap, escalate only      Pay for the cheapest
+  models: %w[nano mini full]      when validation fails           model that works
 
-## The fix
+  max_cost 0.01                   estimate tokens, check price,   No surprise bills
+                                  refuse before calling LLM
+
+  output_schema { ... }           send JSON schema to provider,   Zero parsing code
+                                  validate response client-side
+
+  define_eval { ... }             test cases + baselines,          Regressions caught
+                                  run in CI with real LLM          before deploy
+
+  recommend(candidates: [...])    evaluate all configs, pick      Optimal model +
+                                  cheapest that passes            retry chain
+```
+
+## Before and after
+
+```
+  ┌─────────────────────────────────────────────────────────────────┐
+  │ BEFORE: pick one model, hope for the best                      │
+  │                                                                 │
+  │   expensive model → accurate, but you overpay on every call     │
+  │   cheap model     → fast, but wrong answers slip to production  │
+  │   prompt change   → "looks good to me" → deploy → users suffer │
+  └─────────────────────────────────────────────────────────────────┘
+
+                         ⬇  add ruby_llm-contract
+
+  ┌─────────────────────────────────────────────────────────────────┐
+  │ YOU DEFINE A CONTRACT                                            │
+  │                                                                 │
+  │   output_schema { string :priority }       ← valid structure   │
+  │   validate("valid priority") { |o| ... }   ← business rules    │
+  │   retry_policy models: %w[nano mini full]  ← escalation chain  │
+  │   max_cost 0.01                            ← budget cap         │
+  └───────────────────────────┬─────────────────────────────────────┘
+                              │
+                              ▼
+  ┌─────────────────────────────────────────────────────────────────┐
+  │ THE GEM HANDLES THE REST                                        │
+  │                                                                 │
+  │   request ──→ ┌──────┐   ┌──────────┐                           │
+  │               │ nano │─→ │ contract │──→ ✓ pass → done         │
+  │               └──────┘   └────┬─────┘                           │
+  │                               │ ✗ fail                          │
+  │                               ▼                                 │
+  │               ┌──────┐   ┌──────────┐                           │
+  │               │ mini │─→ │ contract │──→ ✓ pass → done         │
+  │               └──────┘   └────┬─────┘                           │
+  │                               │ ✗ fail                          │
+  │                               ▼                                 │
+  │               ┌──────┐   ┌──────────┐                           │
+  │               │ full │─→ │ contract │──→ ✓ pass → done         │
+  │               └──────┘   └──────────┘                           │
+  └───────────────────────────┬─────────────────────────────────────┘
+                              │
+                              ▼
+  ┌─────────────────────────────────────────────────────────────────┐
+  │ YOU GET                                                         │
+  │                                                                 │
+  │   ✓ Valid output guaranteed — schema + business rules enforced  │
+  │   ✓ Cheapest model that works — most requests stay on nano     │
+  │   ✓ Cost, latency, tokens — tracked on every call              │
+  │   ✓ Eval scores per model — data instead of gut feeling        │
+  │   ✓ Regressions caught — before deploy, not after              │
+  │   ✓ Recommendation — "use nano+mini, drop full, save $X/mo"   │
+  └─────────────────────────────────────────────────────────────────┘
+```
+
+## 30-second version
 
 ```ruby
 class ClassifyTicket < RubyLLM::Contract::Step::Base
-  prompt do
-    system "You are a support ticket classifier."
-    rule "Return valid JSON only, no markdown."
-    rule "Use exactly one priority: low, medium, high, urgent."
-    example input: "My invoice is wrong", output: '{"priority": "high"}'
-    user "{input}"
-  end
+  prompt "Classify this support ticket by priority and category.\n\n{input}"
 
   output_schema do
     string :priority, enum: %w[low medium high urgent]
@@ -30,189 +95,12 @@ class ClassifyTicket < RubyLLM::Contract::Step::Base
 end
 
 result = ClassifyTicket.run("I was charged twice")
-result.ok?               # => true
-result.parsed_output     # => {priority: "high", category: "billing"}
-result.trace[:cost]      # => 0.000032
-result.trace[:model]     # => "gpt-4.1-nano"
+result.parsed_output  # => {priority: "high", category: "billing"}
+result.trace[:model]  # => "gpt-4.1-nano" (first model that passed)
+result.trace[:cost]   # => 0.000032
 ```
 
-Bad JSON? Auto-retry. Wrong value? Escalate to a smarter model. Schema violated? Caught client-side even if the provider ignores it. All with cost tracking.
-
-## Start Here: Eval-First
-
-The most powerful way to use this gem is simple:
-
-- define evals before changing prompts
-- compare prompt versions on the same dataset
-- merge only when the eval stays green
-
-Read: [Eval-First](docs/guide/eval_first.md)
-
-This is the workflow that gives prompt engineering teeth. No vibes, no cherry-picked examples, no "it felt better in the playground". Just cases, regressions, baselines, and measured wins.
-
-## Which model should I use?
-
-Define test cases. Compare models. Get data.
-
-```ruby
-ClassifyTicket.define_eval("regression") do
-  add_case "billing", input: "I was charged twice", expected: { priority: "high" }
-  add_case "feature", input: "Add dark mode please", expected: { priority: "low" }
-  add_case "outage",  input: "Database is down",    expected: { priority: "urgent" }
-end
-
-comparison = ClassifyTicket.compare_models("regression",
-  models: %w[gpt-4.1-nano gpt-4.1-mini])
-```
-
-Real output from real API calls:
-
-```
-Model                      Score       Cost  Avg Latency
----------------------------------------------------------
-gpt-4.1-nano                0.67    $0.000032      687ms
-gpt-4.1-mini                1.00    $0.000102     1070ms
-
-Cheapest at 100%: gpt-4.1-mini
-```
-
-```ruby
-comparison.best_for(min_score: 0.95)  # => "gpt-4.1-mini"
-
-# Inspect failures
-comparison.reports["gpt-4.1-nano"].failures.each do |f|
-  puts "#{f.name}: expected #{f.expected}, got #{f.output}"
-  puts "  mismatches: #{f.mismatches}"
-  # => outage: expected {priority: "urgent"}, got {priority: "high"}
-  #      mismatches: {priority: {expected: "urgent", got: "high"}}
-end
-```
-
-## Pipeline
-
-Chain steps with fail-fast. Hallucination in step 1 stops before step 2 spends tokens.
-
-```ruby
-class TicketPipeline < RubyLLM::Contract::Pipeline::Base
-  step ClassifyTicket,  as: :classify
-  step RouteToTeam,     as: :route
-  step DraftResponse,   as: :draft
-end
-
-result = TicketPipeline.run("I was charged twice")
-result.ok?                          # => true
-result.outputs_by_step[:classify]   # => {priority: "high", category: "billing"}
-result.trace.total_cost             # => 0.000128
-```
-
-## CI gate
-
-```ruby
-# RSpec — block merge if accuracy drops or cost spikes
-expect(ClassifyTicket).to pass_eval("regression")
-  .with_context(model: "gpt-4.1-mini")
-  .with_minimum_score(0.8)
-  .with_maximum_cost(0.01)
-
-# Rake — run all evals across all steps
-require "ruby_llm/contract/rake_task"
-RubyLLM::Contract::RakeTask.new do |t|
-  t.minimum_score = 0.8
-  t.maximum_cost = 0.05
-end
-# bundle exec rake ruby_llm_contract:eval
-```
-
-## Detect quality drops
-
-Save a baseline. Next run, see what regressed.
-
-```ruby
-report = ClassifyTicket.run_eval("regression", context: { model: "gpt-4.1-nano" })
-report.save_baseline!(model: "gpt-4.1-nano")
-
-# Later — after prompt change, model update, or provider weight shift:
-report = ClassifyTicket.run_eval("regression", context: { model: "gpt-4.1-nano" })
-diff = report.compare_with_baseline(model: "gpt-4.1-nano")
-
-diff.regressed?    # => true
-diff.regressions   # => [{case: "outage", baseline: {passed: true}, current: {passed: false}}]
-diff.score_delta   # => -0.33
-```
-
-```ruby
-# CI: block merge if any previously-passing case now fails
-expect(ClassifyTicket).to pass_eval("regression")
-  .with_context(model: "gpt-4.1-nano")
-  .without_regressions
-```
-
-## Track quality over time
-
-```ruby
-# Save every eval run
-report = ClassifyTicket.run_eval("regression", context: { model: "gpt-4.1-nano" })
-report.save_history!(model: "gpt-4.1-nano")
-
-# View trend
-history = report.eval_history(model: "gpt-4.1-nano")
-history.score_trend   # => :stable_or_improving | :declining
-history.drift?        # => true (score dropped > 10%)
-```
-
-## Run evals fast
-
-```ruby
-# 4x faster with parallel execution
-report = ClassifyTicket.run_eval("regression",
-  context: { model: "gpt-4.1-nano" },
-  concurrency: 4)
-```
-
-## Prompt A/B testing
-
-Changed a prompt? Compare old vs new with regression safety:
-
-```ruby
-diff = ClassifyTicketV2.compare_with(ClassifyTicketV1,
-  eval: "regression", model: "gpt-4.1-mini")
-
-diff.safe_to_switch?  # => true (no regressions, no per-case score drops)
-diff.improvements     # => [{case: "outage", ...}]
-diff.score_delta      # => +0.33
-```
-
-Requires `model:` or `context: { adapter: ... }`.
-`compare_with` ignores `sample_response`; without a real model/adapter both sides are skipped and the A/B result is not meaningful.
-
-CI gate:
-```ruby
-expect(ClassifyTicketV2).to pass_eval("regression")
-  .compared_with(ClassifyTicketV1)
-  .with_minimum_score(0.8)
-```
-
-## Soft observations
-
-Log suspicious-but-not-invalid output without failing the contract:
-
-```ruby
-class EvaluateComparative < RubyLLM::Contract::Step::Base
-  validate("scores in range") { |o| (1..10).include?(o[:score_a]) }
-  observe("scores should differ") { |o| o[:score_a] != o[:score_b] }
-end
-
-result = EvaluateComparative.run(input)
-result.ok?            # => true (observe never fails)
-result.observations   # => [{description: "scores should differ", passed: false}]
-```
-
-## Predict cost before running
-
-```ruby
-ClassifyTicket.estimate_eval_cost("regression", models: %w[gpt-4.1-nano gpt-4.1-mini])
-# => { "gpt-4.1-nano" => 0.000024, "gpt-4.1-mini" => 0.000096 }
-```
+Bad JSON? Retried automatically. Wrong answer? Escalated to a smarter model. Schema violated? Caught client-side. The contract guarantees every response meets your rules — you pay for the cheapest model that passes.
 
 ## Install
 
@@ -226,6 +114,148 @@ RubyLLM::Contract.configure { |c| c.default_model = "gpt-4.1-mini" }
 ```
 
 Works with any ruby_llm provider (OpenAI, Anthropic, Gemini, etc).
+
+## Save money with model escalation
+
+Without a contract, you use gpt-4.1 for everything because you can't tell when a cheaper model gets it wrong. With a contract, you start on nano and only escalate when the answer fails the contract:
+
+```ruby
+retry_policy models: %w[gpt-4.1-nano gpt-4.1-mini gpt-4.1]
+```
+
+```
+Attempt 1: gpt-4.1-nano  → contract failed  ($0.0001)
+Attempt 2: gpt-4.1-mini  → contract passed  ($0.0004)
+           gpt-4.1       → never called      ($0.00)
+```
+
+Most requests succeed on the cheapest model. You pay full price only for the ones that need it. How many? Run `compare_models` and find out.
+
+## Know which model to use — with data
+
+Don't guess. Define test cases, compare models, get numbers:
+
+```ruby
+ClassifyTicket.define_eval("regression") do
+  add_case "billing", input: "I was charged twice", expected: { priority: "high" }
+  add_case "feature", input: "Add dark mode please", expected: { priority: "low" }
+  add_case "outage",  input: "Database is down",    expected: { priority: "urgent" }
+end
+
+comparison = ClassifyTicket.compare_models("regression",
+  models: %w[gpt-4.1-nano gpt-4.1-mini gpt-4.1])
+```
+
+```
+Candidate                  Score       Cost  Avg Latency
+---------------------------------------------------------
+gpt-4.1-nano                0.67    $0.0001         48ms
+gpt-4.1-mini                1.00    $0.0004         92ms
+gpt-4.1                     1.00    $0.0021        210ms
+
+Cheapest at 100%: gpt-4.1-mini
+```
+
+Nano fails on edge cases. Mini and full both score 100% — but mini is **5x cheaper**. Now you know.
+
+## Let the gem tell you what to do
+
+Don't read tables — get a recommendation. Supports `model + reasoning_effort` combinations:
+
+```ruby
+rec = ClassifyTicket.recommend("regression",
+  candidates: [
+    { model: "gpt-4.1-nano" },
+    { model: "gpt-4.1-mini" },
+    { model: "gpt-5-mini", reasoning_effort: "low" },
+    { model: "gpt-5-mini", reasoning_effort: "high" },
+  ],
+  min_score: 0.95
+)
+
+rec.best           # => { model: "gpt-4.1-mini" }
+rec.retry_chain    # => [{ model: "gpt-4.1-nano" }, { model: "gpt-4.1-mini" }]
+rec.to_dsl         # => "retry_policy models: %w[gpt-4.1-nano gpt-4.1-mini]"
+rec.savings        # => savings vs your current model (if configured)
+```
+
+Copy `rec.to_dsl` into your step. Done.
+
+## Catch regressions before users do
+
+A model update silently dropped your accuracy? A prompt tweak broke an edge case? You'll know before deploying:
+
+```ruby
+# Save a baseline once:
+report = ClassifyTicket.run_eval("regression", context: { model: "gpt-4.1-nano" })
+report.save_baseline!(model: "gpt-4.1-nano")
+
+# In CI — block merge if anything regressed:
+expect(ClassifyTicket).to pass_eval("regression")
+  .with_context(model: "gpt-4.1-nano")
+  .without_regressions
+```
+
+```ruby
+diff = report.compare_with_baseline(model: "gpt-4.1-nano")
+diff.regressed?    # => true
+diff.regressions   # => [{case: "outage", baseline: {passed: true}, current: {passed: false}}]
+diff.score_delta   # => -0.33
+```
+
+No more "it worked in the playground". Regressions are caught in CI, not production.
+
+## A/B test your prompts
+
+Changed a prompt? Compare old vs new on the same dataset with regression safety:
+
+```ruby
+diff = ClassifyTicketV2.compare_with(ClassifyTicketV1,
+  eval: "regression", model: "gpt-4.1-mini")
+
+diff.safe_to_switch?  # => true (no regressions)
+diff.improvements     # => [{case: "outage", ...}]
+diff.score_delta      # => +0.33
+```
+
+```ruby
+# CI gate:
+expect(ClassifyTicketV2).to pass_eval("regression")
+  .compared_with(ClassifyTicketV1)
+  .with_minimum_score(0.8)
+```
+
+## Chain steps with fail-fast
+
+Pipeline stops at the first contract failure — no wasted tokens on downstream steps:
+
+```ruby
+class TicketPipeline < RubyLLM::Contract::Pipeline::Base
+  step ClassifyTicket,  as: :classify
+  step RouteToTeam,     as: :route
+  step DraftResponse,   as: :draft
+end
+
+result = TicketPipeline.run("I was charged twice")
+result.outputs_by_step[:classify]   # => {priority: "high", category: "billing"}
+result.trace.total_cost             # => $0.000128
+```
+
+## Gate merges on quality and cost
+
+```ruby
+# RSpec — block merge if accuracy drops or cost spikes
+expect(ClassifyTicket).to pass_eval("regression")
+  .with_minimum_score(0.8)
+  .with_maximum_cost(0.01)
+
+# Rake — run all evals across all steps
+RubyLLM::Contract::RakeTask.new do |t|
+  t.minimum_score = 0.8
+  t.maximum_cost = 0.05
+end
+# bundle exec rake ruby_llm_contract:eval
+```
 
 ## Docs
 
@@ -241,13 +271,13 @@ Works with any ruby_llm provider (OpenAI, Anthropic, Gemini, etc).
 
 ## Roadmap
 
-**v0.5 (current):** Data-driven prompt engineering — `compare_with(OtherStep)` for prompt A/B testing with regression safety. `observe` DSL for soft observations that log but never fail.
+**v0.6 (current):** "What should I do?" — `Step.recommend` returns optimal model, reasoning effort, and retry chain. Per-attempt `reasoning_effort` in retry policies.
 
-**v0.4:** Observability & scale — eval history with trending, batch eval with concurrency, pipeline per-step eval, Minitest support, structured logging. Audit hardening (18 bugfixes).
+**v0.5:** Prompt A/B testing with `compare_with`. Soft observations with `observe`.
 
-**v0.3:** Baseline regression detection, migration guide, production hardening.
+**v0.4:** Eval history, batch concurrency, pipeline per-step eval, Minitest, structured logging.
 
-**v0.6 (next):** "What should I do?" — model + configuration recommendation based on eval data. `Step.recommend("eval", candidates: [...])` returns optimal model, reasoning effort, and retry chain. Supports model+reasoning_effort combinations as candidates. Extends `compare_models` with actionable advice instead of raw tables.
+**v0.3:** Baseline regression detection, migration guide.
 
 ## License
 

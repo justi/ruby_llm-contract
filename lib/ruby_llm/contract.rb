@@ -78,6 +78,27 @@ module RubyLLM
         Thread.current[:ruby_llm_contract_reloading] = false
       end
 
+      def normalize_candidate_config(entry)
+        case entry
+        when String
+          raise ArgumentError, "Candidate model must be a non-empty String" if entry.strip.empty?
+
+          { model: entry.strip }
+        when Hash
+          model = entry[:model] || entry["model"]
+          unless model.is_a?(String) && !model.strip.empty?
+            raise ArgumentError, "Candidate config must include a non-empty String :model"
+          end
+
+          normalized = { model: model.strip }
+          effort = entry[:reasoning_effort] || entry["reasoning_effort"]
+          normalized[:reasoning_effort] = effort if effort
+          normalized
+        else
+          raise ArgumentError, "Expected String or Hash, got #{entry.class}"
+        end
+      end
+
       private
 
       # Filter stale hosts, deduplicate by name (last wins), prune registry in-place

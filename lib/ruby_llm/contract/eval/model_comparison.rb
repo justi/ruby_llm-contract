@@ -4,11 +4,17 @@ module RubyLLM
   module Contract
     module Eval
       class ModelComparison
-        attr_reader :eval_name, :reports
+        attr_reader :eval_name, :reports, :configs
 
-        def initialize(eval_name:, reports:)
+        def self.candidate_label(config)
+          effort = config[:reasoning_effort]
+          effort ? "#{config[:model]} (effort: #{effort})" : config[:model]
+        end
+
+        def initialize(eval_name:, reports:, configs: nil)
           @eval_name = eval_name
-          @reports = reports.dup.freeze # { "model_name" => Report }
+          @reports = reports.dup.freeze
+          @configs = (configs || default_configs_from_reports).freeze
           freeze
         end
 
@@ -16,12 +22,12 @@ module RubyLLM
           @reports.keys
         end
 
-        def score_for(model)
-          @reports[model]&.score
+        def score_for(candidate)
+          @reports[resolve_key(candidate)]&.score
         end
 
-        def cost_for(model)
-          @reports[model]&.total_cost
+        def cost_for(candidate)
+          @reports[resolve_key(candidate)]&.total_cost
         end
 
         def best_for(min_score: 0.0)
@@ -38,13 +44,14 @@ module RubyLLM
         end
 
         def table
-          lines = ["  Model                      Score       Cost  Avg Latency"]
-          lines << "  #{"-" * 57}"
+          max_label = [@reports.keys.map(&:length).max || 0, 25].max
+          lines = [format("  %-#{max_label}s  Score       Cost  Avg Latency", "Candidate")]
+          lines << "  #{"-" * (max_label + 36)}"
 
-          @reports.each do |model, report|
+          @reports.each do |label, report|
             latency = report.avg_latency_ms ? "#{report.avg_latency_ms.round}ms" : "n/a"
             cost = report.total_cost.positive? ? "$#{format("%.4f", report.total_cost)}" : "n/a"
-            lines << format("  %-25s %6.2f %10s %12s", model, report.score, cost, latency)
+            lines << format("  %-#{max_label}s %6.2f %10s %12s", label, report.score, cost, latency)
           end
 
           lines.join("\n")
@@ -70,9 +77,24 @@ module RubyLLM
               total_cost: report.total_cost,
               avg_latency_ms: report.avg_latency_ms,
               pass_rate: report.pass_rate,
+              pass_rate_ratio: report.pass_rate_ratio,
               passed: report.passed?
             }
           end
+        end
+
+        private
+
+        def resolve_key(candidate)
+          case candidate
+          when String then candidate
+          when Hash then self.class.candidate_label(candidate)
+          else candidate.to_s
+          end
+        end
+
+        def default_configs_from_reports
+          @reports.each_with_object({}) { |(key, _), h| h[key] = { model: key } }
         end
       end
     end
