@@ -2,6 +2,29 @@
 
 Stop guessing which model to use. Stop hoping your prompts still work after changes. Get contracts, cost tracking, and data-driven model selection for [ruby_llm](https://github.com/crmne/ruby_llm).
 
+```
+  YOU WRITE                       THE GEM HANDLES                 YOU GET
+  ─────────                       ───────────────                 ───────
+
+  validate { |o| ... }            catch bad answers, retry,       Zero garbage
+                                  escalate to smarter model       in production
+
+  retry_policy                    start cheap, escalate only      $7/mo not $200
+  models: %w[nano mini full]      when validation fails           (10k calls)
+
+  max_cost 0.01                   estimate tokens, check price,   No surprise bills
+                                  refuse before calling LLM
+
+  output_schema { ... }           force JSON structure, parse,    Zero parsing code
+                                  validate client-side
+
+  define_eval { ... }             run cases every PR, compare     Regressions caught
+                                  baselines, gate merge           in CI not prod
+
+  recommend(candidates: [...])    evaluate all configs, pick      Optimal model +
+                                  cheapest that passes            $17/mo saved
+```
+
 ## The problem
 
 You call an LLM. Sometimes it returns garbage. You retry manually. You pick gpt-4.1 "because it's good" but it costs 20x more than nano — and nano handles 90% of your requests just fine. You change a prompt, eyeball a few outputs, and deploy. Two weeks later, a model update quietly drops your accuracy from 95% to 70%. Nobody notices until users complain.
