@@ -247,9 +247,7 @@ Works with any ruby_llm provider (OpenAI, Anthropic, Gemini, etc).
 
 **v0.3:** Baseline regression detection, migration guide, production hardening.
 
-**v0.6 (next):** Easier adoption — lightweight functional API (`Contract.validate`, `Contract.call`) so users can add validation, retry-with-escalation, and tracing to existing `chat.ask` call sites without writing a `Step::Base` class. Gradual on-ramp: start with a one-liner, graduate to a Step only when you need eval/regression/compare_with. Migration guide from plain RubyLLM.
-
-**v0.7:** "What should I do?" — model recommendation based on eval history data. Cross-provider comparison docs.
+**v0.6 (next):** "What should I do?" — model + configuration recommendation based on eval data. `Step.recommend("eval", candidates: [...])` returns optimal model, reasoning effort, and retry chain. Supports model+reasoning_effort combinations as candidates. Extends `compare_models` with actionable advice instead of raw tables.
 
 ## License
 
