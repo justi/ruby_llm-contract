@@ -4,9 +4,9 @@ RSpec.describe RubyLLM::Contract::Eval::Recommender do
   before { RubyLLM::Contract.reset_configuration! }
 
   def build_report(cases)
-    results = cases.map do |c|
+    results = cases.each_with_index.map do |c, i|
       RubyLLM::Contract::Eval::CaseResult.new(
-        name: c[:name] || "case_#{rand(10_000)}",
+        name: c[:name] || "case_#{i}",
         input: "test",
         output: {},
         expected: {},
@@ -256,7 +256,7 @@ RSpec.describe RubyLLM::Contract::Eval::Recommender do
   end
 
   describe "#savings" do
-    it "calculates savings vs current_config" do
+    it "calculates exact savings vs current_config" do
       comparison = build_comparison([
         { config: { model: "gpt-4.1-nano" },
           cases: [{ passed: true, cost: 0.001 }] },
@@ -270,8 +270,9 @@ RSpec.describe RubyLLM::Contract::Eval::Recommender do
         current_config: { model: "gpt-4.1" }
       ).recommend
 
-      expect(rec.savings).to have_key(:per_call)
-      expect(rec.savings[:per_call]).to be > 0
+      # nano cost_per_call=0.001, gpt-4.1 cost_per_call=0.05, diff=0.049
+      expect(rec.savings[:per_call]).to eq(0.049)
+      expect(rec.savings[:monthly_at]).to eq({ 10_000 => 490.0 })
     end
 
     it "returns empty savings when no current_config" do

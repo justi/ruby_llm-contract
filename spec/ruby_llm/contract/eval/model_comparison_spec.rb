@@ -103,7 +103,14 @@ RSpec.describe RubyLLM::Contract::Eval::ModelComparison do
       )
 
       h = comparison.to_h
-      expect(h["gpt-4.1-mini"]).to include(pass_rate_ratio: 0.5)
+      expect(h["gpt-4.1-mini"]).to eq({
+        score: 0.5,
+        total_cost: 0.03,
+        avg_latency_ms: 100.0,
+        pass_rate: "1/2",
+        pass_rate_ratio: 0.5,
+        passed: false
+      })
     end
   end
 

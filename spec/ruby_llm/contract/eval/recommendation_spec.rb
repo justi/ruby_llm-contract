@@ -100,7 +100,7 @@ RSpec.describe RubyLLM::Contract::Eval::Recommendation do
       dsl = rec.to_dsl
       expect(dsl).to include("retry_policy do")
       expect(dsl).to include("escalate(")
-      expect(dsl).to include("reasoning_effort")
+      expect(dsl).to include('reasoning_effort: "high"')
     end
 
     it "returns comment when chain is empty" do

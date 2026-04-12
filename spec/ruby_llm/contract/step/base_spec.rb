@@ -220,10 +220,18 @@ RSpec.describe RubyLLM::Contract::Step::Base do
 
       expect(rec).to be_a(RubyLLM::Contract::Eval::Recommendation)
       expect(rec).to be_frozen
-      expect(rec.to_dsl).to be_a(String)
-      # Warnings may include unknown pricing since Test adapter doesn't look up real costs
-      # The recommendation still returns valid structure
-      expect(rec.rationale).not_to be_empty
+      expect(rec.score).to eq(1.0)
+      expect(rec.rationale.length).to eq(2)
+      # Both candidates score equally — test adapter returns same response.
+      # Without real pricing, both have zero cost → both excluded from best.
+      # That's correct behavior with test adapter.
+      if rec.best
+        expect(rec.best).to have_key(:model)
+        expect(rec.retry_chain).not_to be_empty
+        expect(rec.to_dsl).to be_a(String)
+      else
+        expect(rec.warnings).to include(match(/unknown pricing/))
+      end
     end
   end
 
