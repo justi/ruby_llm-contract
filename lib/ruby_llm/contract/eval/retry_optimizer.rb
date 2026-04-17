@@ -69,8 +69,9 @@ module RubyLLM
             end
 
             io.puts "  Suggested chain:"
-            chain_details.each do |detail|
-              io.puts "    #{detail[:label]} — passes #{detail[:passes]}/#{eval_names.size} evals"
+            chain_details.each_with_index do |detail, i|
+              suffix = i == chain_details.size - 1 ? "passes all #{eval_names.size} evals" : "covers #{detail[:passes]} eval(s)"
+              io.puts "    #{detail[:label]} — #{suffix}"
             end
           end
 
@@ -175,7 +176,7 @@ module RubyLLM
 
             covered_evals.merge(new_additions)
             chain << parse_label_to_config(label)
-            details << { label: label, passes: covered_evals.size, cost: label }
+            details << { label: label, passes: new_additions.size, cost: label }
           end
 
           # Always end with the safe fallback.

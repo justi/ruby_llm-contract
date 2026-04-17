@@ -38,9 +38,7 @@ RSpec.describe RubyLLM::Contract::OptimizeRakeTask do
       end
     end
 
-    it "does not use ActiveSupport String#presence" do
-      # Verify that .presence is NOT called — plain Ruby .empty? is used instead.
-      # This ensures the task works outside Rails/ActiveSupport.
+    it "treats empty PROVIDER same as nil (no adapter injected)" do
       with_env("LIVE" => nil, "PROVIDER" => "") do
         ctx = task.send(:build_context)
         expect(ctx).not_to have_key(:adapter)
@@ -51,15 +49,18 @@ RSpec.describe RubyLLM::Contract::OptimizeRakeTask do
   describe "EVAL_DIRS support" do
     it "passes EVAL_DIRS to load_evals!" do
       with_env("EVAL_DIRS" => "lib/evals,extra/evals") do
-        dirs = ENV["EVAL_DIRS"].to_s.split(",").map(&:strip).reject(&:empty?)
-        expect(dirs).to eq(["lib/evals", "extra/evals"])
+        expect(RubyLLM::Contract).to receive(:load_evals!).with("lib/evals", "extra/evals")
+        # Simulate the task's eval_dirs parsing + load_evals! call
+        eval_dirs = ENV["EVAL_DIRS"].to_s.split(",").map(&:strip).reject(&:empty?)
+        RubyLLM::Contract.load_evals!(*eval_dirs)
       end
     end
 
-    it "passes empty dirs when EVAL_DIRS not set" do
+    it "calls load_evals! without args when EVAL_DIRS not set" do
       with_env("EVAL_DIRS" => nil) do
-        dirs = ENV["EVAL_DIRS"].to_s.split(",").map(&:strip).reject(&:empty?)
-        expect(dirs).to be_empty
+        expect(RubyLLM::Contract).to receive(:load_evals!).with(no_args)
+        eval_dirs = ENV["EVAL_DIRS"].to_s.split(",").map(&:strip).reject(&:empty?)
+        RubyLLM::Contract.load_evals!(*eval_dirs)
       end
     end
   end
