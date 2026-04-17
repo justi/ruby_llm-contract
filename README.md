@@ -257,12 +257,21 @@ end
 # bundle exec rake ruby_llm_contract:eval
 ```
 
+## Full power: data-driven retry chains
+
+The pieces above — evals, compare_models, recommend — combine into a workflow that replaces guesswork with measured optimization. You define evals for your step, run `recommend` against all of them, find the eval that actually needs the strongest model, and build a retry chain where each attempt is as cheap as the data allows.
+
+The difference: instead of "gpt-5-mini seems to work, let's use it everywhere", you get "nano handles 4/6 scenarios, mini@low catches the 5th, full mini only fires on the hardest edge case — first attempt is 4× cheaper."
+
+Full procedure with examples: **[Optimizing retry_policy](docs/guide/optimizing_retry_policy.md)**
+
 ## Docs
 
 | Guide | |
 |-------|-|
 | [Getting Started](docs/guide/getting_started.md) | Features walkthrough, model escalation, eval |
 | [Eval-First](docs/guide/eval_first.md) | Practical workflow for prompt engineering with datasets, baselines, and A/B gates |
+| [Optimizing retry_policy](docs/guide/optimizing_retry_policy.md) | Find the cheapest retry chain that passes all your evals |
 | [Best Practices](docs/guide/best_practices.md) | 6 patterns for bulletproof validates |
 | [Output Schema](docs/guide/output_schema.md) | Full schema reference + constraints |
 | [Pipeline](docs/guide/pipeline.md) | Multi-step composition, timeout, fail-fast |
