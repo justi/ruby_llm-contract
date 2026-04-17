@@ -142,18 +142,23 @@ module RubyLLM
           total = evals.size
           chain = []
           details = []
-          covered = 0
+          covered_evals = Set.new
 
           labels.each do |label|
-            passes = evals.count { |e| (matrix.dig(e, label) || 0) >= @min_score }
-            next if passes <= covered
+            newly_covered = evals.select { |e| (matrix.dig(e, label) || 0) >= @min_score }
+            new_additions = newly_covered.to_set - covered_evals
+            next if new_additions.empty?
 
             config = parse_label_to_config(label)
-            cost_str = matrix.values.filter_map { |scores| scores[label] }.first ? label : "?"
+            covered_evals.merge(new_additions)
             chain << config
-            details << { label: label, passes: passes, cost: cost_str }
-            covered = passes
-            break if covered >= total
+            details << { label: label, passes: covered_evals.size, cost: label }
+            break if covered_evals.size >= total
+          end
+
+          # No viable chain if we can't cover all evals
+          if covered_evals.size < total
+            return [[], []]
           end
 
           [chain, details]

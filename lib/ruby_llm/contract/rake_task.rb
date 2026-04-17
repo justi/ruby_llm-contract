@@ -142,7 +142,8 @@ module RubyLLM
         desc "Run all evals for STEP with CANDIDATES and suggest an optimal retry chain"
         task(:"ruby_llm_contract:optimize" => task_prerequisites) do
           require "ruby_llm/contract"
-          RubyLLM::Contract.load_evals!
+          eval_dirs = ENV["EVAL_DIRS"].to_s.split(",").map(&:strip).reject(&:empty?)
+          RubyLLM::Contract.load_evals!(*eval_dirs)
 
           step_name = ENV["STEP"].to_s.strip.presence ||
             abort("STEP is required, e.g. STEP=MatchProblemsToPages")
@@ -185,9 +186,14 @@ module RubyLLM
       end
 
       def build_context
-        ctx = { adapter: RubyLLM::Contract::Adapters::RubyLLM.new }
+        ctx = {}
         provider = ENV["PROVIDER"].to_s.strip
-        ctx[:provider] = provider.downcase.to_sym unless provider.empty?
+        # Only inject real adapter when LIVE=1 or PROVIDER is set — otherwise
+        # evals use sample_response (offline mode, zero API calls).
+        if ENV["LIVE"] == "1" || provider.present?
+          ctx[:adapter] = RubyLLM::Contract::Adapters::RubyLLM.new
+          ctx[:provider] = provider.downcase.to_sym unless provider.empty?
+        end
         ctx
       end
 
