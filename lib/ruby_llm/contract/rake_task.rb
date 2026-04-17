@@ -121,5 +121,82 @@ module RubyLLM
         defined?(::Rails) ? [:environment] : []
       end
     end
+
+    # Standalone task: runs all evals for one step across candidates,
+    # builds a score matrix, and suggests an optimal retry chain.
+    #
+    # Loaded automatically when `require "ruby_llm/contract/rake_task"`.
+    # Usage:
+    #   rake ruby_llm_contract:optimize \
+    #     STEP=MatchProblemsToPages \
+    #     CANDIDATES=gpt-5-nano,gpt-5-mini@low,gpt-5-mini
+    class OptimizeRakeTask < ::Rake::TaskLib
+      def initialize
+        super()
+        define_task
+      end
+
+      private
+
+      def define_task
+        desc "Run all evals for STEP with CANDIDATES and suggest an optimal retry chain"
+        task(:"ruby_llm_contract:optimize" => task_prerequisites) do
+          require "ruby_llm/contract"
+          RubyLLM::Contract.load_evals!
+
+          step_name = ENV["STEP"].to_s.strip.presence ||
+            abort("STEP is required, e.g. STEP=MatchProblemsToPages")
+          raw_candidates = ENV["CANDIDATES"].to_s.strip.presence ||
+            abort("CANDIDATES is required, e.g. CANDIDATES=gpt-5-nano,gpt-5-mini@low,gpt-5-mini")
+          min_score = ENV.fetch("MIN_SCORE", "0.95").to_f
+
+          host = RubyLLM::Contract.eval_hosts.find { |h| h.name == step_name }
+          unless host
+            available = RubyLLM::Contract.eval_hosts.filter_map(&:name).sort
+            abort "Unknown STEP=#{step_name}. Available: #{available.join(", ")}"
+          end
+
+          candidates = parse_candidates(raw_candidates)
+          context = build_context
+
+          result = host.optimize_retry_policy(
+            candidates: candidates,
+            context: context,
+            min_score: min_score
+          )
+
+          result.print_summary
+        end
+      end
+
+      def parse_candidates(raw)
+        entries = if raw.start_with?("[")
+                    Array(JSON.parse(raw))
+                  else
+                    raw.split(",").map(&:strip).reject(&:empty?).map do |entry|
+                      model, effort = entry.split("@", 2)
+                      config = { model: model.strip }
+                      config[:reasoning_effort] = effort.strip if effort && !effort.empty?
+                      config
+                    end
+                  end
+
+        entries.map { |e| RubyLLM::Contract.normalize_candidate_config(e) }.uniq
+      end
+
+      def build_context
+        ctx = { adapter: RubyLLM::Contract::Adapters::RubyLLM.new }
+        provider = ENV["PROVIDER"].to_s.strip
+        ctx[:provider] = provider.downcase.to_sym unless provider.empty?
+        ctx
+      end
+
+      def task_prerequisites
+        defined?(::Rails) ? [:environment] : []
+      end
+    end
+
+    # Auto-register the optimize task when this file is loaded
+    OptimizeRakeTask.new
   end
 end

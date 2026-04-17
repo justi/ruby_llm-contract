@@ -59,6 +59,15 @@ module RubyLLM
             ).recommend
           end
 
+          def optimize_retry_policy(candidates:, context: {}, min_score: 0.95)
+            Eval::RetryOptimizer.new(
+              step: self,
+              candidates: candidates,
+              context: context,
+              min_score: min_score
+            ).call
+          end
+
           KNOWN_CONTEXT_KEYS = %i[adapter model temperature max_tokens provider assume_model_exists reasoning_effort].freeze
 
           include Concerns::ContextHelpers
