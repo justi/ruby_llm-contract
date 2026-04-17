@@ -146,6 +146,14 @@ module RubyLLM
         # evals — it's the safety net. Cheaper models are prepended as
         # first-try optimization (they handle easy inputs cheaply; when they
         # fail validation, retry escalates to the safe fallback).
+        #
+        # Known limitation: intermediate models are assumed safe if their eval
+        # failures correspond to validation failures (retryable). If an
+        # intermediate model returns :ok with semantically wrong output on
+        # some eval, retry won't fire and the safe fallback won't run. This
+        # requires step validates to cover the same semantics as eval verify
+        # checks. A future version could inspect per-case step_status from
+        # compare_models to verify failures are actually retryable.
         def build_chain(matrix, labels, evals)
           total = evals.size
 

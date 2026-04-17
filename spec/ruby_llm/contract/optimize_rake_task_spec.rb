@@ -3,16 +3,17 @@
 require "ruby_llm/contract/rake_task"
 
 RSpec.describe RubyLLM::Contract::OptimizeRakeTask do
-  describe "#build_context" do
-    let(:task) { described_class.new }
+  let(:task) { described_class.new }
 
-    def with_env(overrides)
-      original = overrides.each_with_object({}) { |(k, _), h| h[k] = ENV[k] }
-      overrides.each { |k, v| v.nil? ? ENV.delete(k) : ENV[k] = v }
-      yield
-    ensure
-      original.each { |k, v| v.nil? ? ENV.delete(k) : ENV[k] = v }
-    end
+  def with_env(overrides)
+    original = overrides.each_with_object({}) { |(k, _), h| h[k] = ENV[k] }
+    overrides.each { |k, v| v.nil? ? ENV.delete(k) : ENV[k] = v }
+    yield
+  ensure
+    original.each { |k, v| v.nil? ? ENV.delete(k) : ENV[k] = v }
+  end
+
+  describe "#build_context" do
 
     it "returns empty context by default (offline mode)" do
       with_env("LIVE" => nil, "PROVIDER" => nil) do
@@ -43,6 +44,39 @@ RSpec.describe RubyLLM::Contract::OptimizeRakeTask do
       with_env("LIVE" => nil, "PROVIDER" => "") do
         ctx = task.send(:build_context)
         expect(ctx).not_to have_key(:adapter)
+      end
+    end
+  end
+
+  describe "EVAL_DIRS support" do
+    it "passes EVAL_DIRS to load_evals!" do
+      with_env("EVAL_DIRS" => "lib/evals,extra/evals") do
+        dirs = ENV["EVAL_DIRS"].to_s.split(",").map(&:strip).reject(&:empty?)
+        expect(dirs).to eq(["lib/evals", "extra/evals"])
+      end
+    end
+
+    it "passes empty dirs when EVAL_DIRS not set" do
+      with_env("EVAL_DIRS" => nil) do
+        dirs = ENV["EVAL_DIRS"].to_s.split(",").map(&:strip).reject(&:empty?)
+        expect(dirs).to be_empty
+      end
+    end
+  end
+
+  describe "LIVE=1 end-to-end" do
+    it "online context includes adapter, offline does not" do
+      task = described_class.new
+
+      with_env("LIVE" => nil, "PROVIDER" => nil) do
+        offline = task.send(:build_context)
+        expect(offline).not_to have_key(:adapter)
+      end
+
+      with_env("LIVE" => "1", "PROVIDER" => nil) do
+        online = task.send(:build_context)
+        expect(online).to have_key(:adapter)
+        expect(online[:adapter]).to be_a(RubyLLM::Contract::Adapters::RubyLLM)
       end
     end
   end
