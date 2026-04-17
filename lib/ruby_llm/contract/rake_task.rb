@@ -190,7 +190,7 @@ module RubyLLM
         provider = ENV["PROVIDER"].to_s.strip
         # Only inject real adapter when LIVE=1 or PROVIDER is set — otherwise
         # evals use sample_response (offline mode, zero API calls).
-        if ENV["LIVE"] == "1" || provider.present?
+        if ENV["LIVE"] == "1" || !provider.empty?
           ctx[:adapter] = RubyLLM::Contract::Adapters::RubyLLM.new
           ctx[:provider] = provider.downcase.to_sym unless provider.empty?
         end
