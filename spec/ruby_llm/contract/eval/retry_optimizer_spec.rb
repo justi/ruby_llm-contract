@@ -197,6 +197,76 @@ RSpec.describe RubyLLM::Contract::Eval::RetryOptimizer do
     end
   end
 
+  # ── Offline mode: real step with sample_response, no stubs ──
+
+  describe "offline mode (sample_response, no adapter)" do
+    it "produces correct scores and chain without any API calls" do
+      offline_step = Class.new(RubyLLM::Contract::Step::Base) do
+        input_type String
+        output_type Hash
+        prompt { user "Classify: {input}" }
+        validate("has label") { |o| %w[A B].include?(o[:label]) }
+      end
+
+      offline_step.define_eval("passes") do
+        default_input("test")
+        sample_response({ label: "A" })
+        verify "label is A", expect: ->(o) { o[:label] == "A" }
+      end
+
+      offline_step.define_eval("fails_for_B") do
+        default_input("test")
+        sample_response({ label: "B" })
+        verify "label must be A", expect: ->(o) { o[:label] == "A" }
+      end
+
+      # No adapter, no model — pure offline via sample_response.
+      result = offline_step.optimize_retry_policy(
+        candidates: [{ model: "cheap" }, { model: "expensive" }],
+        context: {}
+      )
+
+      expect(result.eval_names).to contain_exactly("passes", "fails_for_B")
+      expect(result.score_matrix).to be_a(Hash)
+      # Both candidates get identical scores in offline mode (same sample_response).
+      expect(result.score_matrix["passes"].values.uniq).to eq([1.0])
+    end
+  end
+
+  # ── Integration: optimizer chain works at runtime ──
+
+  describe "integration: suggested chain works with step.run" do
+    it "chain's last model passes all evals when run through step" do
+      int_step = Class.new(RubyLLM::Contract::Step::Base) do
+        input_type String
+        output_type Hash
+        prompt { user "Classify: {input}" }
+        validate("has label") { |o| o[:label].is_a?(String) }
+      end
+
+      int_step.define_eval("smoke") do
+        default_input("test")
+        sample_response({ label: "correct" })
+        verify "label present", expect: ->(o) { o[:label].is_a?(String) }
+      end
+
+      result = int_step.optimize_retry_policy(
+        candidates: [{ model: "fast" }, { model: "slow" }],
+        context: {}
+      )
+
+      # In offline mode all candidates score the same — chain has at least 1 entry.
+      expect(result.chain).not_to be_empty
+
+      # Verify the chain's last model actually passes when run through the step.
+      last_config = result.chain.last
+      adapter = RubyLLM::Contract::Adapters::Test.new(response: '{"label": "correct"}')
+      step_result = int_step.run("test", context: { adapter: adapter, model: last_config[:model] })
+
+      expect(step_result.ok?).to be true
+    end
+  end
+
   describe "Result#print_summary" do
     it "outputs table with constraining eval marked" do
       stub_compare_models_scores(step, {
