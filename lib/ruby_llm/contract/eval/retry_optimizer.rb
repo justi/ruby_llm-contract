@@ -38,17 +38,20 @@ module RubyLLM
           private
 
           def print_table(io)
-            label_width = [candidate_labels.map(&:length).max || 0, 10].max
-            header = format("  %-20s", "eval") + candidate_labels.map { |l| format("  %#{label_width}s", l) }.join
+            short_labels = candidate_labels.map { |l| short_candidate_label(l) }
+            col_width = [short_labels.map(&:length).max || 0, 8].max
+            eval_width = [eval_names.map { |e| e.to_s.length }.max || 0, 12].max
+
+            header = format("  %-#{eval_width}s", "eval") + short_labels.map { |l| format("  %#{col_width}s", l) }.join
             io.puts header
-            io.puts "  #{"-" * (20 + (label_width + 2) * candidate_labels.size)}"
+            io.puts "  #{"-" * (eval_width + (col_width + 2) * short_labels.size)}"
 
             eval_names.each do |eval_name|
-              row = format("  %-20s", eval_name.to_s.truncate(20))
+              row = format("  %-#{eval_width}s", eval_name.to_s)
               candidate_labels.each do |label|
                 score = score_matrix.dig(eval_name, label) || 0.0
                 marker = eval_name == constraining_eval && score < 1.0 ? " ←" : "  "
-                row += format("  %#{label_width - 2}.2f%s", score, marker)
+                row += format("  %#{col_width - 2}.2f%s", score, marker)
               end
               io.puts row
             end
@@ -65,8 +68,16 @@ module RubyLLM
 
             io.puts "  Suggested chain:"
             chain_details.each do |detail|
-              io.puts "    #{detail[:label]} — passes #{detail[:passes]}/#{eval_names.size} evals (#{detail[:cost]})"
+              io.puts "    #{detail[:label]} — passes #{detail[:passes]}/#{eval_names.size} evals"
             end
+          end
+
+          def short_candidate_label(label)
+            label
+              .sub("gpt-5-", "")
+              .sub("gpt-4.1", "4.1")
+              .sub(" (effort: ", "@")
+              .sub(")", "")
           end
 
           def print_dsl(io)
