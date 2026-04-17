@@ -44,19 +44,41 @@ See [Eval-First Development](eval_first.md) for how to write evals.
 
 `recommend` runs on **one eval at a time**. If you optimize for `smoke` alone, you may pick a cheap model that fails harder evals like `topic_mismatch`. The cheapest model per eval varies — the retry chain must satisfy the **constraining eval** (the hardest one).
 
-## Procedure
+## One command: `optimize`
+
+```bash
+rake ruby_llm_contract:optimize STEP=MyStep CANDIDATES=cheap-model,mid-model@low,mid-model,expensive-model
+```
+
+This runs `compare_models` on **every eval** for the step, builds the score table, finds the constraining eval, and prints a suggested retry chain with copy-paste DSL:
+
+```
+MyStep — retry chain optimization
+
+  eval                 cheap   mid@low   mid    expensive
+  -------------------------------------------------------
+  smoke                 1.00      1.00   1.00       1.00
+  edge_cases            0.67 ←    0.67   1.00       1.00
+  locale                1.00      1.00   1.00       1.00
+
+  Constraining eval: edge_cases
+
+  Suggested chain:
+    cheap    — passes 2/3 evals
+    mid      — passes 3/3 evals
+
+  DSL:
+    retry_policy models: %w[cheap mid]
+```
+
+Copy the DSL, paste into your step, run `rake ruby_llm_contract:eval` to verify.
+
+## Manual procedure (if you need more control)
 
 ### 1. List evals for the step
 
 ```ruby
-# Check which evals exist
 MyStep.eval_names  # => ["smoke", "edge_cases", "locale"]
-```
-
-Or from the command line — run smoke and look at the output labels:
-
-```bash
-rake ruby_llm_contract:eval
 ```
 
 ### 2. Run recommend on every eval
@@ -71,41 +93,16 @@ Running on only one eval gives a misleadingly cheap recommendation.
 
 ### 3. Build the score table
 
-Collect results into a table:
-
-```
-                 cheap   mid@low   mid    expensive
-smoke            0.67    1.00      1.00   1.00
-edge_cases       0.67    0.67      1.00   1.00       ← constraining
-locale           1.00    1.00      1.00   1.00
-```
-
-The **constraining eval** is the row that needs the strongest model.
+Collect results into a table. The **constraining eval** is the row that needs the strongest model.
 
 ### 4. Build the escalation chain
 
-Read the table column by column, cheapest first. Each step in the chain covers more evals:
-
-- `cheap` passes 1/3 evals → viable first attempt for easy cases
-- `mid@low` passes 2/3 → catches one more edge case
-- `mid` passes 3/3 → catches the constraining eval
-
-The chain is: `cheap → mid@low → mid`. No need for `expensive` if `mid` already clears everything.
-
-```ruby
-retry_policy do
-  escalate(
-    { model: "cheap" },
-    { model: "mid", reasoning_effort: "low" },
-    { model: "mid" }
-  )
-end
-```
+Read column by column, cheapest first. Each step covers more evals. Stop when all evals pass.
 
 ### 5. Verify
 
 ```bash
-rake ruby_llm_contract:eval   # smoke evals must still pass
+rake ruby_llm_contract:eval
 ```
 
 ## Troubleshooting: "no recommendation"
