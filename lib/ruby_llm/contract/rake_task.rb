@@ -145,10 +145,10 @@ module RubyLLM
           eval_dirs = ENV["EVAL_DIRS"].to_s.split(",").map(&:strip).reject(&:empty?)
           RubyLLM::Contract.load_evals!(*eval_dirs)
 
-          step_name = ENV["STEP"].to_s.strip.presence ||
-            abort("STEP is required, e.g. STEP=MatchProblemsToPages")
-          raw_candidates = ENV["CANDIDATES"].to_s.strip.presence ||
-            abort("CANDIDATES is required, e.g. CANDIDATES=gpt-5-nano,gpt-5-mini@low,gpt-5-mini")
+          step_name = ENV["STEP"].to_s.strip
+          abort("STEP is required, e.g. STEP=MatchProblemsToPages") if step_name.empty?
+          raw_candidates = ENV["CANDIDATES"].to_s.strip
+          abort("CANDIDATES is required, e.g. CANDIDATES=gpt-5-nano,gpt-5-mini@low,gpt-5-mini") if raw_candidates.empty?
           min_score = ENV.fetch("MIN_SCORE", "0.95").to_f
 
           host = RubyLLM::Contract.eval_hosts.find { |h| h.name == step_name }

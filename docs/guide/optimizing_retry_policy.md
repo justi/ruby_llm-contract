@@ -50,6 +50,16 @@ See [Eval-First Development](eval_first.md) for how to write evals.
 rake ruby_llm_contract:optimize STEP=MyStep CANDIDATES=cheap-model,mid-model@low,mid-model,expensive-model
 ```
 
+By default this runs **offline** using each eval's `sample_response` (zero API calls). To run against real models:
+
+```bash
+# Live mode — makes real API calls:
+LIVE=1 rake ruby_llm_contract:optimize STEP=MyStep CANDIDATES=...
+
+# Non-Rails projects — specify where eval files live:
+EVAL_DIRS=lib/steps/eval rake ruby_llm_contract:optimize STEP=MyStep CANDIDATES=...
+```
+
 This runs `compare_models` on **every eval** for the step, builds the score table, finds the constraining eval, and prints a suggested retry chain with copy-paste DSL:
 
 ```

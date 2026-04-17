@@ -125,7 +125,7 @@ RSpec.describe RubyLLM::Contract::Eval::RetryOptimizer do
       expect(result.chain).to be_empty
     end
 
-    it "builds chain from disjoint eval coverage via retry escalation" do
+    it "returns empty chain when coverage is disjoint (no model passes all evals)" do
       stub_compare_models_scores(step, {
         "easy" => { "nano" => 1.0, "mini" => 0.5 },
         "hard" => { "nano" => 0.5, "mini" => 1.0 }
@@ -136,11 +136,11 @@ RSpec.describe RubyLLM::Contract::Eval::RetryOptimizer do
         candidates: [{ model: "nano" }, { model: "mini" }]
       ).call
 
-      # nano passes easy, mini passes hard. As a retry chain nano→mini:
-      # easy inputs pass on nano (first try), hard inputs fail nano then
-      # pass on mini (retry). Both evals covered via escalation.
-      expect(result.chain.length).to eq(2)
-      expect(result.chain).to eq([{ model: "nano" }, { model: "mini" }])
+      # nano passes easy but not hard, mini passes hard but not easy.
+      # Retry fires on validation_failed/parse_error — NOT on low eval
+      # score. A model returning :ok with wrong output won't escalate.
+      # No single model covers all evals → no viable chain.
+      expect(result.chain).to be_empty
     end
 
     it "handles reasoning_effort candidates" do

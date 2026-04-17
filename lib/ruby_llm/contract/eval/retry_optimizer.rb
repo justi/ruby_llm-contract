@@ -140,28 +140,39 @@ module RubyLLM
           end&.first
         end
 
+        # Retry escalates on validation_failed/parse_error, NOT on low eval
+        # score. A model that returns :ok with semantically wrong output won't
+        # trigger retry. Therefore the LAST model in the chain must pass ALL
+        # evals — it's the safety net. Cheaper models are prepended as
+        # first-try optimization (they handle easy inputs cheaply; when they
+        # fail validation, retry escalates to the safe fallback).
         def build_chain(matrix, labels, evals)
           total = evals.size
+
+          # Find cheapest model that passes every eval — the safe fallback.
+          safe_fallback = labels.find { |l| evals.all? { |e| (matrix.dig(e, l) || 0) >= @min_score } }
+          return [[], []] unless safe_fallback
+
+          # Prepend cheaper models that pass a strict subset.
           chain = []
           details = []
           covered_evals = Set.new
 
           labels.each do |label|
+            break if label == safe_fallback
+
             newly_covered = evals.select { |e| (matrix.dig(e, label) || 0) >= @min_score }
             new_additions = newly_covered.to_set - covered_evals
             next if new_additions.empty?
 
-            config = parse_label_to_config(label)
             covered_evals.merge(new_additions)
-            chain << config
+            chain << parse_label_to_config(label)
             details << { label: label, passes: covered_evals.size, cost: label }
-            break if covered_evals.size >= total
           end
 
-          # No viable chain if we can't cover all evals
-          if covered_evals.size < total
-            return [[], []]
-          end
+          # Always end with the safe fallback.
+          chain << parse_label_to_config(safe_fallback)
+          details << { label: safe_fallback, passes: total, cost: safe_fallback }
 
           [chain, details]
         end
