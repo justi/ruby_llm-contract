@@ -142,12 +142,13 @@ module RubyLLM
         desc "Run all evals for STEP with CANDIDATES and suggest an optimal retry chain"
         task(:"ruby_llm_contract:optimize" => task_prerequisites) do
           require "ruby_llm/contract"
-          RubyLLM::Contract.load_evals!
+          eval_dirs = ENV["EVAL_DIRS"].to_s.split(",").map(&:strip).reject(&:empty?)
+          RubyLLM::Contract.load_evals!(*eval_dirs)
 
-          step_name = ENV["STEP"].to_s.strip.presence ||
-            abort("STEP is required, e.g. STEP=MatchProblemsToPages")
-          raw_candidates = ENV["CANDIDATES"].to_s.strip.presence ||
-            abort("CANDIDATES is required, e.g. CANDIDATES=gpt-5-nano,gpt-5-mini@low,gpt-5-mini")
+          step_name = ENV["STEP"].to_s.strip
+          abort("STEP is required, e.g. STEP=MatchProblemsToPages") if step_name.empty?
+          raw_candidates = ENV["CANDIDATES"].to_s.strip
+          abort("CANDIDATES is required, e.g. CANDIDATES=gpt-5-nano,gpt-5-mini@low,gpt-5-mini") if raw_candidates.empty?
           min_score = ENV.fetch("MIN_SCORE", "0.95").to_f
 
           host = RubyLLM::Contract.eval_hosts.find { |h| h.name == step_name }
@@ -185,9 +186,14 @@ module RubyLLM
       end
 
       def build_context
-        ctx = { adapter: RubyLLM::Contract::Adapters::RubyLLM.new }
+        ctx = {}
         provider = ENV["PROVIDER"].to_s.strip
-        ctx[:provider] = provider.downcase.to_sym unless provider.empty?
+        # Only inject real adapter when LIVE=1 or PROVIDER is set — otherwise
+        # evals use sample_response (offline mode, zero API calls).
+        if ENV["LIVE"] == "1" || !provider.empty?
+          ctx[:adapter] = RubyLLM::Contract::Adapters::RubyLLM.new
+          ctx[:provider] = provider.downcase.to_sym unless provider.empty?
+        end
         ctx
       end
 

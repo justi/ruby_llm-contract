@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+require "set"
+
 module RubyLLM
   module Contract
     module Eval
@@ -67,8 +69,9 @@ module RubyLLM
             end
 
             io.puts "  Suggested chain:"
-            chain_details.each do |detail|
-              io.puts "    #{detail[:label]} — passes #{detail[:passes]}/#{eval_names.size} evals"
+            chain_details.each_with_index do |detail, i|
+              suffix = i == chain_details.size - 1 ? "passes all #{eval_names.size} evals" : "covers #{detail[:passes]} eval(s)"
+              io.puts "    #{detail[:label]} — #{suffix}"
             end
           end
 
@@ -138,23 +141,47 @@ module RubyLLM
           end&.first
         end
 
+        # Retry escalates on validation_failed/parse_error, NOT on low eval
+        # score. A model that returns :ok with semantically wrong output won't
+        # trigger retry. Therefore the LAST model in the chain must pass ALL
+        # evals — it's the safety net. Cheaper models are prepended as
+        # first-try optimization (they handle easy inputs cheaply; when they
+        # fail validation, retry escalates to the safe fallback).
+        #
+        # Known limitation: intermediate models are assumed safe if their eval
+        # failures correspond to validation failures (retryable). If an
+        # intermediate model returns :ok with semantically wrong output on
+        # some eval, retry won't fire and the safe fallback won't run. This
+        # requires step validates to cover the same semantics as eval verify
+        # checks. A future version could inspect per-case step_status from
+        # compare_models to verify failures are actually retryable.
         def build_chain(matrix, labels, evals)
           total = evals.size
+
+          # Find cheapest model that passes every eval — the safe fallback.
+          safe_fallback = labels.find { |l| evals.all? { |e| (matrix.dig(e, l) || 0) >= @min_score } }
+          return [[], []] unless safe_fallback
+
+          # Prepend cheaper models that pass a strict subset.
           chain = []
           details = []
-          covered = 0
+          covered_evals = Set.new
 
           labels.each do |label|
-            passes = evals.count { |e| (matrix.dig(e, label) || 0) >= @min_score }
-            next if passes <= covered
+            break if label == safe_fallback
 
-            config = parse_label_to_config(label)
-            cost_str = matrix.values.filter_map { |scores| scores[label] }.first ? label : "?"
-            chain << config
-            details << { label: label, passes: passes, cost: cost_str }
-            covered = passes
-            break if covered >= total
+            newly_covered = evals.select { |e| (matrix.dig(e, label) || 0) >= @min_score }
+            new_additions = newly_covered.to_set - covered_evals
+            next if new_additions.empty?
+
+            covered_evals.merge(new_additions)
+            chain << parse_label_to_config(label)
+            details << { label: label, passes: new_additions.size, cost: label }
           end
+
+          # Always end with the safe fallback.
+          chain << parse_label_to_config(safe_fallback)
+          details << { label: safe_fallback, passes: total, cost: safe_fallback }
 
           [chain, details]
         end

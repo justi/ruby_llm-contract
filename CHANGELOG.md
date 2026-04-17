@@ -1,5 +1,29 @@
 # Changelog
 
+## 0.6.2 (2026-04-18)
+
+### Features
+
+- **`Step.optimize_retry_policy`** — runs `compare_models` on ALL evals for the step, builds a score matrix, identifies the constraining eval, and suggests a retry chain. Chain's last model always passes all evals (safe fallback).
+- **`rake ruby_llm_contract:optimize`** — one-command retry chain optimization. Prints score table, constraining eval, suggested chain, and copy-paste DSL.
+- **Offline by default** — `optimize` uses `sample_response` (zero API calls) unless `LIVE=1` or `PROVIDER=` is set.
+- **`EVAL_DIRS=` support** — non-Rails setups can specify eval file directories.
+- **Guide: [Optimizing retry_policy](docs/guide/optimizing_retry_policy.md)** — full procedure with prerequisites, troubleshooting, and real-world example.
+
+### Fixes
+
+- Chain semantics aligned with `retry_executor` — retry fires on `validation_failed`/`parse_error`, not on low eval score. Disjoint eval coverage (A passes e1, B passes e2, neither passes both) correctly returns empty chain.
+- Removed ActiveSupport dependency from rake task (`.presence` → `.empty?`).
+- Added `require "set"` for non-Rails environments.
+
+## 0.6.1 (2026-04-17)
+
+### Features
+
+- **Multi-provider operator tooling** — rake tasks support `PROVIDER=openai|anthropic|ollama`, `CANDIDATES=model@effort,...`, and `REASONING_EFFORT=low|medium|high`.
+- **`rake ruby_llm_contract:recommend`** — wraps `Step.recommend` with CLI interface, prints best config, retry chain, DSL, rationale, and savings.
+- **Ollama support** — `PROVIDER=ollama` with configurable `OLLAMA_API_BASE`.
+
 ## 0.6.0 (2026-04-12)
 
 "What should I do?" — model + configuration recommendation.
