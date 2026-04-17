@@ -2,6 +2,44 @@
 
 How to find the cheapest retry chain that passes all your evals.
 
+## Prerequisites
+
+This guide assumes your app already has:
+
+**1. A Step with `retry_policy`.** This is the escalation chain that runs progressively stronger models when validation fails:
+
+```ruby
+class ClassifyThread < RubyLLM::Contract::Step::Base
+  output_schema do
+    string :classification, enum: %w[PROMO FILLER SKIP]
+  end
+
+  validate("PROMO has matched page") { |o| o[:classification] != "PROMO" || o[:matched_page].present? }
+
+  retry_policy models: %w[gpt-5-mini gpt-5-mini gpt-4.1]
+end
+```
+
+If your step has no `retry_policy`, add one first. See [Getting Started](getting_started.md).
+
+**2. At least 2–3 evals per step.** Each eval is a scenario with input, sample response, and verify checks that assert correctness:
+
+```ruby
+ClassifyThread.define_eval("smoke") do
+  default_input({ threads: [...], url: "https://example.com" })
+  sample_response({ threads: [{ id: "t1", classification: "PROMO" }, ...] })
+
+  verify "relevant thread is PROMO", ->(o) { o[:threads].find { |t| t[:id] == "t1" }[:classification] == "PROMO" }
+  verify "spam thread is SKIP",      ->(o) { o[:threads].find { |t| t[:id] == "t2" }[:classification] == "SKIP" }
+end
+```
+
+**Why 2–3 evals minimum?** One eval tests one scenario. `recommend` optimizes for the eval you give it — if you only have `smoke`, you'll get a recommendation that passes smoke but may fail edge cases in production. The more evals, the safer the recommendation.
+
+See [Eval-First Development](eval_first.md) for how to write evals.
+
+**3. Rake tasks for `recommend` and `compare_models`.** If you use the standard `RakeTask`, these are included. If not, you need a way to run `Step.recommend(eval_name, candidates: [...])` — see the [testing guide](testing.md) for programmatic usage.
+
 ## The problem
 
 `recommend` runs on **one eval at a time**. If you optimize for `smoke` alone, you may pick a cheap model that fails harder evals like `topic_mismatch`. The cheapest model per eval varies — the retry chain must satisfy the **constraining eval** (the hardest one).
