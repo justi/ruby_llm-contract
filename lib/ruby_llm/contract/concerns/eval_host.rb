@@ -70,8 +70,9 @@ module RubyLLM
           Eval::PromptDiff.new(candidate: my_report, baseline: other_report)
         end
 
-        def compare_models(eval_name, models: [], candidates: [], context: {})
+        def compare_models(eval_name, models: [], candidates: [], context: {}, runs: 1)
           raise ArgumentError, "Pass either models: or candidates:, not both" if models.any? && candidates.any?
+          raise ArgumentError, "runs must be >= 1" if runs < 1
 
           context = safe_context(context)
           candidate_configs = normalize_candidates(models, candidates)
@@ -82,7 +83,8 @@ module RubyLLM
             label = Eval::ModelComparison.candidate_label(config)
             model_context = isolate_context(context).merge(model: config[:model])
             model_context[:reasoning_effort] = config[:reasoning_effort] if config[:reasoning_effort]
-            reports[label] = run_single_eval(eval_name, model_context)
+            per_run = Array.new(runs) { run_single_eval(eval_name, model_context) }
+            reports[label] = runs == 1 ? per_run.first : Eval::AggregatedReport.new(per_run)
             configs[label] = config
           end
 

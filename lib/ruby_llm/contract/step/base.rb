@@ -59,12 +59,13 @@ module RubyLLM
             ).recommend
           end
 
-          def optimize_retry_policy(candidates:, context: {}, min_score: 0.95)
+          def optimize_retry_policy(candidates:, context: {}, min_score: 0.95, runs: 1)
             Eval::RetryOptimizer.new(
               step: self,
               candidates: candidates,
               context: context,
-              min_score: min_score
+              min_score: min_score,
+              runs: runs
             ).call
           end
 

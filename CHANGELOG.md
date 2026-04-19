@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.6.3 (2026-04-20)
+
+### Features
+
+- **`runs:` parameter on `compare_models` and `optimize_retry_policy`** — runs each candidate N times per eval and aggregates the mean score, mean cost per run, and mean latency. Reduces sampling variance in live mode where LLM outputs are non-deterministic (gpt-5 family enforces `temperature=1.0` server-side, so a single unlucky sample can misclassify a viable candidate as "failing"). Default `runs: 1` — backward compatible.
+- **`RUNS=N` on `rake ruby_llm_contract:optimize`** — CLI flag for variance-aware optimization.
+- **`Eval::AggregatedReport`** — duck-type `Report` exposing `score` (mean), `score_min`/`score_max` (spread), `total_cost` (mean per run), `pass_rate` (clean-pass count x/N), and `clean_passes`.
+- **Guide: [Reducing variance with `runs:`](docs/guide/optimizing_retry_policy.md#reducing-variance-with-runs)** — when to use it and why.
+
 ## 0.6.2 (2026-04-18)
 
 ### Features

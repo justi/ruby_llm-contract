@@ -83,6 +83,61 @@ MyStep — retry chain optimization
 
 Copy the DSL, paste into your step, run `rake ruby_llm_contract:eval` to verify.
 
+## Reducing variance with `runs:`
+
+In **live mode** the LLM is non-deterministic. The same `(candidate, eval)` pair can score `0.00`, `0.50`, or `1.00` across runs even with identical prompts. `optimize` runs each candidate exactly once by default, so one unlucky sample can flip a viable candidate to "failing" and trigger a misleading **"no viable chain"** result.
+
+### Why you can't just lower temperature
+
+OpenAI enforces `temperature=1.0` for the gpt-5 / o-series models server-side (ruby_llm normalizes any other value to 1.0 per provider requirement). You cannot request `temperature: 0.3` to reduce variance. **Averaging over N runs is the only reliable way to get stable eval scores.**
+
+### When to use it
+
+Use `runs: > 1` when:
+
+- You're running **live** (`LIVE=1` / real API calls), AND
+- The candidate pool includes a gpt-5 / o-series model, OR
+- You've seen inconsistent `optimize` results across re-runs ("it said no viable chain, but a manual re-run passed").
+
+Skip it when:
+
+- Running **offline** with `sample_response` — outputs are deterministic, `runs > 1` wastes cycles with no benefit.
+- You only care about a ballpark signal and budget matters more than precision.
+
+### How to use it
+
+```bash
+# CLI — optimize with 3 runs per candidate per eval:
+LIVE=1 RUNS=3 rake ruby_llm_contract:optimize STEP=MyStep CANDIDATES=gpt-5-nano,gpt-5-mini@low,gpt-5-mini
+```
+
+```ruby
+# Programmatic:
+MyStep.optimize_retry_policy(
+  candidates: [{ model: "gpt-5-nano" }, { model: "gpt-5-mini", reasoning_effort: "low" }],
+  runs: 3
+)
+
+# Or directly on compare_models:
+MyStep.compare_models("edge_cases", candidates: [...], runs: 3)
+```
+
+### What you pay
+
+Cost scales linearly: `runs: 3` makes 3× the API calls. Start with `runs: 3` — enough signal to separate stable candidates from variance, without breaking the budget on large candidate pools.
+
+### What the report contains
+
+Each candidate's aggregated report exposes:
+
+- `score` — **mean** across runs (used in the table and chain-building)
+- `score_min`, `score_max` — spread across runs (inspect for high-variance candidates)
+- `total_cost` — **mean cost per run** (what you'll pay per production call)
+- `pass_rate` — `"x/N"` where `x` is the count of runs that passed cleanly (every case passing)
+- `clean_passes` — the same `x` as an integer
+
+With `runs: 1` (default), `compare_models` returns a plain `Report` — no wrapping, no behavior change.
+
 ## Manual procedure (if you need more control)
 
 ### 1. List evals for the step

@@ -289,6 +289,46 @@ RSpec.describe "ADR-0008: Cost of Quality" do
       # Both models see same responses (high, low) — score should be identical
       expect(comparison.score_for("model-a")).to eq(comparison.score_for("model-b"))
     end
+
+    it "runs each candidate N times with runs: and aggregates score" do
+      step.define_eval("variance") do
+        add_case "a", input: "x", expected: { priority: "high" }
+      end
+
+      # responses cycle: run1=high (pass), run2=low (fail), run3=high (pass)
+      adapter = RubyLLM::Contract::Adapters::Test.new(
+        responses: ['{"priority": "high"}', '{"priority": "low"}', '{"priority": "high"}']
+      )
+
+      comparison = step.compare_models("variance",
+                                       models: %w[model-a],
+                                       context: { adapter: adapter },
+                                       runs: 3)
+
+      report = comparison.reports["model-a"]
+      expect(report).to be_a(RubyLLM::Contract::Eval::AggregatedReport)
+      expect(report.runs.length).to eq(3)
+      expect(report.score).to be_within(0.0001).of(2.0 / 3)
+      expect(report.pass_rate).to eq("2/3")
+    end
+
+    it "rejects runs < 1" do
+      step.define_eval("bad", &proc { add_case "a", input: "x", expected: {} })
+      expect do
+        step.compare_models("bad", models: %w[m], runs: 0)
+      end.to raise_error(ArgumentError, /runs/)
+    end
+
+    it "returns a plain Report (not AggregatedReport) when runs == 1" do
+      step.define_eval("single") do
+        add_case "a", input: "x", expected: { priority: "high" }
+      end
+      adapter = RubyLLM::Contract::Adapters::Test.new(response: '{"priority": "high"}')
+
+      comparison = step.compare_models("single", models: %w[m],
+                                                 context: { adapter: adapter }, runs: 1)
+      expect(comparison.reports["m"]).to be_a(RubyLLM::Contract::Eval::Report)
+    end
   end
 
   # ===========================================================================

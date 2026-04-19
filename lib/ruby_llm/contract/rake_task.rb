@@ -150,6 +150,7 @@ module RubyLLM
           raw_candidates = ENV["CANDIDATES"].to_s.strip
           abort("CANDIDATES is required, e.g. CANDIDATES=gpt-5-nano,gpt-5-mini@low,gpt-5-mini") if raw_candidates.empty?
           min_score = ENV.fetch("MIN_SCORE", "0.95").to_f
+          runs = ENV.fetch("RUNS", "1").to_i
 
           host = RubyLLM::Contract.eval_hosts.find { |h| h.name == step_name }
           unless host
@@ -163,7 +164,8 @@ module RubyLLM
           result = host.optimize_retry_policy(
             candidates: candidates,
             context: context,
-            min_score: min_score
+            min_score: min_score,
+            runs: runs
           )
 
           result.print_summary
