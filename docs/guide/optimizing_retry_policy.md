@@ -171,6 +171,113 @@ Read column by column, cheapest first. Each step covers more evals. Stop when al
 rake ruby_llm_contract:eval
 ```
 
+## Interpreting results: 5 real cases
+
+These are patterns from a real project optimization. Each case is a scenario where raw `optimize` output misled the first read — and how to diagnose and act.
+
+### Case 1: "No viable chain" is often a single-run fluke
+
+**Symptom:** `optimize` reports `minimum_substance: 0.00` on every candidate, prints "No viable chain". But manually re-running the step on the same input produces clean output.
+
+**Diagnosis:** Single-run variance. With gpt-5 models (OpenAI forces `temperature=1.0`), one sample can land below threshold while the next three pass.
+
+**Action:** Re-run with `RUNS=3`. If scores jump to 1.00, the original verdict was noise.
+
+```bash
+LIVE=1 RUNS=3 rake ruby_llm_contract:optimize STEP=MyStep CANDIDATES=...
+```
+
+**Rule of thumb:** never trust "No viable chain" from a single run. Re-run with `RUNS=3` before blaming models.
+
+### Case 2: Higher reasoning effort can make a candidate WORSE
+
+**Symptom:** You assume upgrading `mini@low → mini@medium` for a problematic eval will help. The opposite happens — score drops from 0.33 to 0.00.
+
+**Diagnosis:** For evals that assert conciseness ("short playful reply", "no prescriptive tail"), more reasoning produces **more** structured output ("Step 1:", "Key point:", numbered steps). The model "thinks harder" and writes a more elaborate answer — the opposite of what a playful thread needs.
+
+**Action:** Test before assuming. On conciseness evals, consider **lower** effort or even a smaller model.
+
+```bash
+# Test hypothesis before changing retry_policy:
+LIVE=1 rake ruby_llm_contract:compare_models STEP=MyStep EVAL=playful_reply \
+  CANDIDATES=mini@low,mini@medium,mini@high RUNS=3
+```
+
+**Rule of thumb:** don't assume bigger model / higher effort = better. For "keep it short and natural" evals, it often goes the other way.
+
+### Case 3: Nano variants can beat mini on specific evals
+
+**Symptom:** You check `mini@low` and `mini@medium`, both fail. You conclude "need a bigger fallback".
+
+**Actual finding:** `nano@medium` scores 1.00 where both mini variants fail.
+
+**Diagnosis:** Nano at higher reasoning effort can be more disciplined than mini. On tasks demanding conciseness, small-model + medium-effort outperforms large-model + low-effort.
+
+| model variant | conciseness eval | generic reasoning eval |
+|---|---|---|
+| nano@low | 0.83 | 0.78 |
+| nano@medium | **1.00** | 0.89 |
+| mini@low | 0.33 | 1.00 |
+| mini@medium | 0.00 | (not tested) |
+
+**Action:** Include both axes in the candidate pool — model size AND reasoning_effort. Don't fix one and vary only the other.
+
+```bash
+# 2D search, not 1D:
+CANDIDATES=nano@low,nano@medium,mini@low,mini@medium
+```
+
+### Case 4: "No viable chain" from multiple candidates usually means the eval is too strict
+
+**Symptom:** Every candidate — including the most expensive — scores 0.50 on the same eval.
+
+**Diagnosis:** If the strongest model fails, the eval is rejecting a correct answer. Common cause: a `verify` block asserts one specific label when multiple labels are semantically valid.
+
+**Real example:** An eval expected `classification == "SKIP"` for an off-topic thread, but the model correctly returned `FILLER` (off-topic but still reply-able). Every model scored 0.50 because the eval's verdict was too narrow.
+
+**Action:**
+
+1. Run the step directly on the eval input, inspect the output:
+   ```ruby
+   MyStep.run(eval_input, context: { model: "the-strongest", adapter: adapter })
+   ```
+2. Compare with what the verify block expects.
+3. If the output is **correct but rejected**, loosen the verify block to accept valid variants:
+   ```ruby
+   verify "cat thread is not PROMO",
+     expect: ->(o) { %w[FILLER SKIP].include?(o[:classification]) }
+   ```
+4. Re-run optimize. The "viable chain" appears.
+
+**Rule of thumb:** when every candidate fails the same eval, the eval is probably wrong. Fix the eval before blaming models.
+
+### Case 5: Use targeted `compare_models` for hypothesis testing
+
+**Symptom:** You suspect upgrading `mini@low → mini@medium` on one specific eval. You run `optimize` which re-checks all 4 evals — 12 API calls, most of them repeating known-good results.
+
+**Action:** For hypothesis testing, use `compare_models` on the single constraining eval. Cheap, focused, answers the question:
+
+```bash
+# Instead of full optimize (12 calls):
+LIVE=1 rake ruby_llm_contract:optimize STEP=MyStep CANDIDATES=mini@low,mini@medium RUNS=3
+
+# Use targeted test (3 calls):
+LIVE=1 rake ruby_llm_contract:compare_models \
+  STEP=MyStep EVAL=constraining_eval CANDIDATES=mini@medium RUNS=3
+```
+
+**Rule of thumb:** `optimize` to find the constraining eval. `compare_models` on that eval to test hypotheses.
+
+### Meta: when to act on a finding
+
+| finding | reliable signal? | action |
+|---|---|---|
+| Score in a single run (RUNS=1) | **NO** | re-run with RUNS=3 before deciding |
+| Score stable across RUNS=3 | yes | trust the ranking |
+| Every candidate fails one eval | NO — eval likely wrong | inspect step output vs verify |
+| Higher effort helps | model-specific | test, don't assume |
+| Disjoint coverage (A passes e1, B passes e2) | — | retry won't bridge it (see [semantic gap note](../../lib/ruby_llm/contract/eval/retry_optimizer.rb)) |
+
 ## Troubleshooting: "no recommendation"
 
 When `recommend` returns "no recommendation" for all candidates on an eval, the issue is usually the eval, not the models.
