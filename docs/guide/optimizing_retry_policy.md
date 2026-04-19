@@ -251,6 +251,8 @@ Output:
 
 **Scope.** `production_mode:` supports **single-fallback (2-tier)** chains only. Multi-tier chains can still be inspected post-hoc via `trace.attempts`, but the table summarizes 2-tier. Empirically, 2-tier covers the common case where one cheap model handles easy inputs and one safe model catches the rest.
 
+**Step-only.** `production_mode:` is a Step-level feature — retry injection happens in `Step#run` via `context[:retry_policy_override]`. Calling `compare_models` with `production_mode:` on a `Pipeline::Base` subclass raises `ArgumentError`. Benchmark individual steps instead.
+
 **When to use it.** Run it before finalizing a retry chain: a candidate that saves 3× on single-shot but escalates 60% of the time may save only 1.2× in production. The classic table hides this; production-mode surfaces it.
 
 **Programmatic access.** All metrics are exposed on `Report` / `AggregatedReport`: `escalation_rate`, `single_shot_cost`, `effective_cost`, `single_shot_latency_ms`, `effective_latency_ms`, `latency_percentiles` (`{p50:, p95:, max:}`).

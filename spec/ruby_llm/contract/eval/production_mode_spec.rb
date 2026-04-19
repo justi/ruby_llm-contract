@@ -145,6 +145,20 @@ RSpec.describe "production_mode: cost measurement" do
       end.to raise_error(ArgumentError, /fallback/)
     end
 
+    it "raises when production_mode: is used on a Pipeline" do
+      pipeline = Class.new(RubyLLM::Contract::Pipeline::Base) do
+        define_eval "basic" do
+          add_case "case1", input: "x", expected: {}
+          verify "trivial", input: "x", expect: ->(_o) { true }
+        end
+      end
+
+      expect do
+        pipeline.compare_models("basic", candidates: [{ model: "gpt-5-nano" }],
+                                         production_mode: { fallback: "gpt-5-mini" })
+      end.to raise_error(ArgumentError, /Pipeline/)
+    end
+
     it "leaves step class-level retry_policy untouched across runs" do
       step.retry_policy { escalate "gpt-5-nano", "gpt-5-mini" }
       original = step.retry_policy

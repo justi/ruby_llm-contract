@@ -78,6 +78,7 @@ module RubyLLM
 
           context = safe_context(context)
           candidate_configs = normalize_candidates(models, candidates)
+          reject_production_mode_on_pipeline!(production_mode)
           fallback_config = normalize_production_mode(production_mode)
 
           reports = {}
@@ -102,6 +103,15 @@ module RubyLLM
           raise ArgumentError, "runs must be >= 1, got #{runs.inspect}" if runs < 1
 
           runs
+        end
+
+        def reject_production_mode_on_pipeline!(production_mode)
+          return if production_mode.nil? || production_mode == false
+          return unless defined?(Pipeline::Base) && self < Pipeline::Base
+
+          raise ArgumentError,
+                "production_mode: is not supported on Pipeline (#{self}). Retry injection happens at Step level; " \
+                "call compare_models with production_mode: on individual Step classes instead."
         end
 
         def build_candidate_context(context, config, fallback_config)
