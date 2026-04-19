@@ -215,3 +215,42 @@ end
 ```
 
 First attempt 4× cheaper. Worst case 2.7× cheaper. Same eval coverage.
+
+## Production-mode cost measurement
+
+The default `compare_models` / `optimize_retry_policy` output shows **single-shot** cost — what each candidate costs when it runs alone on the first attempt. In production, a cheaper candidate whose validator rejects 20% of outputs actually costs `first_try_cost + fallback_cost × 0.20` per successful output. The single-shot number understates this.
+
+Pass `production_mode: { fallback: "..." }` to measure the true effective cost:
+
+```ruby
+ClassifyTicket.compare_models(
+  "edge_cases",
+  candidates: [{ model: "gpt-5-nano" }, { model: "gpt-5-mini", reasoning_effort: "low" }],
+  production_mode: { fallback: "gpt-5-mini" }
+).print_summary
+```
+
+Output:
+
+```
+  Chain                        single-shot  escalation  effective cost  latency    score
+  -----------------------------------------------------------------------------------------
+  gpt-5-nano → gpt-5-mini      $0.0010      20%         $0.0016         164ms       1.00
+  gpt-5-mini (effort: low) → …  $0.0015      5%          $0.0016          210ms       1.00
+  gpt-5-mini                    $0.0030      —           $0.0030          220ms       1.00
+```
+
+**Reading the table:**
+
+- **`single-shot`** — cost of the 1st attempt alone (matches the classic table).
+- **`escalation`** — fraction of cases where the candidate's validator rejected the first output and the fallback ran as a retry.
+- **`effective cost`** — sum of all attempted costs per case, averaged. This is what you actually pay per successful output in production.
+- **`—` in escalation** (em-dash, not 0%) — appears when the candidate equals the fallback. The row is a pure single-shot eval; there's no escalation chain to observe. `effective == single-shot` by construction.
+
+**Interaction with `runs:`.** `production_mode: { fallback: } + runs: 3` averages every metric — including `escalation_rate` — across runs. A single-run escalation rate inherits the same variance as a single-run score (cf. [Reducing variance with `runs:`](#reducing-variance-with-runs)).
+
+**Scope.** `production_mode:` supports **single-fallback (2-tier)** chains only. Multi-tier chains can still be inspected post-hoc via `trace.attempts`, but the table summarizes 2-tier. Empirically, 2-tier covers the common case where one cheap model handles easy inputs and one safe model catches the rest.
+
+**When to use it.** Run it before finalizing a retry chain: a candidate that saves 3× on single-shot but escalates 60% of the time may save only 1.2× in production. The classic table hides this; production-mode surfaces it.
+
+**Programmatic access.** All metrics are exposed on `Report` / `AggregatedReport`: `escalation_rate`, `single_shot_cost`, `effective_cost`, `single_shot_latency_ms`, `effective_latency_ms`, `latency_percentiles` (`{p50:, p95:, max:}`).

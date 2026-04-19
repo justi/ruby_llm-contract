@@ -154,6 +154,7 @@ end
 require_relative "contract/concerns/context_helpers"
 require_relative "contract/concerns/deep_freeze"
 require_relative "contract/concerns/deep_symbolize"
+require_relative "contract/concerns/production_mode_context"
 require_relative "contract/concerns/eval_host"
 require_relative "contract/concerns/trace_equality"
 require_relative "contract/concerns/usage_aggregator"

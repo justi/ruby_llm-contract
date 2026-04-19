@@ -18,7 +18,8 @@ module RubyLLM
             label: evaluation.label,
             details: evaluation.details,
             duration_ms: trace_metric(trace, :total_latency_ms, :latency_ms),
-            cost: trace_metric(trace, :total_cost, :cost)
+            cost: trace_metric(trace, :total_cost, :cost),
+            attempts: trace_attempts(trace)
           )
         end
 
@@ -28,6 +29,12 @@ module RubyLLM
           return nil unless trace
 
           trace.respond_to?(pipeline_key) ? trace.public_send(pipeline_key) : trace[step_key]
+        end
+
+        def trace_attempts(trace)
+          return nil unless trace
+
+          trace.respond_to?(:attempts) ? trace.attempts : nil
         end
       end
     end

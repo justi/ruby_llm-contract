@@ -86,6 +86,49 @@ module RubyLLM
         def failures
           @runs.flat_map(&:failures)
         end
+
+        def production_mode?
+          @runs.any?(&:production_mode?)
+        end
+
+        def escalation_rate
+          values = @runs.filter_map(&:escalation_rate)
+          return nil if values.empty?
+
+          values.sum / values.length.to_f
+        end
+
+        def single_shot_cost
+          values = @runs.filter_map(&:single_shot_cost)
+          return nil if values.empty?
+
+          values.sum / values.length.to_f
+        end
+
+        def effective_cost
+          total_cost
+        end
+
+        def single_shot_latency_ms
+          values = @runs.filter_map(&:single_shot_latency_ms)
+          return nil if values.empty?
+
+          values.sum / values.length.to_f
+        end
+
+        def effective_latency_ms
+          avg_latency_ms
+        end
+
+        def latency_percentiles
+          per_run = @runs.filter_map(&:latency_percentiles)
+          return nil if per_run.empty?
+
+          %i[p50 p95 max].each_with_object({}) do |key, acc|
+            values = per_run.filter_map { |h| h[key] }
+            acc[key] = values.empty? ? nil : values.sum / values.length.to_f
+          end
+        end
       end
     end
   end

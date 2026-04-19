@@ -59,17 +59,19 @@ module RubyLLM
             ).recommend
           end
 
-          def optimize_retry_policy(candidates:, context: {}, min_score: 0.95, runs: 1)
+          def optimize_retry_policy(candidates:, context: {}, min_score: 0.95, runs: 1, production_mode: nil)
             Eval::RetryOptimizer.new(
               step: self,
               candidates: candidates,
               context: context,
               min_score: min_score,
-              runs: runs
+              runs: runs,
+              production_mode: production_mode
             ).call
           end
 
-          KNOWN_CONTEXT_KEYS = %i[adapter model temperature max_tokens provider assume_model_exists reasoning_effort].freeze
+          KNOWN_CONTEXT_KEYS = %i[adapter model temperature max_tokens provider assume_model_exists
+                                  reasoning_effort retry_policy_override].freeze
 
           include Concerns::ContextHelpers
 
@@ -156,11 +158,12 @@ module RubyLLM
           end
 
           def runtime_settings(context)
+            policy = context.key?(:retry_policy_override) ? context[:retry_policy_override] : retry_policy
             {
               model: context[:model] || model || RubyLLM::Contract.configuration.default_model,
               temperature: context[:temperature],
               extra_options: context.slice(:provider, :assume_model_exists, :max_tokens, :reasoning_effort),
-              policy: retry_policy
+              policy: policy
             }
           end
 

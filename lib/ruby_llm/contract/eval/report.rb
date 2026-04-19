@@ -15,7 +15,9 @@ module RubyLLM
         BASELINE_DIR = ".eval_baselines"
 
         def_delegators :@stats, :score, :passed, :failed, :skipped, :failures, :pass_rate, :pass_rate_ratio,
-                       :total_cost, :avg_latency_ms, :passed?
+                       :total_cost, :avg_latency_ms, :passed?,
+                       :production_mode?, :escalation_rate, :single_shot_cost, :single_shot_latency_ms,
+                       :effective_cost, :effective_latency_ms, :latency_percentiles
         def_delegators :@presenter, :summary, :to_s, :print_summary
         def_delegators :@storage, :save_history!, :eval_history, :save_baseline!, :compare_with_baseline,
                        :baseline_exists?

@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.6.4 (2026-04-20)
+
+### Features
+
+- **`production_mode:` on `compare_models` and `optimize_retry_policy`** — measures retry-aware, end-to-end cost per successful output. Pass `production_mode: { fallback: "gpt-5-mini" }` and each candidate runs with a runtime-injected `[candidate, fallback]` retry chain. The report exposes `escalation_rate`, `single_shot_cost`, and `effective_cost` so "the cheaper candidate" decision matches production cost rather than first-attempt cost.
+- **New Report metrics** — `escalation_rate`, `single_shot_cost`, `effective_cost`, `single_shot_latency_ms`, `effective_latency_ms`, `latency_percentiles` (p50/p95/max). `AggregatedReport` averages all of them across `runs:`.
+- **Extended `ModelComparison#table`** — when `production_mode:` is set, renders a `Chain` column (`candidate → fallback`) with `single-shot`, `escalation`, `effective cost`, `latency`, `score`. Edge case `candidate == fallback` renders as a single model and `—` in the escalation column, with retry injection skipped entirely so `effective == single-shot` by construction, not by coincidence.
+- **`context[:retry_policy_override]`** — new context key that nullifies or replaces class-level `retry_policy` for a single call. Used internally by production-mode injection; safe to use directly when you need a transient override that doesn't mutate the step class.
+
+### Scope
+
+- Single-fallback (2-tier) chains only. Multi-tier chains can be inspected post-hoc via `trace.attempts` but aren't summarized in the optimize table.
+- Costs with `runs: 3 + production_mode: true` are ≈3× a single-shot eval plus the actual retry attempts — not 6×. Production-mode metrics come from a single pass.
+
+### Documentation
+
+- **Guide: [Production-mode cost measurement](docs/guide/optimizing_retry_policy.md#production-mode-cost-measurement)** — API, metric interpretation, 2-tier scope note.
+
 ## 0.6.3 (2026-04-20)
 
 ### Features

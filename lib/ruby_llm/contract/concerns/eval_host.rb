@@ -5,6 +5,7 @@ module RubyLLM
     module Concerns
       module EvalHost
         include ContextHelpers
+        include ProductionModeContext
 
         SAMPLE_RESPONSE_COMPARE_WARNING = "[ruby_llm-contract] compare_with ignores sample_response. " \
                                           "Without model: or context: { adapter: ... }, both sides will be skipped " \
@@ -70,26 +71,28 @@ module RubyLLM
           Eval::PromptDiff.new(candidate: my_report, baseline: other_report)
         end
 
-        def compare_models(eval_name, models: [], candidates: [], context: {}, runs: 1)
+        def compare_models(eval_name, models: [], candidates: [], context: {}, runs: 1, production_mode: nil)
           raise ArgumentError, "Pass either models: or candidates:, not both" if models.any? && candidates.any?
 
           runs = coerce_runs(runs)
 
           context = safe_context(context)
           candidate_configs = normalize_candidates(models, candidates)
+          fallback_config = normalize_production_mode(production_mode)
 
           reports = {}
           configs = {}
           candidate_configs.each do |config|
             label = Eval::ModelComparison.candidate_label(config)
-            model_context = isolate_context(context).merge(model: config[:model])
-            model_context[:reasoning_effort] = config[:reasoning_effort] if config[:reasoning_effort]
+            model_context = build_candidate_context(context, config, fallback_config)
             per_run = Array.new(runs) { run_single_eval(eval_name, model_context) }
             reports[label] = runs == 1 ? per_run.first : Eval::AggregatedReport.new(per_run)
             configs[label] = config
           end
 
-          Eval::ModelComparison.new(eval_name: eval_name, reports: reports, configs: configs)
+          Eval::ModelComparison.new(
+            eval_name: eval_name, reports: reports, configs: configs, fallback: fallback_config
+          )
         end
 
         private
@@ -99,6 +102,15 @@ module RubyLLM
           raise ArgumentError, "runs must be >= 1, got #{runs.inspect}" if runs < 1
 
           runs
+        end
+
+        def build_candidate_context(context, config, fallback_config)
+          model_context = isolate_context(context).merge(model: config[:model])
+          model_context[:reasoning_effort] = config[:reasoning_effort] if config[:reasoning_effort]
+          return model_context unless fallback_config
+
+          model_context[:retry_policy_override] = production_mode_override(config, fallback_config)
+          model_context
         end
 
         def normalize_candidates(models, candidates)

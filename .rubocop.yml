@@ -42,14 +42,17 @@ AllCops:
     - 'internal/**/*'
 
 Metrics/ClassLength:
-  Max: 130
+  Max: 140
+
+Metrics/ModuleLength:
+  Max: 150
 
 Metrics/AbcSize:
   Max: 30
 
 Metrics/ParameterLists:
-  Max: 11
-  MaxOptionalParameters: 9
+  Max: 12
+  MaxOptionalParameters: 10
 
 Style/FormatStringToken:
   Enabled: false
