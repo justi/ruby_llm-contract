@@ -197,10 +197,19 @@ LIVE=1 RUNS=3 rake ruby_llm_contract:optimize STEP=MyStep CANDIDATES=...
 
 **Action:** Test before assuming. On conciseness evals, consider **lower** effort or even a smaller model.
 
-```bash
-# Test hypothesis before changing retry_policy:
-LIVE=1 rake ruby_llm_contract:compare_models STEP=MyStep EVAL=playful_reply \
-  CANDIDATES=mini@low,mini@medium,mini@high RUNS=3
+```ruby
+# Targeted hypothesis check — call compare_models directly:
+adapter = RubyLLM::Contract::Adapters::RubyLLM.new
+MyStep.compare_models(
+  "playful_reply",
+  candidates: [
+    { model: "gpt-5-mini", reasoning_effort: "low" },
+    { model: "gpt-5-mini", reasoning_effort: "medium" },
+    { model: "gpt-5-mini", reasoning_effort: "high" }
+  ],
+  context: { adapter: adapter },
+  runs: 3
+).print_summary
 ```
 
 **Rule of thumb:** don't assume bigger model / higher effort = better. For "keep it short and natural" evals, it often goes the other way.
@@ -237,9 +246,13 @@ CANDIDATES=nano@low,nano@medium,mini@low,mini@medium
 
 **Action:**
 
-1. Run the step directly on the eval input, inspect the output:
+1. Run the step directly on the eval input, inspect the output. If the step has a `retry_policy`, override it so `context[:model]` actually takes effect:
    ```ruby
-   MyStep.run(eval_input, context: { model: "the-strongest", adapter: adapter })
+   MyStep.run(
+     eval_input,
+     context: { model: "gpt-5-mini", adapter: adapter, retry_policy_override: nil }
+   )
+   # Without retry_policy_override, the configured retry chain wins and context[:model] is ignored.
    ```
 2. Compare with what the verify block expects.
 3. If the output is **correct but rejected**, loosen the verify block to accept valid variants:
@@ -253,20 +266,31 @@ CANDIDATES=nano@low,nano@medium,mini@low,mini@medium
 
 ### Case 5: Use targeted `compare_models` for hypothesis testing
 
-**Symptom:** You suspect upgrading `mini@low → mini@medium` on one specific eval. You run `optimize` which re-checks all 4 evals — 12 API calls, most of them repeating known-good results.
+**Symptom:** You suspect upgrading `mini@low → mini@medium` on one specific eval. You run `optimize` which re-checks all evals for every candidate — with 4 evals × 2 candidates × RUNS=3 that's **24 live API calls**, most of them repeating known-good results.
 
-**Action:** For hypothesis testing, use `compare_models` on the single constraining eval. Cheap, focused, answers the question:
+**Action:** For hypothesis testing, call `Step.compare_models` directly on the single constraining eval. Cheap, focused, answers the question:
 
-```bash
-# Instead of full optimize (12 calls):
-LIVE=1 rake ruby_llm_contract:optimize STEP=MyStep CANDIDATES=mini@low,mini@medium RUNS=3
+```ruby
+# Full optimize: 4 evals × 2 candidates × RUNS=3 = 24 calls
+MyStep.optimize_retry_policy(
+  candidates: [
+    { model: "gpt-5-mini", reasoning_effort: "low" },
+    { model: "gpt-5-mini", reasoning_effort: "medium" }
+  ],
+  context: { adapter: adapter },
+  runs: 3
+)
 
-# Use targeted test (3 calls):
-LIVE=1 rake ruby_llm_contract:compare_models \
-  STEP=MyStep EVAL=constraining_eval CANDIDATES=mini@medium RUNS=3
+# Targeted test: 1 eval × 1 candidate × RUNS=3 = 3 calls
+MyStep.compare_models(
+  "constraining_eval",
+  candidates: [{ model: "gpt-5-mini", reasoning_effort: "medium" }],
+  context: { adapter: adapter },
+  runs: 3
+).print_summary
 ```
 
-**Rule of thumb:** `optimize` to find the constraining eval. `compare_models` on that eval to test hypotheses.
+**Rule of thumb:** `optimize_retry_policy` to find the constraining eval. `compare_models` on that eval to test a specific hypothesis.
 
 ### Meta: when to act on a finding
 
