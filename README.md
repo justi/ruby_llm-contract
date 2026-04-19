@@ -160,6 +160,8 @@ Nano fails on edge cases. Mini and full both score 100% — but mini is **5x che
 
 Running live against gpt-5 / o-series? Pass `runs: 3` to average out sampling variance (OpenAI forces `temperature=1.0` server-side, so one unlucky run can misclassify a viable candidate). See [Reducing variance with `runs:`](docs/guide/optimizing_retry_policy.md#reducing-variance-with-runs).
 
+Want the *effective* cost — first-attempt plus retries — rather than the single-shot headline number? Pass `production_mode: { fallback: "gpt-5-mini" }` and the table gains `escalation`, `effective cost`, and a `Chain` column. See [Production-mode cost measurement](docs/guide/optimizing_retry_policy.md#production-mode-cost-measurement).
+
 ## Let the gem tell you what to do
 
 Don't read tables — get a recommendation. Supports `model + reasoning_effort` combinations:
