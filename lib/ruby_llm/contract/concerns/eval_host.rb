@@ -72,7 +72,8 @@ module RubyLLM
 
         def compare_models(eval_name, models: [], candidates: [], context: {}, runs: 1)
           raise ArgumentError, "Pass either models: or candidates:, not both" if models.any? && candidates.any?
-          raise ArgumentError, "runs must be >= 1" if runs < 1
+
+          runs = coerce_runs(runs)
 
           context = safe_context(context)
           candidate_configs = normalize_candidates(models, candidates)
@@ -92,6 +93,13 @@ module RubyLLM
         end
 
         private
+
+        def coerce_runs(runs)
+          raise ArgumentError, "runs must be an Integer >= 1, got #{runs.inspect}" unless runs.is_a?(Integer)
+          raise ArgumentError, "runs must be >= 1, got #{runs.inspect}" if runs < 1
+
+          runs
+        end
 
         def normalize_candidates(models, candidates)
           if candidates.any?

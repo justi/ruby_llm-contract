@@ -9,7 +9,8 @@ RSpec.describe RubyLLM::Contract::Eval::AggregatedReport do
       dataset_name: "ds", step_name: "Step",
       score: score, total_cost: cost, avg_latency_ms: latency,
       pass_rate_ratio: pass_ratio, passed?: passed, failures: [],
-      results: results, summary: "summary-stub", print_summary: nil
+      results: results, summary: "summary-stub", print_summary: nil,
+      to_s: "to-s-stub"
     )
   end
 
@@ -107,6 +108,12 @@ RSpec.describe RubyLLM::Contract::Eval::AggregatedReport do
       io = StringIO.new
       expect(r1).to receive(:print_summary).with(io)
       agg.print_summary(io)
+    end
+
+    it "to_s delegates to first run (so puts report works)" do
+      agg = described_class.new([fake_report(score: 1.0, passed: true)])
+      expect(agg.to_s).to eq("to-s-stub")
+      expect("#{agg}").to eq("to-s-stub")
     end
 
     it "is compatible with Recommender consumers (report.results usable)" do

@@ -319,6 +319,20 @@ RSpec.describe "ADR-0008: Cost of Quality" do
       end.to raise_error(ArgumentError, /runs/)
     end
 
+    it "rejects non-Integer runs (Float)" do
+      step.define_eval("bad_float", &proc { add_case "a", input: "x", expected: {} })
+      expect do
+        step.compare_models("bad_float", models: %w[m], runs: 1.5)
+      end.to raise_error(ArgumentError, /Integer/)
+    end
+
+    it "rejects non-Integer runs (String)" do
+      step.define_eval("bad_string", &proc { add_case "a", input: "x", expected: {} })
+      expect do
+        step.compare_models("bad_string", models: %w[m], runs: "3")
+      end.to raise_error(ArgumentError, /Integer/)
+    end
+
     it "returns a plain Report (not AggregatedReport) when runs == 1" do
       step.define_eval("single") do
         add_case "a", input: "x", expected: { priority: "high" }

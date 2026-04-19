@@ -67,6 +67,10 @@ module RubyLLM
           @runs.first.summary
         end
 
+        def to_s
+          @runs.first.to_s
+        end
+
         def print_summary(io = $stdout)
           @runs.first.print_summary(io)
         end
