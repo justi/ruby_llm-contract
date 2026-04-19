@@ -132,8 +132,9 @@ Each candidate's aggregated report exposes:
 
 - `score` — **mean** across runs (used in the table and chain-building)
 - `score_min`, `score_max` — spread across runs (inspect for high-variance candidates)
-- `total_cost` — **mean cost per run** (what you'll pay per production call)
+- `total_cost` — **mean total eval cost per run** (sum of all case costs, averaged across runs; divide by case count for an approximate per-call cost)
 - `pass_rate` — `"x/N"` where `x` is the count of runs that passed cleanly (every case passing)
+- `pass_rate_ratio` — `clean_passes / N` as a float (run-level reliability, consistent with `pass_rate`)
 - `clean_passes` — the same `x` as an integer
 
 With `runs: 1` (default), `compare_models` returns a plain `Report` — no wrapping, no behavior change.

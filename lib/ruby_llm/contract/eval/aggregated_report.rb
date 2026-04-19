@@ -10,12 +10,13 @@ module RubyLLM
       # pass_rate reports how many runs passed cleanly (x/N), not case-level
       # pass rate, since the question is "does this candidate reliably pass?".
       class AggregatedReport
-        attr_reader :runs
+        attr_reader :runs, :results
 
         def initialize(runs)
           raise ArgumentError, "runs must not be empty" if runs.empty?
 
           @runs = runs.freeze
+          @results = runs.flat_map(&:results).freeze
           freeze
         end
 
@@ -55,7 +56,19 @@ module RubyLLM
         end
 
         def pass_rate_ratio
-          @runs.sum(&:pass_rate_ratio) / @runs.length.to_f
+          clean_passes.to_f / @runs.length
+        end
+
+        def each(&block)
+          @results.each(&block)
+        end
+
+        def summary
+          @runs.first.summary
+        end
+
+        def print_summary(io = $stdout)
+          @runs.first.print_summary(io)
         end
 
         def passed?
