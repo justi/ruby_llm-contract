@@ -147,6 +147,8 @@ module RubyLLM
           end
         end
 
+        private
+
         def production_mode_metrics(report, base)
           return base unless report.respond_to?(:production_mode?) && report.production_mode?
 
@@ -159,8 +161,6 @@ module RubyLLM
             latency_percentiles: report.latency_percentiles
           )
         end
-
-        private
 
         def resolve_key(candidate)
           case candidate

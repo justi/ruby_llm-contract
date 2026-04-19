@@ -12,7 +12,7 @@
 ### Scope
 
 - Single-fallback (2-tier) chains only. Multi-tier chains can be inspected post-hoc via `trace.attempts` but aren't summarized in the optimize table.
-- Costs with `runs: 3 + production_mode: true` are ≈3× a single-shot eval plus the actual retry attempts — not 6×. Production-mode metrics come from a single pass.
+- Costs with `runs: 3 + production_mode: { fallback: "gpt-5-mini" }` are ≈3× a single-shot eval plus the actual retry attempts — not 6×. Production-mode metrics come from a single pass.
 - **Step-only.** Calling `compare_models` with `production_mode:` on a `Pipeline::Base` subclass raises `ArgumentError` — retry injection is Step-level and pipeline-wide fallback semantics aren't defined yet. Benchmark individual steps.
 
 ### Documentation
