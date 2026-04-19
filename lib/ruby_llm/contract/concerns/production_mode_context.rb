@@ -4,9 +4,9 @@ module RubyLLM
   module Contract
     module Concerns
       # Helpers for injecting a retry_policy_override into per-candidate eval
-      # context when compare_models runs in production-mode (see ADR-0018).
-      # When candidate == fallback, retry injection is skipped so the row
-      # degenerates into a single-shot eval by construction.
+      # context when compare_models runs in production-mode. When candidate
+      # == fallback, retry injection is skipped so the row degenerates into
+      # a single-shot eval by construction.
       module ProductionModeContext
         private
 
