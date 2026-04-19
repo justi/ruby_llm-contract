@@ -158,6 +158,8 @@ Cheapest at 100%: gpt-4.1-mini
 
 Nano fails on edge cases. Mini and full both score 100% — but mini is **5x cheaper**. Now you know.
 
+Running live against gpt-5 / o-series? Pass `runs: 3` to average out sampling variance (OpenAI forces `temperature=1.0` server-side, so one unlucky run can misclassify a viable candidate). See [Reducing variance with `runs:`](docs/guide/optimizing_retry_policy.md#reducing-variance-with-runs).
+
 ## Let the gem tell you what to do
 
 Don't read tables — get a recommendation. Supports `model + reasoning_effort` combinations:

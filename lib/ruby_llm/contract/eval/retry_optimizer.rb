@@ -94,11 +94,12 @@ module RubyLLM
           end
         end
 
-        def initialize(step:, candidates:, context: {}, min_score: 0.95)
+        def initialize(step:, candidates:, context: {}, min_score: 0.95, runs: 1)
           @step = step
           @candidates = candidates
           @context = context
           @min_score = min_score
+          @runs = runs
         end
 
         def call
@@ -108,7 +109,7 @@ module RubyLLM
           score_matrix = {}
           evals.each do |eval_name|
             comparison = with_retry_disabled do
-              @step.compare_models(eval_name, candidates: @candidates, context: @context)
+              @step.compare_models(eval_name, candidates: @candidates, context: @context, runs: @runs)
             end
             score_matrix[eval_name] = extract_scores(comparison)
           end

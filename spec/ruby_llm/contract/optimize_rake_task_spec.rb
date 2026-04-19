@@ -101,4 +101,24 @@ RSpec.describe RubyLLM::Contract::OptimizeRakeTask do
       expect(result).to eq([{ model: "gpt-5-mini", reasoning_effort: "low" }])
     end
   end
+
+  describe "#parse_runs" do
+    it "accepts a valid integer >= 1" do
+      expect(task.send(:parse_runs, "3")).to eq(3)
+      expect(task.send(:parse_runs, " 1 ")).to eq(1)
+    end
+
+    it "aborts on non-integer input" do
+      expect { task.send(:parse_runs, "abc") }.to raise_error(SystemExit, /integer >= 1/)
+    end
+
+    it "aborts on zero or negative" do
+      expect { task.send(:parse_runs, "0") }.to raise_error(SystemExit, /integer >= 1/)
+      expect { task.send(:parse_runs, "-1") }.to raise_error(SystemExit, /integer >= 1/)
+    end
+
+    it "aborts on empty string" do
+      expect { task.send(:parse_runs, "") }.to raise_error(SystemExit, /integer >= 1/)
+    end
+  end
 end
