@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.6.5 (2026-04-21)
+
+### Deprecated
+
+- **`:adapter_error` in `DEFAULT_RETRY_ON` is deprecated** and will be removed from the default in 0.7.0. A runtime deprecation warning is emitted when a step uses the default retry set with `attempts > 1` and no model escalation chain. `ruby_llm` already retries transport errors (`RateLimitError`, `ServerError`, `ServiceUnavailableError`, `OverloadedError`, timeouts) at the Faraday layer, so retrying on `:adapter_error` without escalation re-runs the same model on errors the HTTP middleware already retried with backoff. To silence the warning:
+  - **Keep current behavior:** `retry_on :validation_failed, :parse_error, :adapter_error`
+  - **Adopt the future default:** `retry_on :validation_failed, :parse_error`
+  - **Use `:adapter_error` meaningfully:** pair it with `escalate "model_a", "model_b"` so a different model/provider gets a chance after transport errors that Faraday could not resolve.
+
 ## 0.6.4 (2026-04-20)
 
 ### Features

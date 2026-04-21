@@ -1,5 +1,8 @@
 # frozen_string_literal: true
 
+require "stringio"
+require "timeout"
+
 RSpec.describe RubyLLM::Contract::Step::RetryPolicy do
   describe "configuration" do
     it "defaults to 1 attempt" do
@@ -38,6 +41,135 @@ RSpec.describe RubyLLM::Contract::Step::RetryPolicy do
     it "allows custom retryable statuses" do
       policy = described_class.new { retry_on :parse_error }
       expect(policy.retryable_statuses).to eq([:parse_error])
+    end
+  end
+
+  describe "deprecation: :adapter_error in default retry_on" do
+    before { described_class.reset_deprecation_warnings! }
+
+    it "warns only once per process even across many policy constructions" do
+      expect do
+        5.times { described_class.new { attempts 3 } }
+      end.to output(/\A\[ruby_llm-contract\] DEPRECATION.*\n\z/m).to_stderr
+    end
+
+    it "warns when attempts > 1 without escalation and default retry_on" do
+      expect { described_class.new { attempts 3 } }
+        .to output(/DEPRECATION.*adapter_error.*0\.7\.0/m).to_stderr
+    end
+
+    it "does not warn when user explicitly passes retry_on via DSL" do
+      expect do
+        described_class.new do
+          attempts 3
+          retry_on :validation_failed, :parse_error, :adapter_error
+        end
+      end.not_to output(/DEPRECATION/).to_stderr
+    end
+
+    it "does not warn when user explicitly passes retry_on keyword" do
+      expect { described_class.new(attempts: 3, retry_on: %i[adapter_error parse_error]) }
+        .not_to output(/DEPRECATION/).to_stderr
+    end
+
+    it "does not warn with escalation chain of 2+ models (:adapter_error is meaningful there)" do
+      expect { described_class.new { escalate "nano", "mini" } }
+        .not_to output(/DEPRECATION/).to_stderr
+    end
+
+    it "warns when escalate has only one model (no real fallback — same model every attempt)" do
+      expect do
+        described_class.new do
+          attempts 3
+          escalate "nano"
+        end
+      end.to output(/DEPRECATION.*adapter_error/m).to_stderr
+    end
+
+    it "does not warn when max_attempts is 1 (no retry happens anyway)" do
+      expect { described_class.new }.not_to output(/DEPRECATION/).to_stderr
+    end
+
+    describe "thread safety (Mutex) — GH PR #12 review" do
+      # Captures Warning.warn output into a StringIO across threads.
+      # Warning.warn defaults to writing to $stderr in MRI, and $stderr is
+      # a shared global, so swapping it for the duration of the block
+      # captures output from all threads.
+      def capture_concurrent_stderr
+        buffer = StringIO.new
+        original = $stderr
+        $stderr = buffer
+        yield
+        buffer.string
+      ensure
+        $stderr = original
+      end
+
+      it "emits exactly once under stress (50 concurrent constructions)" do
+        output = capture_concurrent_stderr do
+          threads = Array.new(50) do
+            Thread.new { described_class.new { attempts 3 } }
+          end
+          threads.each(&:join)
+        end
+
+        expect(output.scan(/DEPRECATION/).size).to eq(1)
+      end
+
+      it "stays correct even when the check-then-set window is forced open" do
+        # Adversarial scheduler: every time a thread reads the flag and sees
+        # `false`, it yields the scheduler before the caller gets a chance to
+        # set the flag. Without the Mutex'd re-check in
+        # warn_adapter_error_default_deprecated!, multiple threads would
+        # observe `false`, both enter the critical region, and both emit.
+        # The double-checked lock inside synchronize catches this.
+        allow(described_class).to receive(:adapter_error_default_warned).and_wrap_original do |original|
+          value = original.call
+          Thread.pass unless value
+          value
+        end
+
+        output = capture_concurrent_stderr do
+          threads = Array.new(20) do
+            Thread.new { described_class.new { attempts 3 } }
+          end
+          threads.each(&:join)
+        end
+
+        expect(output.scan(/DEPRECATION/).size).to eq(1)
+      end
+
+      it "re-emits after reset even under concurrent pressure" do
+        # First burst: all threads contend; exactly one warning.
+        first_output = capture_concurrent_stderr do
+          Array.new(10) { Thread.new { described_class.new { attempts 3 } } }.each(&:join)
+        end
+        expect(first_output.scan(/DEPRECATION/).size).to eq(1)
+
+        described_class.reset_deprecation_warnings!
+
+        # After reset a second burst must emit exactly one more warning
+        # (not zero — flag was cleared; not two — mutex still dedupes).
+        second_output = capture_concurrent_stderr do
+          Array.new(10) { Thread.new { described_class.new { attempts 3 } } }.each(&:join)
+        end
+        expect(second_output.scan(/DEPRECATION/).size).to eq(1)
+      end
+
+      it "does not deadlock when reset is called between constructions" do
+        expect do
+          Timeout.timeout(2) do
+            3.times do
+              described_class.new { attempts 3 }
+              described_class.reset_deprecation_warnings!
+            end
+          end
+        end.not_to raise_error
+      end
+
+      it "exposes the mutex as a Mutex instance (SOLID: depend on abstraction, not duck-typing)" do
+        expect(described_class.deprecation_mutex).to be_a(Mutex)
+      end
     end
   end
 
@@ -149,9 +281,9 @@ RSpec.describe RubyLLM::Contract::Step::RetryPolicy do
         end
 
         expect(policy.config_list).to eq([
-          { model: "gpt-4.1-nano" },
-          { model: "gpt-4.1-mini", reasoning_effort: "high" }
-        ])
+                                           { model: "gpt-4.1-nano" },
+                                           { model: "gpt-4.1-mini", reasoning_effort: "high" }
+                                         ])
       end
     end
 
@@ -162,9 +294,9 @@ RSpec.describe RubyLLM::Contract::Step::RetryPolicy do
         end
 
         expect(policy.config_list).to eq([
-          { model: "gpt-4.1-nano" },
-          { model: "gpt-4.1-mini", reasoning_effort: "high" }
-        ])
+                                           { model: "gpt-4.1-nano" },
+                                           { model: "gpt-4.1-mini", reasoning_effort: "high" }
+                                         ])
       end
     end
 
