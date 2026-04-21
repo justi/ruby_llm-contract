@@ -1,6 +1,21 @@
 # ruby_llm-contract
 
-The missing link between LLM cost and quality. Stop choosing between "cheap but wrong" and "accurate but expensive" — get both. Contracts, model escalation, and data-driven recommendations for [ruby_llm](https://github.com/crmne/ruby_llm).
+**Handle LLM output variance for [ruby_llm](https://github.com/crmne/ruby_llm).** Transport is a solved problem — ruby_llm already retries rate limits, timeouts, and server errors at the Faraday layer. What it can't do: retry when the model returns malformed JSON or a wrong answer, escalate to a smarter model when the cheap one fails the rules, measure variance on your dataset, and gate CI on regressions. That's what this gem adds.
+
+## Where the boundary sits
+
+| Concern | Handled by |
+|---|---|
+| Rate limits, timeouts, 5xx, connection errors | `ruby_llm` (Faraday retry middleware) |
+| Streaming, tool calls, embeddings, images, transcription | `ruby_llm` |
+| Chat history persistence (`acts_as_chat`) | `ruby_llm` |
+| **Malformed JSON / parse errors** | **`ruby_llm-contract`** |
+| **Business rule violations (invariants, schema)** | **`ruby_llm-contract`** |
+| **Retry with model escalation on bad output** | **`ruby_llm-contract`** |
+| **Measuring output variance on datasets** | **`ruby_llm-contract`** |
+| **Regression detection + CI gates** | **`ruby_llm-contract`** |
+
+Put together: `ruby_llm` owns the wire, this gem owns what the model *said*.
 
 ```
   YOU WRITE                       THE GEM HANDLES                 YOU GET
@@ -115,9 +130,9 @@ RubyLLM::Contract.configure { |c| c.default_model = "gpt-4.1-mini" }
 
 Works with any ruby_llm provider (OpenAI, Anthropic, Gemini, etc).
 
-## Save money with model escalation
+## Handle output variance with model escalation
 
-Without a contract, you use gpt-4.1 for everything because you can't tell when a cheaper model gets it wrong. With a contract, you start on nano and only escalate when the answer fails the contract:
+Models are non-deterministic. A prompt that works on 95% of inputs can break on the edge case sitting in your production traffic right now. The defensive response is to pick the strongest model and pay for it on every call. The measured response is to define a contract and let the gem escalate only when the cheaper model's output actually fails the rules:
 
 ```ruby
 retry_policy models: %w[gpt-4.1-nano gpt-4.1-mini gpt-4.1]
@@ -129,7 +144,9 @@ Attempt 2: gpt-4.1-mini  → contract passed  ($0.0004)
            gpt-4.1       → never called      ($0.00)
 ```
 
-Most requests succeed on the cheapest model. You pay full price only for the ones that need it. How many? Run `compare_models` and find out.
+Most requests succeed on the cheapest model. The expensive ones fire only when output variance demands it. The cost win is a consequence of measuring variance correctly — not the primary goal. Want to know how often each tier triggers? Run `compare_models` against your dataset.
+
+Default retry statuses (since 0.7.0) are `:validation_failed` and `:parse_error` — the two flavors of LLM output variance. Transport errors (rate limits, timeouts, 5xx) are retried by ruby_llm at the HTTP layer and intentionally not duplicated here. If you want `:adapter_error` in retry too, opt in explicitly — it's meaningful paired with an escalation chain.
 
 ## Know which model to use — with data
 
@@ -284,7 +301,9 @@ Full procedure with examples: **[Optimizing retry_policy](docs/guide/optimizing_
 
 ## Roadmap
 
-**v0.6 (current):** "What should I do?" — `Step.recommend` returns optimal model, reasoning effort, and retry chain. Per-attempt `reasoning_effort` in retry policies.
+**v0.7 (current):** Sharpened retry semantics. `DEFAULT_RETRY_ON` now targets LLM output variance only (`:validation_failed`, `:parse_error`); transport errors are delegated to ruby_llm's Faraday retry. `AdapterCaller` narrowed to let programmer errors propagate instead of masking them as retries. Breaking change — see [CHANGELOG](CHANGELOG.md) for migration.
+
+**v0.6:** "What should I do?" — `Step.recommend` returns optimal model, reasoning effort, and retry chain. Per-attempt `reasoning_effort` in retry policies.
 
 **v0.5:** Prompt A/B testing with `compare_with`. Soft observations with `observe`.
 
