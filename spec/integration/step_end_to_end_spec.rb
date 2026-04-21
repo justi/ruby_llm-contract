@@ -137,7 +137,7 @@ RSpec.describe "Step end-to-end integration" do
     it "returns :adapter_error with trace containing messages and model" do
       error_adapter = Class.new(RubyLLM::Contract::Adapters::Base) do
         def call(**)
-          raise StandardError, "connection refused"
+          raise RubyLLM::Error.new(nil, "connection refused")
         end
       end.new
 

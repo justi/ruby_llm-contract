@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+require "faraday"
+
 RSpec.describe "retry_policy integration" do
   before { RubyLLM::Contract.reset_configuration! }
 
@@ -165,12 +167,12 @@ RSpec.describe "retry_policy integration" do
   end
 
   describe "adapter_error retry" do
-    it "retries on :adapter_error (transient network/timeout failures)" do
+    it "retries on :adapter_error (transient network/timeout failures, with explicit opt-in)" do
       call_count = 0
       flaky_adapter = Object.new
       flaky_adapter.define_singleton_method(:call) do |**_opts|
         call_count += 1
-        raise StandardError, "connection timeout" if call_count < 3
+        raise RubyLLM::Error.new(nil, "connection timeout") if call_count < 3
 
         RubyLLM::Contract::Adapters::Response.new(content: '{"key": "good"}', usage: {})
       end
@@ -183,7 +185,10 @@ RSpec.describe "retry_policy integration" do
           parse :json
           invariant("key not empty") { |o| o[:key].to_s != "" }
         end
-        retry_policy { attempts 3 }
+        retry_policy do
+          attempts 3
+          retry_on :validation_failed, :parse_error, :adapter_error
+        end
       end
 
       result = step.run("test", context: { adapter: flaky_adapter })
@@ -195,7 +200,7 @@ RSpec.describe "retry_policy integration" do
     it "returns :adapter_error after all retries exhausted" do
       failing_adapter = Object.new
       failing_adapter.define_singleton_method(:call) do |**_opts|
-        raise StandardError, "connection refused"
+        raise RubyLLM::Error.new(nil, "connection refused")
       end
 
       step = Class.new(RubyLLM::Contract::Step::Base) do
@@ -203,7 +208,10 @@ RSpec.describe "retry_policy integration" do
         output_type RubyLLM::Contract::Types::Hash
         prompt { user "{input}" }
         contract { parse :json }
-        retry_policy { attempts 3 }
+        retry_policy do
+          attempts 3
+          retry_on :validation_failed, :parse_error, :adapter_error
+        end
       end
 
       result = step.run("test", context: { adapter: failing_adapter })
@@ -213,12 +221,12 @@ RSpec.describe "retry_policy integration" do
       expect(result.trace[:attempts].map { |a| a[:status] }).to eq(%i[adapter_error adapter_error adapter_error])
     end
 
-    it "escalates model on adapter_error" do
+    it "escalates model on adapter_error (with explicit opt-in)" do
       models_used = []
       flaky_adapter = Object.new
       flaky_adapter.define_singleton_method(:call) do |**opts|
         models_used << opts[:model]
-        raise StandardError, "timeout" if opts[:model] == "nano"
+        raise RubyLLM::Error.new(nil, "timeout") if opts[:model] == "nano"
 
         RubyLLM::Contract::Adapters::Response.new(content: '{"key": "ok"}', usage: {})
       end
@@ -231,7 +239,10 @@ RSpec.describe "retry_policy integration" do
           parse :json
           invariant("key not empty") { |o| o[:key].to_s != "" }
         end
-        retry_policy { escalate "nano", "mini", "full" }
+        retry_policy do
+          escalate "nano", "mini", "full"
+          retry_on :validation_failed, :parse_error, :adapter_error
+        end
       end
 
       result = step.run("test", context: { adapter: flaky_adapter })
@@ -463,6 +474,44 @@ RSpec.describe "retry_policy integration" do
 
       expect(result.status).to eq(:ok)
       expect(result.trace).not_to have_key(:attempts)
+    end
+  end
+
+  # Regression: Codex review of PR #13 (0.7.0) found that narrowing
+  # AdapterCaller#rescue to RubyLLM::Error only would leak Faraday transport
+  # errors (TimeoutError, ConnectionFailed) out of Step.run — ruby_llm's Faraday
+  # retry re-raises these after exhaustion and they are NOT RubyLLM::Error.
+  # AdapterCaller must rescue Faraday::Error too, otherwise production network
+  # outages crash instead of becoming retryable :adapter_error results.
+  describe "transport error handling (Codex review regression)" do
+    it "converts Faraday::TimeoutError into :adapter_error instead of raising" do
+      adapter = Object.new
+      adapter.define_singleton_method(:call) { |**_opts| raise Faraday::TimeoutError, "timeout after retries" }
+
+      step = Class.new(RubyLLM::Contract::Step::Base) { prompt "{input}" }
+      result = step.run("hi", context: { adapter: adapter })
+
+      expect(result.status).to eq(:adapter_error)
+      expect(result.validation_errors).to include(/timeout/)
+    end
+
+    it "converts Faraday::ConnectionFailed into :adapter_error" do
+      adapter = Object.new
+      adapter.define_singleton_method(:call) { |**_opts| raise Faraday::ConnectionFailed, "connection refused" }
+
+      step = Class.new(RubyLLM::Contract::Step::Base) { prompt "{input}" }
+      result = step.run("hi", context: { adapter: adapter })
+
+      expect(result.status).to eq(:adapter_error)
+    end
+
+    it "propagates NoMethodError from adapter (programmer bug, not transport)" do
+      adapter = Object.new
+      adapter.define_singleton_method(:call) { |**_opts| nil.non_existent_method }
+
+      step = Class.new(RubyLLM::Contract::Step::Base) { prompt "{input}" }
+
+      expect { step.run("hi", context: { adapter: adapter }) }.to raise_error(NoMethodError)
     end
   end
 end

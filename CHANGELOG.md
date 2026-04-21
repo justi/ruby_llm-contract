@@ -1,5 +1,32 @@
 # Changelog
 
+## 0.7.0 (2026-04-21)
+
+### Breaking changes
+
+- **`:adapter_error` removed from `DEFAULT_RETRY_ON`.** New default: `[:validation_failed, :parse_error]`. `ruby_llm` already retries transport errors (`RateLimitError`, `ServerError`, `ServiceUnavailableError`, `OverloadedError`, timeouts) at the Faraday layer, so the previous default re-ran the same model on errors the HTTP middleware already retried with backoff. To restore pre-0.7 behavior: `retry_on :validation_failed, :parse_error, :adapter_error`. Recommended pattern: pair `:adapter_error` with `escalate "model_a", "model_b"` — a different model/provider can bypass what transport retry could not.
+- **`AdapterCaller` narrows `rescue` from `StandardError` to `RubyLLM::Error` + `Faraday::Error`.** Provider errors and transport errors that escape ruby_llm's Faraday retry middleware (`Faraday::TimeoutError`, `Faraday::ConnectionFailed`) still produce `:adapter_error` as before. Programmer errors that are neither (`NoMethodError`, adapter code bugs) now propagate instead of being silently converted to `:adapter_error` and retried. **Known limitation:** adapter code raising `ArgumentError` is still coerced into `:input_error` by `Step::Base#run_once` (which rescues `ArgumentError` for input-type validation). Disambiguating adapter-ArgumentError vs input-validation-ArgumentError requires a `run_once` refactor and is tracked as a follow-up.
+
+### Migration
+
+If you rely on the old behavior, opt in explicitly:
+
+```ruby
+retry_policy do
+  attempts 3
+  retry_on :validation_failed, :parse_error, :adapter_error
+end
+```
+
+Or better, with a model fallback chain:
+
+```ruby
+retry_policy do
+  escalate "gpt-4.1-nano", "gpt-4.1-mini"
+  retry_on :validation_failed, :parse_error, :adapter_error
+end
+```
+
 ## 0.6.4 (2026-04-20)
 
 ### Features

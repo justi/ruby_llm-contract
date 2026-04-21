@@ -1433,8 +1433,14 @@ RSpec.describe "Adversarial QA round 10 -- production certification audit" do
       expect(policy.retryable?(result)).to be true
     end
 
-    it "adapter_error is retryable by default" do
+    it "adapter_error is NOT retryable by default (breaking 0.7.0: requires explicit retry_on :adapter_error)" do
       policy = RubyLLM::Contract::Step::RetryPolicy.new(attempts: 3)
+      result = RubyLLM::Contract::Step::Result.new(status: :adapter_error, raw_output: nil, parsed_output: nil)
+      expect(policy.retryable?(result)).to be false
+    end
+
+    it "adapter_error IS retryable when explicitly opted in" do
+      policy = RubyLLM::Contract::Step::RetryPolicy.new(attempts: 3, retry_on: %i[validation_failed parse_error adapter_error])
       result = RubyLLM::Contract::Step::Result.new(status: :adapter_error, raw_output: nil, parsed_output: nil)
       expect(policy.retryable?(result)).to be true
     end
