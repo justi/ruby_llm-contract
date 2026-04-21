@@ -148,6 +148,55 @@ Most requests succeed on the cheapest model. The expensive ones fire only when o
 
 Default retry statuses (since 0.7.0) are `:validation_failed` and `:parse_error` — the two flavors of LLM output variance. Transport errors (rate limits, timeouts, 5xx) are retried by ruby_llm at the HTTP layer and intentionally not duplicated here. If you want `:adapter_error` in retry too, opt in explicitly — it's meaningful paired with an escalation chain.
 
+## Soft delivery: retry for variance, ship the last attempt
+
+Sometimes validation is a **soft quality check** — "options balanced", "style consistent", "tone friendly" — and a partial output is better than none. The same model generating the same prompt produces different samples run-to-run (OpenAI forces `temperature=1.0` on gpt-5/o-series), so a single unlucky draw shouldn't fail the user. Use `attempts:` to retry on the SAME model — no escalation — and get the last attempt back even if it still failed the contract:
+
+```ruby
+class GenerateQuiz < RubyLLM::Contract::Step::Base
+  output_schema do
+    # ... 15 questions × 4 options ...
+  end
+
+  validate("answer options balanced") do |out, _|
+    out[:questions].all? do |q|
+      lens = q[:answer_options].map(&:length)
+      next false if lens.empty? || lens.min.zero?
+
+      lens.min >= 15 && (lens.max.to_f / lens.min) <= 1.7
+    end
+  end
+
+  retry_policy attempts: 3
+end
+
+result = GenerateQuiz.run(document)
+if result.ok?
+  publish(result.parsed_output)
+else
+  # Three unlucky draws in a row — ship the last one anyway, log the miss.
+  Rails.logger.warn "Quiz delivered with soft-validation miss: #{result.validation_errors.join('; ')}"
+  publish(result.parsed_output)
+end
+```
+
+How this differs from the escalation chain:
+
+- `retry_policy models: %w[nano mini full]` — **document hardness.** Retry means "the cheap model isn't enough, use a smarter one."
+- `retry_policy attempts: 3` — **sampling variance.** Retry means "same model, different random seed — the model can do better on a second try."
+
+After all `attempts` are exhausted (`attempts: 3` means 3 total tries, not 3 retries on top of the first), the Result carries `status: :validation_failed` plus the last attempt's `parsed_output`. The caller decides: ship anyway, fall back to a template, or surface an error. The gem does not raise on exhaustion — your application policy, your choice.
+
+Combine both when helpful:
+
+```ruby
+retry_policy do
+  escalate({ model: "gpt-4.1-mini" }, { model: "gpt-4.1-mini" }, { model: "gpt-4.1" })
+end
+```
+
+Two tries on mini (variance retry) before paying for full-fat gpt-4.1.
+
 ## Know which model to use — with data
 
 Don't guess. Define test cases, compare models, get numbers:
