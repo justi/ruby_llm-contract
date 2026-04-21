@@ -803,7 +803,7 @@ RSpec.describe "Edge cases" do
       it "populates trace with messages and model even on adapter failure" do
         failing_adapter = Class.new(RubyLLM::Contract::Adapters::Base) do
           def call(messages:, **_options) # rubocop:disable Lint/UnusedMethodArgument
-            raise "network failure"
+            raise RubyLLM::Error.new(nil, "network failure")
           end
         end.new
 

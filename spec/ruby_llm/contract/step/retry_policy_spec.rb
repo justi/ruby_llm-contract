@@ -30,9 +30,9 @@ RSpec.describe RubyLLM::Contract::Step::RetryPolicy do
       expect(policy.max_attempts).to eq(5)
     end
 
-    it "defaults retryable statuses" do
+    it "defaults retryable statuses (breaking 0.7.0: :adapter_error removed — opt in explicitly)" do
       policy = described_class.new
-      expect(policy.retryable_statuses).to eq(%i[validation_failed parse_error adapter_error])
+      expect(policy.retryable_statuses).to eq(%i[validation_failed parse_error])
     end
 
     it "allows custom retryable statuses" do

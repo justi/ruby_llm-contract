@@ -6,7 +6,14 @@ module RubyLLM
       class RetryPolicy
         attr_reader :max_attempts, :retryable_statuses
 
-        DEFAULT_RETRY_ON = %i[validation_failed parse_error adapter_error].freeze
+        # Breaking (0.7.0): :adapter_error removed from defaults. ruby_llm's Faraday
+        # middleware already retries transport errors (RateLimitError, ServerError,
+        # ServiceUnavailableError, OverloadedError, timeouts). Retrying on
+        # :adapter_error against the same model re-runs what transport already did.
+        # Opt in explicitly with `retry_on :adapter_error` — only meaningful paired
+        # with `escalate "model_a", "model_b"` (a different model may bypass what
+        # transport retry could not).
+        DEFAULT_RETRY_ON = %i[validation_failed parse_error].freeze
 
         def initialize(models: nil, attempts: nil, retry_on: nil, &block)
           @configs = []
