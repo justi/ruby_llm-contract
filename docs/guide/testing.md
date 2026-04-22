@@ -34,9 +34,9 @@ Multi-step pipeline testing with per-step named responses:
 ```ruby
 result = MyPipeline.test("input",
   responses: {
-    extract:  { decisions: [...] },
-    analyze:  { analyses: [...] },
-    email:    { subject: "...", body: "..." }
+    extract:  { decisions: [{ id: "D1", description: "ship", made_by: "lead" }] },
+    analyze:  { analyses: [{ action_item_id: "A1", status: "clear", issues: [] }] },
+    email:    { subject: "Follow-up", body: "Hi team, ..." }
   }
 )
 ```
@@ -100,10 +100,10 @@ end
 
 ```ruby
 stub_steps(
-  SummarizeArticle => { response: { ... } },
-  RelatedArticles  => { response: { ... } }
+  SummarizeArticle => { response: { tldr: "...", takeaways: %w[a b c], tone: "neutral" } },
+  RelatedArticles  => { response: { related: %w[article-1 article-2] } }
 ) do
-  result = ArticlePipeline.run("...")
+  result = ArticlePipeline.run("article text")
 end
 ```
 

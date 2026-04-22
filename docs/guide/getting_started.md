@@ -1,6 +1,6 @@
 # Getting Started
 
-The README shows a minimal `SummarizeArticle` step. This guide walks through the features you reach for as production requirements grow: budget caps so runaway inputs don't drain your OpenAI account, evals so you catch regressions in CI, and CI gating so a merge that lowers accuracy gets blocked.
+The README shows a minimal `SummarizeArticle` step. This guide walks through the features you reach for as production requirements grow: budget caps so runaway inputs don't drain your LLM provider budget, evals so you catch regressions in CI, and CI gating so a merge that lowers accuracy gets blocked.
 
 ## The walkthrough
 
