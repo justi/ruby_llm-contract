@@ -10,259 +10,147 @@ If you change prompts by feel, you ship regressions by feel.
 4. Re-run the same eval.
 5. Merge only if the eval says quality improved or stayed safe.
 
-That is the practical version of `eval-first`.
-
-## Core Rule
+## Core rule
 
 **Do not start with the prompt. Start with the eval.**
 
-In this gem, that means:
+Using the `SummarizeArticle` step from the [README](../../README.md):
 
 ```ruby
-ClassifyTicket.define_eval("regression") do
-  add_case "billing dispute",
-           input: "I was charged twice this month",
-           expected: { priority: "high", category: "billing" }
+SummarizeArticle.define_eval("regression") do
+  add_case "ruby release",
+           input: "Ruby 3.4 shipped with frozen string literals...",
+           expected: { tone: "analytical" }  # partial match
 
-  add_case "outage",
-           input: "Database is down for all customers",
-           expected: { priority: "urgent", category: "technical" }
+  add_case "critical review",
+           input: "Mesh networking hardware failed under load...",
+           expected: { tone: "negative" }
 end
 ```
 
-Then and only then:
-- add or change `system`
-- tighten `rule`
-- add `example`
-- change `validate`
-- compare prompt versions
+Only after the eval exists, touch: `system`, `rule`, `example`, `validate`, prompt versions.
 
-## The Right Mental Model
+## Three eval kinds
 
-Use the gem in three layers:
-
-### 1. `smoke`
-
-Fast, local, often offline.
-
-Purpose:
-- verify that the step still parses
-- verify schema and validates
-- catch obvious contract breakage
+### 1. `smoke` — wiring check, offline
 
 ```ruby
-ClassifyTicket.define_eval("smoke") do
-  default_input "My invoice is wrong"
-  sample_response({ priority: "high", category: "billing" })
+SummarizeArticle.define_eval("smoke") do
+  default_input "Ruby 3.4 shipped with frozen string literals..."
+  sample_response({ tldr: "...", takeaways: [...], tone: "analytical" })
 end
 ```
 
-`sample_response` is good here.
+`sample_response` returns canned data. Zero API calls. Verifies schema + validates parse and the step wiring is intact. **Not a quality signal.**
 
-It is **not** your main quality signal.
+### 2. `regression` — real quality measurement
 
-### 2. `regression`
+Represent real traffic and known failures. Good sources: production logs, bad completions, incidents, QA edge cases, cases a human had to correct.
 
-This is your real eval-first dataset.
+Every production failure becomes `add_case`. That's the flywheel.
 
-Purpose:
-- represent real user traffic
-- capture known failures and expensive mistakes
-- gate merges and prompt changes
+### 3. `ab` — prompt iteration
 
-Good sources:
-- support tickets
-- bad completions from logs
-- incidents
-- edge cases found in QA
-- cases where a human had to correct the output
-
-Every time the model fails in production, the default response should be:
-
-`add_case`, then fix.
-
-### 3. `ab`
-
-Prompt iteration.
-
-Purpose:
-- compare old prompt vs new prompt on the same dataset
-- block regressions before rollout
+Compare two prompt versions on the same eval:
 
 ```ruby
-diff = ClassifyTicketV2.compare_with(
-  ClassifyTicketV1,
+diff = SummarizeArticleV2.compare_with(
+  SummarizeArticleV1,
   eval: "regression",
   model: "gpt-4.1-mini"
 )
 
-diff.safe_to_switch?
+diff.safe_to_switch?  # => true if no cases regressed
 ```
 
-This is the cleanest `eval-first` move in the gem: same eval, same cases, two prompt versions.
+This is the cleanest eval-first move: same eval, same cases, two prompt versions, one answer.
 
-## What Counts As Eval-First In This Gem
+## What counts as eval-first
 
-### Good
+**Good** — eval exists before the prompt change:
 
 ```ruby
-ClassifyTicket.define_eval("regression") do
-  add_case "refund", input: "Refund me", expected: { category: "billing" }
+SummarizeArticle.define_eval("regression") do
+  add_case "short article", input: "...", expected: { tone: "neutral" }
 end
 
-# Prompt changes happen after the eval exists
-diff = NewPrompt.compare_with(OldPrompt, eval: "regression", model: "gpt-4.1-mini")
+# Prompt iteration happens afterward
+diff = SummarizeArticleV2.compare_with(SummarizeArticleV1, eval: "regression", model: "gpt-4.1-mini")
 ```
 
-### Bad
+**Bad**:
 
 ```ruby
 # Tweak prompt for an hour
 # Maybe add an example
 # Maybe tighten a rule
-# Then manually eyeball one or two responses
+# Then eyeball one or two responses
 ```
 
-That is not eval-first. That is prompt guessing.
+That's prompt guessing, not eval-first.
 
-## `sample_response`: Useful, But Not The Main Thing
+## `sample_response`: useful, but not the main thing
 
-`sample_response` is excellent for:
-- offline smoke tests
-- local development
-- testing evaluator wiring
-- verifying schema + validate behavior with zero API calls
+Good for: offline smoke tests, local development, testing evaluator wiring, checking schema + validate behavior with zero API calls.
 
-It is **not** enough for real prompt decisions.
+Not enough for real prompt decisions. For those:
 
-For real eval-first work:
-- use `run_eval(..., context: { model: "..." })`
-- or pass an explicit adapter
+- `run_eval(..., context: { model: "..." })` with a real model, or pass an explicit adapter.
+- `compare_with(...)` for prompt A/B.
 
-And for prompt A/B:
-- use `compare_with`
-- with a real `model:` or explicit adapters
+`compare_with` intentionally ignores `sample_response` — canned data would make both sides look the same.
 
-`compare_with` intentionally ignores `sample_response`, because canned data would make both sides look the same.
+## Team workflow
 
-## The Minimal Team Workflow
+1. **Build one eval that matters** — 10–30 cases representing real mistakes and important business paths.
+2. **Gate CI** — `pass_eval("regression").with_context(model: "...").with_minimum_score(0.8)`. See [Getting Started](getting_started.md) for the full matcher chain.
+3. **Save a baseline** — `report.save_baseline!` makes quality drift visible.
+4. **Change prompts only through comparison** — `pass_eval(...).compared_with(SummarizeArticleV1)` in CI so any regression blocks the merge.
+5. **Feed production failures back** — every miss in prod → new `add_case`, then fix. The eval gets stronger over time.
 
-### Step 1. Build one eval that matters
+## Few-shot examples fit naturally
 
-Start with 10 to 30 cases that represent real mistakes and important business paths.
+Adding `example input: ..., output: ...` inside the prompt is still a prompt change. The eval-first way:
 
-```ruby
-ClassifyTicket.define_eval("regression") do
-  add_case "invoice", input: "Invoice is wrong", expected: { category: "billing" }
-  add_case "feature", input: "Please add dark mode", expected: { priority: "low" }
-  add_case "outage", input: "Everything is down", expected: { priority: "urgent" }
-end
-```
+1. Add examples to the prompt.
+2. Rerun the existing regression eval.
+3. `compare_with` against the old prompt.
 
-### Step 2. Gate it in CI
+Few-shot isn't the proof. The eval is.
 
-```ruby
-expect(ClassifyTicket).to pass_eval("regression")
-  .with_context(model: "gpt-4.1-mini")
-  .with_minimum_score(0.8)
-```
+## Model selection comes after prompt stability
 
-Now prompt changes stop being opinion-based.
+Don't optimize cost before you stabilize quality:
 
-### Step 3. Save a baseline
+1. Build `regression`.
+2. Improve the prompt with `compare_with`.
+3. Lock quality in CI.
+4. Then run `compare_models` (see [Optimizing retry_policy](optimizing_retry_policy.md)).
 
 ```ruby
-report = ClassifyTicket.run_eval("regression", context: { model: "gpt-4.1-mini" })
-report.save_baseline!(model: "gpt-4.1-mini")
-```
-
-This makes quality drift visible.
-
-### Step 4. Change prompts only through comparison
-
-```ruby
-expect(ClassifyTicketV2).to pass_eval("regression")
-  .with_context(model: "gpt-4.1-mini")
-  .compared_with(ClassifyTicketV1)
-  .with_minimum_score(0.8)
-```
-
-If the new prompt regresses, the change does not merge.
-
-### Step 5. Add every production failure back into the eval
-
-This is the flywheel:
-
-- failure in prod
-- add a case
-- improve prompt
-- rerun eval
-- lock it with CI
-
-That is how the eval gets stronger over time.
-
-## Few-Shot Examples Fit Naturally
-
-If you add:
-
-```ruby
-example input: "My invoice is wrong", output: '{"priority":"high","category":"billing"}'
-```
-
-that is still just a prompt change.
-
-The eval-first way to use few-shot is:
-
-1. add examples to the prompt
-2. rerun the existing regression eval
-3. compare against the old prompt with `compare_with`
-
-Few-shot is not the proof.
-The eval is the proof.
-
-## Model Selection Comes After Prompt Stability
-
-Do not optimize model cost before you stabilize prompt quality.
-
-Recommended order:
-
-1. Build `regression`
-2. Improve prompt with `compare_with`
-3. Lock quality in CI
-4. Then run `compare_models`
-
-```ruby
-comparison = ClassifyTicket.compare_models(
+comparison = SummarizeArticle.compare_models(
   "regression",
-  models: %w[gpt-4.1-nano gpt-4.1-mini gpt-4.1]
+  candidates: [{ model: "gpt-4.1-nano" }, { model: "gpt-4.1-mini" }, { model: "gpt-4.1" }]
 )
 
 comparison.best_for(min_score: 0.95)
 ```
 
-This keeps cost optimization downstream from quality.
+## Strong defaults for teams
 
-## Strong Defaults For Teams
+- `smoke` uses `sample_response`.
+- `regression` uses real model calls.
+- Every prompt change uses `compare_with`.
+- Every merge runs `pass_eval`.
+- Every production failure becomes a new `add_case`.
 
-If you want one simple standard:
-
-- `smoke` uses `sample_response`
-- `regression` uses real model calls
-- every prompt change uses `compare_with`
-- every merge runs `pass_eval`
-- every production failure becomes a new `add_case`
-
-That is enough to make the gem work in a real eval-first loop.
-
-## Short Version
-
-Use the gem like this:
+## Short version
 
 1. Write `define_eval` before touching the prompt.
 2. Treat `sample_response` as smoke only.
 3. Use `run_eval("name", context: { model: "..." })` for real quality measurement.
 4. Use `compare_with` for every serious prompt change.
 5. Gate merges with `pass_eval`.
-6. Feed every production miss back into the eval dataset.
+6. Feed every production miss back into the dataset.
 
-If you do that consistently, prompts stop being vibes and start being engineering.
+Prompts stop being vibes and start being engineering.
