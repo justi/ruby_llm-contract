@@ -2,13 +2,17 @@
 
 If you change prompts by feel, you ship regressions by feel.
 
+Concrete scenario: `SummarizeArticle` has been running in production for two weeks. Customer success notices that complaints about service outages keep getting `tone: "analytical"` instead of `"negative"` — so their "critical feedback" filter silently misses angry users. Someone tweaks the system prompt to emphasise negative sentiment. It fixes the outage article but now three neutral product-update articles get misclassified as `"negative"`. You find out from a Slack thread.
+
+That is the cost of prompt-by-feel. Evals are how you stop it.
+
 `ruby_llm-contract` works best when you treat evals as the source of truth:
 
-1. Capture real failures from production.
-2. Turn them into eval cases.
+1. Capture real failures from production (the outage article, verbatim).
+2. Turn them into eval cases (`add_case "service outage complaint"`).
 3. Change the prompt.
-4. Re-run the same eval.
-5. Merge only if the eval says quality improved or stayed safe.
+4. Re-run the same eval — plus all previously-passing cases.
+5. Merge only if the eval says quality improved or stayed safe on every case.
 
 ## Core rule
 

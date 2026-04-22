@@ -1,6 +1,8 @@
 # Prompt AST
 
-Prompts are structured data, not strings. Available node types:
+Prompts are structured data, not strings. That matters the moment `SummarizeArticle` has to ship in more than one shape — a different audience per tenant, a different language per region, a different tone template for a B2B vs consumer card. Building those variants by string-concatenating a monolithic prompt leads to silent drift across environments. The AST gives you typed nodes (`system`, `rule`, `section`, `example`, `user`) that compose, diff, and snapshot-test cleanly.
+
+Available node types:
 
 ```ruby
 prompt do
@@ -23,7 +25,7 @@ The AST is immutable, diffable, and hashable. Useful for snapshot testing and au
 
 ## Hash inputs with variable interpolation
 
-When input is a Hash, each key becomes a template variable. For example, if `SummarizeArticle` evolves to accept explicit audience and language instead of raw article text:
+When input is a Hash, each key becomes a template variable. Concrete scenario: a multi-language newsletter product where the same article has to be summarised in Polish for EU subscribers, English for US, with different audiences per tier (Rails developers vs engineering managers). Hash inputs let one step cover all of these without forking the class:
 
 ```ruby
 class SummarizeArticle < RubyLLM::Contract::Step::Base

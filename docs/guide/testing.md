@@ -1,5 +1,7 @@
 # Testing
 
+CI that hits a real LLM on every commit is slow and costly: tests take minutes instead of milliseconds, every rerun spends money, and flakes on provider hiccups block merges. The Test adapter + `stub_step` make LLM-backed specs run like ordinary unit tests — deterministic, offline, free. Live evals stay as an opt-in CI stage for quality gating (see [Eval-First](eval_first.md)).
+
 How to write deterministic specs and matchers for steps built on `ruby_llm-contract`. Examples use `SummarizeArticle` (the flagship step from the [README](../../README.md)).
 
 ## Test adapter

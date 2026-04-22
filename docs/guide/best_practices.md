@@ -6,6 +6,8 @@ All examples extend the `SummarizeArticle` step from the [README](../../README.m
 
 ## 1. Guard against empty / placeholder output
 
+**Why it matters:** a cheap model that answers `{"tldr": "This article discusses...", "takeaways": ["This article discusses X", ...]}` passes the schema but renders a broken UI card that tells the user nothing. The validate catches it before `Article.update!` persists it.
+
 ```ruby
 output_schema do
   string :tldr
@@ -24,6 +26,8 @@ end
 
 ## 2. Cross-validate output against input
 
+**Why it matters:** a lazy model will return the article text verbatim as the "summary", or invent takeaways about topics the article never mentions. The 2-arity form is how you catch answers that are internally consistent but unfaithful to the actual input.
+
 `validate` blocks with 2-arity `|output, input|` compare the model's answer against what was asked:
 
 ```ruby
@@ -41,6 +45,8 @@ end
 
 ## 3. Conditional logic schema can't express
 
+**Why it matters:** customer success filters on `tone == "negative"` to route angry users to a human. If the model labels an outage complaint "negative" but the takeaways are all positive-sounding, the filter runs on a label that doesn't match the content — the routing breaks silently.
+
 ```ruby
 validate("negative tone requires at least one concrete concern") do |output, _input|
   next true unless output[:tone] == "negative"
@@ -51,6 +57,8 @@ end
 A model that picks `tone: "negative"` but gives three upbeat takeaways fails this check. Schema can't catch it because each takeaway is, individually, a valid string.
 
 ## 4. Content quality
+
+**Why it matters:** a TL;DR with `## Summary` leaks markdown into a plain-text card. A one-word takeaway ("Fast.") wastes a UI slot. A leaked `{article}` placeholder reveals the prompt template to end users. All pass schema; all embarrass you in front of customers.
 
 ```ruby
 validate("no markdown headings in the TL;DR") do |o, _|
@@ -93,6 +101,8 @@ end
 The explicit `validate("tone preserved")` catches the case where the model silently rewrites the tone during a downstream transform.
 
 ## 6. Model fallback
+
+**Why it matters:** 80% of production articles are short and simple — `gpt-4.1-nano` handles them for ~$0.0001. The remaining 20% are dense, critical, or multi-topic — those need `gpt-4.1-mini` or `gpt-4.1`. Paying `gpt-4.1` rates for every call when nano is enough for most is throwing money away. Contracts tell you when nano wasn't enough, so fallback is cost-aware, not hope-based.
 
 Small models are cheap but hallucinate. Big models are accurate but expensive. Start cheap, fall back only when validates catch a failure:
 

@@ -26,7 +26,7 @@ end
 
 ## Nested objects in arrays
 
-Use `object do...end` inside `array` when you need more than a primitive per element. If `SummarizeArticle` grows to attach confidence per takeaway:
+Use `object do...end` inside `array` when you need more than a primitive per element. Concrete scenario: the UI card grows a "confidence bar" next to each takeaway so editors can see which points the model was sure about vs guessing. That requires `confidence` paired with `text`, not two parallel arrays that could desync. Nested objects make the pairing a schema invariant:
 
 ```ruby
 output_schema do
