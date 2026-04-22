@@ -72,9 +72,9 @@ module RubyLLM
           end
 
           chain_width = [rows.map { |r| r[:chain].length }.max || 0, 20].max
-          lines = [format("  %-#{chain_width}s  %-12s  %-10s  %-14s  %-9s  %s",
+          lines = [format("  %-#{chain_width}s  %-13s  %-10s  %-14s  %-9s  %s",
                           "Chain", "first-attempt", "fallback %", "effective cost", "latency", "score")]
-          lines << "  #{"-" * (chain_width + 60)}"
+          lines << "  #{"-" * (chain_width + 62)}"
 
           rows.each do |row|
             lines << format_production_row(row, chain_width)
@@ -95,7 +95,7 @@ module RubyLLM
 
         def format_production_row(row, chain_width)
           report = row[:report]
-          format("  %-#{chain_width}s  %-11s  %-10s  %-14s  %-9s  %6.2f",
+          format("  %-#{chain_width}s  %-13s  %-10s  %-14s  %-9s  %6.2f",
                  row[:chain],
                  format_money(report.single_shot_cost || report.total_cost),
                  format_escalation(row, report),
