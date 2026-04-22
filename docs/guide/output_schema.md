@@ -78,6 +78,8 @@ end
 |-----------|-------|---------|
 | `enum` | string, integer | `string :status, enum: %w[active inactive]` |
 | `minimum` / `maximum` | number, integer | `number :score, minimum: 0, maximum: 100` |
-| `minLength` / `maxLength` | string | `string :name, minLength: 1, maxLength: 100` |
-| `minItems` / `maxItems` | array | `array :tags, minItems: 1, maxItems: 10` |
-| `additionalProperties` | object | Set to `false` in schema to reject extra keys |
+| `min_length` / `max_length` | string | `string :name, min_length: 1, max_length: 100` |
+| `min_items` / `max_items` | array | `array :tags, min_items: 1, max_items: 10` |
+| `additional_properties` | object | Set to `false` in schema to reject extra keys |
+
+Keyword args use Ruby snake_case (`min_length`, `min_items`). The DSL converts them internally to JSON Schema's camelCase (`minLength`, `minItems`) before sending the schema to the provider — you do not need to write camelCase in Ruby.
