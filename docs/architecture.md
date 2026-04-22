@@ -37,7 +37,6 @@ RubyLLM::Contract::Eval             # quality measurement
   ├── Eval::Recommender          # model recommendation algorithm (candidates → optimal config)
   └── Eval::Recommendation       # recommendation result (best, retry_chain, savings, to_dsl)
 
-RubyLLM::Contract::CI               # CI / Rails integration
-  ├── RakeTask                   # rake ruby_llm_contract:eval
-  └── Railtie                    # auto-loads eval files in Rails
+RubyLLM::Contract::RakeTask         # rake ruby_llm_contract:eval
+RubyLLM::Contract::Railtie          # auto-loads eval files in Rails
 ```

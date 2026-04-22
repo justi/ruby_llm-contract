@@ -200,11 +200,20 @@ Log suspicious-but-not-invalid output without failing the contract:
 
 ```ruby
 class CompareArticles < RubyLLM::Contract::Step::Base
-  validate("scores in range") { |o| (1..10).include?(o[:score_a]) }
-  observe("scores should differ") { |o| o[:score_a] != o[:score_b] }
+  prompt "Score the article pair for relevance. Return JSON: {score_a: 1-10, score_b: 1-10}.\n\n{input}"
+
+  output_schema do
+    integer :score_a, minimum: 1, maximum: 10
+    integer :score_b, minimum: 1, maximum: 10
+  end
+
+  validate("scores in range") { |o, _| (1..10).cover?(o[:score_a]) && (1..10).cover?(o[:score_b]) }
+  observe("scores should differ") { |o, _| o[:score_a] != o[:score_b] }
 end
 
-result = CompareArticles.run(input)
+adapter = RubyLLM::Contract::Adapters::Test.new(response: { score_a: 5, score_b: 5 })
+result  = CompareArticles.run("two identical-looking articles", context: { adapter: adapter })
+
 result.ok?           # => true (observe never fails the contract)
 result.observations  # => [{ description: "scores should differ", passed: false }]
 ```

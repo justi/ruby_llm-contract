@@ -82,18 +82,6 @@ ruby examples/05_output_schema.rb
 ruby examples/04_real_llm.rb
 ```
 
-## 06_reddit_promo.rb — Real-world Reddit promo pipeline
-
-3-step pipeline from the reddit_promo_planner case study:
-
-| Step | Role | Validates catch |
-|------|------|------------------|
-| 1 | TargetAudience | `locale: "USA"` instead of `"en"`, vague summary |
-| 2 | ClassifyThreads | PROMO with score 2, SKIP with score 8 |
-| 3 | GenerateComment | `{PRODUCT}` instead of URL, banned openings |
-
-Runs with test adapter by default. `REAL_LLM=1` for Ollama, `MODEL=gemma:latest` to pick model.
-
 ## 07_keyword_extraction.rb — Keyword extraction with probability
 
 Extract up to 15 keywords from an article, each with relevance probability.
@@ -117,6 +105,14 @@ Extract up to 15 keywords from an article, each with relevance probability.
 | Translate | Creative | Missing segments, too long, echoed back untranslated |
 | Review | Evaluation | Inconsistent counts, failed reviews without issues |
 
+## 09_eval_dataset.rb — Dataset-driven eval workflow
+
+Shows `define_eval` + `add_case` + `compare_models` end-to-end against a small hand-curated dataset.
+
+## 10_reddit_full_showcase.rb — Full showcase across the gem
+
+Multi-step pipeline exercising schema, validates, retry with fallback, evals, and baseline regression detection on a single realistic case.
+
 ## Running
 
 ```bash
@@ -126,15 +122,14 @@ ruby examples/01_classify_threads.rb
 ruby examples/02_generate_comment.rb
 ruby examples/03_target_audience.rb
 ruby examples/05_output_schema.rb
-ruby examples/06_reddit_promo.rb
 ruby examples/07_keyword_extraction.rb
 ruby examples/08_translation.rb
+ruby examples/09_eval_dataset.rb
+ruby examples/10_reddit_full_showcase.rb
 
 # Real LLM — requires Ollama or API key:
 ruby examples/04_real_llm.rb
-REAL_LLM=1 ruby examples/06_reddit_promo.rb
-REAL_LLM=1 MODEL=llama3.2:3b ruby examples/06_reddit_promo.rb
 ```
 
-Examples 00–03, 05–06 use the test adapter by default — no API keys needed.
-Example 04 and 06 with `REAL_LLM=1` require Ollama or an API key.
+Examples 00–03, 05, 07–10 use the test adapter by default — no API keys needed.
+Example 04 requires an API key.

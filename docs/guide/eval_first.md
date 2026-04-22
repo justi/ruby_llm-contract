@@ -37,7 +37,7 @@ Only after the eval exists, touch: `system`, `rule`, `example`, `validate`, prom
 ```ruby
 SummarizeArticle.define_eval("smoke") do
   default_input "Ruby 3.4 shipped with frozen string literals..."
-  sample_response({ tldr: "...", takeaways: [...], tone: "analytical" })
+  sample_response({ tldr: "...", takeaways: ["point one", "point two", "point three"], tone: "analytical" })
 end
 ```
 

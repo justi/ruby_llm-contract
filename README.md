@@ -57,7 +57,7 @@ You could write this loop yourself once. The gem gives you the loop, a trace of 
 Everything below is optional — the example above is a complete step. Reach for these when one step isn't enough.
 
 - **[CI regression gates](docs/guide/getting_started.md)** — `define_eval` + `save_baseline!` + `pass_eval(...).without_regressions` blocks CI when accuracy drops on a model update or prompt tweak.
-- **[Find the cheapest viable fallback list](docs/guide/optimizing_retry_policy.md)** — `Step.recommend(candidates:, min_score:)` returns the cheapest list of models that still passes your evals. `production_mode:` measures retry-aware cost.
+- **[Find the cheapest viable fallback list](docs/guide/optimizing_retry_policy.md)** — `Step.recommend("regression", candidates: [...], min_score: 0.95)` returns the cheapest list of models that still passes your evals. `production_mode:` measures retry-aware cost.
 - **[A/B test prompts](docs/guide/eval_first.md)** — `SummarizeArticleV2.compare_with(SummarizeArticleV1, eval: "regression")` reports whether the new prompt is safe to ship.
 - **[Budget caps](docs/guide/getting_started.md)** — `max_cost`, `max_input`, `max_output` refuse the request before calling the API when an estimate exceeds the limit.
 
@@ -79,7 +79,7 @@ Also supports [multi-step pipelines](docs/guide/pipeline.md) with fail-fast and 
 
 ## Roadmap
 
-Latest: **v0.7.1** — `run_once` no longer masks adapter bugs as `:input_error`. See [CHANGELOG](CHANGELOG.md) for history.
+Latest: **v0.7.2** — terminal output labels and guides aligned with the fallback narrative; `output_schema.md` DSL bug fix. See [CHANGELOG](CHANGELOG.md) for history.
 
 ## License
 

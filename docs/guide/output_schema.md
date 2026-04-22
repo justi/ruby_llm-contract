@@ -3,7 +3,7 @@
 Declare the expected output structure using [ruby_llm-schema](https://github.com/danielfriis/ruby_llm-schema) DSL. The schema serves **two purposes**:
 
 1. **Output validation** — replaces type and shape checks (enums, ranges, required fields). One declaration instead of many.
-2. **Provider-side enforcement** — with the RubyLLM adapter, the schema is sent to the LLM provider via `chat.with_schema(...)`, so the model is **forced** to return JSON matching the schema.
+2. **Provider-side request** — with the RubyLLM adapter, the schema is sent to the LLM provider via `chat.with_schema(...)`, asking the model to return JSON matching the shape. Cheaper models sometimes ignore the request, which is why client-side validation (point 1) still matters.
 
 All examples below extend the `SummarizeArticle` step from the [README](../../README.md).
 
