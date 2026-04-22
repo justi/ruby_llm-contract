@@ -513,5 +513,31 @@ RSpec.describe "retry_policy integration" do
 
       expect { step.run("hi", context: { adapter: adapter }) }.to raise_error(NoMethodError)
     end
+
+    # ADR-0021 deliverable 2: programmer ArgumentError from adapter code must
+    # propagate, not be silently coerced into :input_error by Step::Base#run_once.
+    # Before the fix, a blanket `rescue ArgumentError` around the whole runner
+    # chain masked adapter bugs as "bad user input".
+    it "propagates ArgumentError from adapter code (programmer bug, not bad input)" do
+      adapter = Object.new
+      adapter.define_singleton_method(:call) do |**_opts|
+        raise ArgumentError, "adapter called with wrong arity — this is a bug"
+      end
+
+      step = Class.new(RubyLLM::Contract::Step::Base) { prompt "{input}" }
+
+      expect { step.run("hi", context: { adapter: adapter }) }
+        .to raise_error(ArgumentError, /adapter called with wrong arity/)
+    end
+
+    it "still converts DSL misconfiguration ArgumentError to :input_error (prompt missing)" do
+      adapter = RubyLLM::Contract::Adapters::Test.new(response: "ok")
+      step = Class.new(RubyLLM::Contract::Step::Base) { output_type String }
+
+      result = step.run("hi", context: { adapter: adapter })
+
+      expect(result.status).to eq(:input_error)
+      expect(result.validation_errors.first).to include("prompt has not been set")
+    end
   end
 end
