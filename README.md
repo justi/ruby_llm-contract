@@ -32,12 +32,12 @@ class SummarizeArticle < RubyLLM::Contract::Step::Base
 
   output_schema do
     string :tldr
-    array  :takeaways, items: { type: "string" }
+    array  :takeaways, of: :string, min_items: 3, max_items: 5
     string :tone, enum: %w[neutral positive negative analytical]
   end
 
-  validate("TL;DR fits the card") { |o, _| o[:tldr].length <= 200 }
-  validate("3 to 5 takeaways")   { |o, _| (3..5).cover?(o[:takeaways].size) }
+  validate("TL;DR fits the card")  { |o, _| o[:tldr].length <= 200 }
+  validate("takeaways are unique") { |o, _| o[:takeaways].uniq.size == o[:takeaways].size }
 
   retry_policy models: %w[gpt-4.1-nano gpt-4.1-mini gpt-4.1]
 end
@@ -50,9 +50,11 @@ result.trace[:cost]     # => 0.000032
 
 The model returns JSON matching the schema. If the response is malformed, the TL;DR overflows the card, or the takeaway count is off, the gem retries — moving to the next model in `models:` only when the cheaper one can't satisfy the rules. In this setup cheaper models are tried first and the expensive ones are used only when cheaper models fail.
 
-You could write this loop yourself once. The gem gives you the loop, trace, fallback policy, evals, baselines, and CI checks as one contract object — tracked per-step so adding a new LLM feature to your app is one class, not one-off scaffolding.
+You could write this loop yourself once. The gem gives you the loop, a trace of every attempt (model, status, cost, latency), fallback policy, evals, baselines, and CI checks as one contract object — tracked per-step so adding a new LLM feature to your app is one class, not one-off scaffolding.
 
 ## Most useful next
+
+Everything below is optional — the example above is a complete step. Reach for these when one step isn't enough.
 
 - **[CI regression gates](docs/guide/getting_started.md)** — `define_eval` + `save_baseline!` + `pass_eval(...).without_regressions` blocks CI when accuracy drops on a model update or prompt tweak.
 - **[Find the cheapest viable fallback list](docs/guide/optimizing_retry_policy.md)** — `Step.recommend(candidates:, min_score:)` returns the cheapest list of models that still passes your evals. `production_mode:` measures retry-aware cost.
@@ -69,13 +71,14 @@ Also supports [multi-step pipelines](docs/guide/pipeline.md) with fail-fast and 
 | [Eval-First](docs/guide/eval_first.md) | Datasets, baselines, A/B gates |
 | [Optimizing retry_policy](docs/guide/optimizing_retry_policy.md) | Fallback lists + production-mode cost |
 | [Best Practices](docs/guide/best_practices.md) | Validate patterns, retry-without-fallback |
+| [Output Schema](docs/guide/output_schema.md) | Full schema DSL reference + constraints |
 | [Pipeline](docs/guide/pipeline.md) | Multi-step with fail-fast |
 | [Testing](docs/guide/testing.md) | Test adapter, RSpec + Minitest matchers |
 | [Migration](docs/guide/migration.md) | Adopting in existing Rails apps |
 
 ## Roadmap
 
-Latest: **v0.7.1** — `run_once` no longer masks adapter bugs as `:input_error`. See [CHANGELOG](CHANGELOG.md) for history; v0.8 plans in ADR-0021.
+Latest: **v0.7.1** — `run_once` no longer masks adapter bugs as `:input_error`. See [CHANGELOG](CHANGELOG.md) for history.
 
 ## License
 
