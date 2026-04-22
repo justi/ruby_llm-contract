@@ -97,7 +97,7 @@ dense_article — model comparison
 - **effective cost** — total per successful output including retries.
 - **`—`** — candidate equals fallback, no chain to observe.
 
-Run this before finalizing: a candidate saving 3× on first-attempt but escalating 60% of the time may save only 1.2× in production.
+Run this before finalizing: a candidate saving 3× on first-attempt but falling back 60% of the time may save only 1.2× in production.
 
 **Scope.** Single-fallback (2-tier) chains only. Multi-tier inspect via `trace.attempts`. Step-level — calling on `Pipeline::Base` raises `ArgumentError`.
 
