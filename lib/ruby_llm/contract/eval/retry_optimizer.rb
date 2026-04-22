@@ -15,6 +15,10 @@ module RubyLLM
       class RetryOptimizer
         Result = Struct.new(:step_name, :eval_names, :candidate_labels, :score_matrix,
                             :constraining_eval, :chain, :chain_details, keyword_init: true) do
+          # Terminology alias — `hardest_eval` is the narrative name used in docs;
+          # `constraining_eval` is preserved as the original field name.
+          alias_method :hardest_eval, :constraining_eval
+
           def print_summary(io = $stdout)
             io.puts "#{step_name} — retry chain optimization"
             io.puts
@@ -59,7 +63,7 @@ module RubyLLM
             end
 
             io.puts
-            io.puts "  Constraining eval: #{constraining_eval}" if constraining_eval
+            io.puts "  Hardest eval: #{constraining_eval}" if constraining_eval
           end
 
           def print_chain(io)
@@ -68,7 +72,7 @@ module RubyLLM
               return
             end
 
-            io.puts "  Suggested chain:"
+            io.puts "  Suggested fallback list:"
             chain_details.each_with_index do |detail, i|
               suffix = i == chain_details.size - 1 ? "passes all #{eval_names.size} evals" : "covers #{detail[:passes]} eval(s)"
               io.puts "    #{detail[:label]} — #{suffix}"

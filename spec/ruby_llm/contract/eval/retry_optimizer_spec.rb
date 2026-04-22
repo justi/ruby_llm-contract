@@ -284,8 +284,8 @@ RSpec.describe RubyLLM::Contract::Eval::RetryOptimizer do
       text = output.string
 
       expect(text).to include("retry chain optimization")
-      expect(text).to include("Constraining eval: hard")
-      expect(text).to include("Suggested chain:")
+      expect(text).to include("Hardest eval: hard")
+      expect(text).to include("Suggested fallback list:")
       expect(text).to include("DSL:")
     end
   end

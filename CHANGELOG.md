@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.7.2 (2026-04-22)
+
+### Changed
+
+- **Terminal output labels renamed for consistency with README narrative.** `print_summary` now prints `Hardest eval` (was `Constraining eval`), `Suggested fallback list` (was `Suggested chain`), and the production-mode table uses `first-attempt` / `fallback %` as column headers (was `single-shot` / `escalation`). Programmatic metric names unchanged: `single_shot_cost`, `single_shot_latency_ms`, `escalation_rate`. `RetryOptimizer::Result` exposes `hardest_eval` as an alias for `constraining_eval`.
+- **`docs/guide/optimizing_retry_policy.md` rewritten.** Reduced from 17.7k → 6.4k characters. Continues the `SummarizeArticle` narrative from README. Offline mode now clearly positioned as wiring-check; real optimization runs via `LIVE=1 RUNS=3`. Output samples match actual `print_summary` format. Terminology aligned with the new labels.
+
 ## 0.7.1 (2026-04-22)
 
 ### Changed (behavioral, follow-up to v0.7.0)

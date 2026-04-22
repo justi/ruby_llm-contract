@@ -72,8 +72,8 @@ module RubyLLM
           end
 
           chain_width = [rows.map { |r| r[:chain].length }.max || 0, 20].max
-          lines = [format("  %-#{chain_width}s  %-11s  %-10s  %-14s  %-9s  %s",
-                          "Chain", "single-shot", "escalation", "effective cost", "latency", "score")]
+          lines = [format("  %-#{chain_width}s  %-12s  %-10s  %-14s  %-9s  %s",
+                          "Chain", "first-attempt", "fallback %", "effective cost", "latency", "score")]
           lines << "  #{"-" * (chain_width + 60)}"
 
           rows.each do |row|
