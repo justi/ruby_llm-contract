@@ -41,7 +41,7 @@ LIVE=1 RUNS=3 rake ruby_llm_contract:optimize \
 Output (illustrative):
 
 ```
-SummarizeArticle — retry chain optimization
+SummarizeArticle — fallback list optimization
 
   eval             4.1-nano  4.1-mini@low  4.1-mini   4.1
   ---------------------------------------------------------
@@ -60,7 +60,7 @@ SummarizeArticle — retry chain optimization
 ```
 
 Reading the table:
-- **`←` marks scores below threshold in the hardest eval.** Not a selection hint — just "this candidate fails the constraining row".
+- **`←` marks scores below threshold in the hardest eval.** Not a selection hint — just "this candidate fails the row that matters most".
 - **Hardest eval** = the one that forces the strong fallback. Here, `critical_tone` demands `gpt-4.1-mini`.
 - **Suggested fallback list** = the shortest chain where each step covers more evals, built greedy-cheapest-first. Stops when all evals pass. Order matters: `gpt-4.1-nano` is tried first; on validation failure, the gem falls back to `gpt-4.1-mini`.
 

@@ -20,7 +20,7 @@ module RubyLLM
           alias_method :hardest_eval, :constraining_eval
 
           def print_summary(io = $stdout)
-            io.puts "#{step_name} — retry chain optimization"
+            io.puts "#{step_name} — fallback list optimization"
             io.puts
             print_table(io)
             io.puts

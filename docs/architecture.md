@@ -6,7 +6,7 @@ RubyLLM::Contract::Pipeline::Base   # optional: compose steps
 
 RubyLLM::Contract::Step::Base       # single contracted step
   ├── Step::Dsl                  # DSL macros (prompt, validate, output_schema, etc.)
-  ├── Step::RetryExecutor        # retry with model escalation
+  ├── Step::RetryExecutor        # retry with model fallback
   ├── Step::LimitChecker         # preflight cost/token checks
   ├── Prompt::AST                # structured prompt (immutable)
   │     ├── Prompt::Builder      # DSL: system, rule, example, user, section
