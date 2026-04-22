@@ -220,6 +220,32 @@ result.observations  # => [{ description: "scores should differ", passed: false 
 
 `observe` runs only after validation passes. Failed observations are logged via `RubyLLM::Contract.logger` — useful for "I want to know this happened without blocking the response".
 
+## Asserting on `around_call`
+
+`around_call` fires **once per run** with the final result (after retry fallback) and exceptions propagate. That makes it straightforward to test:
+
+```ruby
+class LoggedSummarize < RubyLLM::Contract::Step::Base
+  prompt "Summarize: {input}"
+  output_schema { string :tldr }
+
+  around_call do |_step, input, result|
+    CallLog.record(model: result.trace.model, cost: result.trace.cost, input_size: input.length)
+  end
+end
+
+RSpec.describe LoggedSummarize do
+  it "logs once per run, with final model + total cost" do
+    adapter = RubyLLM::Contract::Adapters::Test.new(response: { tldr: "ok" })
+    expect(CallLog).to receive(:record).once.with(hash_including(:model, :cost, :input_size))
+
+    LoggedSummarize.run("article text", context: { adapter: adapter })
+  end
+end
+```
+
+The callback receives `(step, input, result)` — the same `Result` the caller sees. Not invoked per-attempt inside a `retry_policy` chain; if you need per-attempt visibility, read `result.trace[:attempts]` inside the block.
+
 ## Baseline file format
 
 Baselines are JSON files in `.eval_baselines/` — commit them to git:

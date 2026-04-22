@@ -139,6 +139,30 @@ RubyLLM::Contract::CostCalculator.register_model("ft:gpt-4o-custom",
   input_per_1m: 3.0, output_per_1m: 6.0)
 ```
 
+Or opt into a soft warning instead of a refusal when pricing is missing:
+
+```ruby
+max_cost 0.01, on_unknown_pricing: :warn
+```
+
+Default is `:refuse`. Use `:warn` only when you accept running without a cost ceiling (fine-tuned models you trust, private endpoints).
+
+### Preflight cost estimates
+
+Check what a call is likely to cost before invoking it:
+
+```ruby
+SummarizeArticle.estimate_cost(input: article_text)
+# => { model: "gpt-4.1-mini", input_tokens: 812, output_tokens_estimate: 4000, estimated_cost: 0.00243 }
+
+# Estimate what a full eval would cost across candidate models
+SummarizeArticle.estimate_eval_cost("regression",
+  models: %w[gpt-4.1-nano gpt-4.1-mini gpt-4.1])
+# => { "gpt-4.1-nano" => 0.00041, "gpt-4.1-mini" => 0.0018, "gpt-4.1" => 0.0092 }
+```
+
+Returns `nil` for a single call (or `0.0` summed) when pricing isn't registered — same failure mode as `max_cost`.
+
 ## `output_schema` vs `with_schema`
 
 `with_schema` in `ruby_llm` tells the provider to force a specific JSON structure. `output_schema` in this gem does the same thing (calls `with_schema` under the hood) **plus** validates the response client-side. Cheaper models sometimes ignore schema constraints — `with_schema` is a request; `output_schema` is a request plus verification.

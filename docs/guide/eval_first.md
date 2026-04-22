@@ -100,6 +100,30 @@ Not enough for real prompt decisions. For those:
 
 `compare_with` intentionally ignores `sample_response` — canned data would make both sides look the same.
 
+## Parallel eval runs
+
+For larger datasets, `run_eval` accepts a `concurrency:` argument — cases run in parallel using a thread pool:
+
+```ruby
+report = SummarizeArticle.run_eval("regression",
+  context: { model: "gpt-4.1-mini" },
+  concurrency: 8)
+```
+
+Same accepted by `compare_models` and `optimize_retry_policy`. Thread count is a ceiling — dataset order of results is preserved. Keep it low enough to respect the provider's rate limits.
+
+## Budgeting an eval before you run it
+
+`estimate_eval_cost` gives you a cost projection without calling the LLM:
+
+```ruby
+SummarizeArticle.estimate_eval_cost("regression",
+  models: %w[gpt-4.1-nano gpt-4.1-mini gpt-4.1])
+# => { "gpt-4.1-nano" => 0.00041, "gpt-4.1-mini" => 0.0018, "gpt-4.1" => 0.0092 }
+```
+
+Use it in CI to decide which models are worth running regression on, or to cap worst-case spend per build.
+
 ## Team workflow
 
 1. **Build one eval that matters** — 10–30 cases representing real mistakes and important business paths.
