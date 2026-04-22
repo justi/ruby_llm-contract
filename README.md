@@ -1,121 +1,8 @@
 # ruby_llm-contract
 
-**Handle LLM output variance for [ruby_llm](https://github.com/crmne/ruby_llm).** Transport is a solved problem — ruby_llm already retries rate limits, timeouts, and server errors at the Faraday layer. What it can't do: retry when the model returns malformed JSON or a wrong answer, escalate to a smarter model when the cheap one fails the rules, measure variance on your dataset, and gate CI on regressions. That's what this gem adds.
+**Validate and retry LLM outputs for [ruby_llm](https://github.com/crmne/ruby_llm).** Describe the answer you expect (JSON schema + business rules). If the model returns something that doesn't match, retry — optionally falling back to a stronger model — until it passes or you hit the budget.
 
-## Where the boundary sits
-
-| Concern | Handled by |
-|---|---|
-| Rate limits, timeouts, 5xx, connection errors | `ruby_llm` (Faraday retry middleware) |
-| Streaming, tool calls, embeddings, images, transcription | `ruby_llm` |
-| Chat history persistence (`acts_as_chat`) | `ruby_llm` |
-| **Malformed JSON / parse errors** | **`ruby_llm-contract`** |
-| **Business rule violations (invariants, schema)** | **`ruby_llm-contract`** |
-| **Retry with model escalation on bad output** | **`ruby_llm-contract`** |
-| **Measuring output variance on datasets** | **`ruby_llm-contract`** |
-| **Regression detection + CI gates** | **`ruby_llm-contract`** |
-
-Put together: `ruby_llm` owns the wire, this gem owns what the model *said*.
-
-```
-  YOU WRITE                       THE GEM HANDLES                 YOU GET
-  ─────────                       ───────────────                 ───────
-
-  validate { |o| ... }            catch bad answers — combined     Zero garbage
-                                  with retry_policy, auto-retry   in production
-
-  retry_policy                    start cheap, escalate only      Pay for the cheapest
-  models: %w[nano mini full]      when validation fails           model that works
-
-  max_cost 0.01                   estimate tokens, check price,   No surprise bills
-                                  refuse before calling LLM
-
-  output_schema { ... }           send JSON schema to provider,   Zero parsing code
-                                  validate response client-side
-
-  define_eval { ... }             test cases + baselines,          Regressions caught
-                                  run in CI with real LLM          before deploy
-
-  recommend(candidates: [...])    evaluate all configs, pick      Optimal model +
-                                  cheapest that passes            retry chain
-```
-
-## Before and after
-
-```
-  ┌─────────────────────────────────────────────────────────────────┐
-  │ BEFORE: pick one model, hope for the best                      │
-  │                                                                 │
-  │   expensive model → accurate, but you overpay on every call     │
-  │   cheap model     → fast, but wrong answers slip to production  │
-  │   prompt change   → "looks good to me" → deploy → users suffer │
-  └─────────────────────────────────────────────────────────────────┘
-
-                         ⬇  add ruby_llm-contract
-
-  ┌─────────────────────────────────────────────────────────────────┐
-  │ YOU DEFINE A CONTRACT                                            │
-  │                                                                 │
-  │   output_schema { string :priority }       ← valid structure   │
-  │   validate("valid priority") { |o| ... }   ← business rules    │
-  │   retry_policy models: %w[nano mini full]  ← escalation chain  │
-  │   max_cost 0.01                            ← budget cap         │
-  └───────────────────────────┬─────────────────────────────────────┘
-                              │
-                              ▼
-  ┌─────────────────────────────────────────────────────────────────┐
-  │ THE GEM HANDLES THE REST                                        │
-  │                                                                 │
-  │   request ──→ ┌──────┐   ┌──────────┐                           │
-  │               │ nano │─→ │ contract │──→ ✓ pass → done         │
-  │               └──────┘   └────┬─────┘                           │
-  │                               │ ✗ fail                          │
-  │                               ▼                                 │
-  │               ┌──────┐   ┌──────────┐                           │
-  │               │ mini │─→ │ contract │──→ ✓ pass → done         │
-  │               └──────┘   └────┬─────┘                           │
-  │                               │ ✗ fail                          │
-  │                               ▼                                 │
-  │               ┌──────┐   ┌──────────┐                           │
-  │               │ full │─→ │ contract │──→ ✓ pass → done         │
-  │               └──────┘   └──────────┘                           │
-  └───────────────────────────┬─────────────────────────────────────┘
-                              │
-                              ▼
-  ┌─────────────────────────────────────────────────────────────────┐
-  │ YOU GET                                                         │
-  │                                                                 │
-  │   ✓ Valid output guaranteed — schema + business rules enforced  │
-  │   ✓ Cheapest model that works — most requests stay on nano     │
-  │   ✓ Cost, latency, tokens — tracked on every call              │
-  │   ✓ Eval scores per model — data instead of gut feeling        │
-  │   ✓ Regressions caught — before deploy, not after              │
-  │   ✓ Recommendation — "use nano+mini, drop full, save $X/mo"   │
-  └─────────────────────────────────────────────────────────────────┘
-```
-
-## 30-second version
-
-```ruby
-class ClassifyTicket < RubyLLM::Contract::Step::Base
-  prompt "Classify this support ticket by priority and category.\n\n{input}"
-
-  output_schema do
-    string :priority, enum: %w[low medium high urgent]
-    string :category
-  end
-
-  validate("urgent needs justification") { |o, input| o[:priority] != "urgent" || input.length > 20 }
-  retry_policy models: %w[gpt-4.1-nano gpt-4.1-mini gpt-4.1]
-end
-
-result = ClassifyTicket.run("I was charged twice")
-result.parsed_output  # => {priority: "high", category: "billing"}
-result.trace[:model]  # => "gpt-4.1-nano" (first model that passed)
-result.trace[:cost]   # => 0.000032
-```
-
-Bad JSON? Retried automatically. Wrong answer? Escalated to a smarter model. Schema violated? Caught client-side. The contract guarantees every response meets your rules — you pay for the cheapest model that passes.
+`ruby_llm` handles the HTTP side (rate limits, timeouts, streaming, tool calls, embeddings). This gem handles what the model *returned*: schema validation, business rules, retry with model fallback, datasets, regression tests.
 
 ## Install
 
@@ -128,239 +15,70 @@ RubyLLM.configure { |c| c.openai_api_key = ENV["OPENAI_API_KEY"] }
 RubyLLM::Contract.configure { |c| c.default_model = "gpt-4.1-mini" }
 ```
 
-Works with any ruby_llm provider (OpenAI, Anthropic, Gemini, etc).
+Works with any `ruby_llm` provider (OpenAI, Anthropic, Gemini, etc).
 
-## Handle output variance with model escalation
+## Example
 
-Models are non-deterministic. A prompt that works on 95% of inputs can break on the edge case sitting in your production traffic right now. The defensive response is to pick the strongest model and pay for it on every call. The measured response is to define a contract and let the gem escalate only when the cheaper model's output actually fails the rules:
-
-```ruby
-retry_policy models: %w[gpt-4.1-nano gpt-4.1-mini gpt-4.1]
-```
-
-```
-Attempt 1: gpt-4.1-nano  → contract failed  ($0.0001)
-Attempt 2: gpt-4.1-mini  → contract passed  ($0.0004)
-           gpt-4.1       → never called      ($0.00)
-```
-
-Most requests succeed on the cheapest model. The expensive ones fire only when output variance demands it. The cost win is a consequence of measuring variance correctly — not the primary goal. Want to know how often each tier triggers? Run `compare_models` against your dataset.
-
-Default retry statuses (since 0.7.0) are `:validation_failed` and `:parse_error` — the two flavors of LLM output variance. Transport errors (rate limits, timeouts, 5xx) are retried by ruby_llm at the HTTP layer and intentionally not duplicated here. If you want `:adapter_error` in retry too, opt in explicitly — it's meaningful paired with an escalation chain.
-
-## Soft delivery: retry for variance, ship the last attempt
-
-Sometimes validation is a **soft quality check** — "options balanced", "style consistent", "tone friendly" — and a partial output is better than none. The same model generating the same prompt produces different samples run-to-run (OpenAI forces `temperature=1.0` on gpt-5/o-series), so a single unlucky draw shouldn't fail the user. Use `attempts:` to retry on the SAME model — no escalation — and get the last attempt back even if it still failed the contract:
+A Rails app takes article text extracted from a user-submitted URL and wants to show a summary card: a short TL;DR, 3–5 key takeaways, and a tone label. The output has to fit the UI (TL;DR under 200 chars) and the schema has to be strict enough to render without conditionals.
 
 ```ruby
-class GenerateQuiz < RubyLLM::Contract::Step::Base
+class SummarizeArticle < RubyLLM::Contract::Step::Base
+  prompt <<~PROMPT
+    Summarize this article for a UI card. Return a short TL;DR,
+    3 to 5 key takeaways, and a tone label.
+
+    {input}
+  PROMPT
+
   output_schema do
-    # ... 15 questions × 4 options ...
+    string :tldr
+    array  :takeaways, of: :string, min_items: 3, max_items: 5
+    string :tone, enum: %w[neutral positive negative analytical]
   end
 
-  validate("answer options balanced") do |out, _|
-    out[:questions].all? do |q|
-      lens = q[:answer_options].map(&:length)
-      next false if lens.empty? || lens.min.zero?
+  validate("TL;DR fits the card")  { |o, _| o[:tldr].length <= 200 }
+  validate("takeaways are unique") { |o, _| o[:takeaways].uniq.size == o[:takeaways].size }
 
-      lens.min >= 15 && (lens.max.to_f / lens.min) <= 1.7
-    end
-  end
-
-  retry_policy attempts: 3
+  retry_policy models: %w[gpt-4.1-nano gpt-4.1-mini gpt-4.1]
 end
 
-result = GenerateQuiz.run(document)
-if result.ok?
-  publish(result.parsed_output)
-else
-  # Three unlucky draws in a row — ship the last one anyway, log the miss.
-  Rails.logger.warn "Quiz delivered with soft-validation miss: #{result.validation_errors.join('; ')}"
-  publish(result.parsed_output)
-end
+result = SummarizeArticle.run(article_text)
+result.parsed_output    # => { tldr: "...", takeaways: [...], tone: "analytical" }
+result.trace[:model]    # => "gpt-4.1-nano"  (first model that passed)
+result.trace[:cost]     # => 0.000032
 ```
 
-How this differs from the escalation chain:
+The model returns JSON matching the schema. If the response is malformed, the TL;DR overflows the card, or the takeaway count is off, the gem retries — moving to the next model in `models:` only when the cheaper one can't satisfy the rules. In this setup cheaper models are tried first and the expensive ones are used only when cheaper models fail.
 
-- `retry_policy models: %w[nano mini full]` — **document hardness.** Retry means "the cheap model isn't enough, use a smarter one."
-- `retry_policy attempts: 3` — **sampling variance.** Retry means "same model, different random seed — the model can do better on a second try."
+You could write this loop yourself once. The gem gives you the loop, a trace of every attempt (model, status, cost, latency), fallback policy, evals, baselines, and CI checks as one contract object — tracked per-step so adding a new LLM feature to your app is one class, not one-off scaffolding.
 
-After all `attempts` are exhausted (`attempts: 3` means 3 total tries, not 3 retries on top of the first), the Result carries `status: :validation_failed` plus the last attempt's `parsed_output`. The caller decides: ship anyway, fall back to a template, or surface an error. The gem does not raise on exhaustion — your application policy, your choice.
+## Most useful next
 
-Combine both when helpful:
+Everything below is optional — the example above is a complete step. Reach for these when one step isn't enough.
 
-```ruby
-retry_policy do
-  escalate({ model: "gpt-4.1-mini" }, { model: "gpt-4.1-mini" }, { model: "gpt-4.1" })
-end
-```
+- **[CI regression gates](docs/guide/getting_started.md)** — `define_eval` + `save_baseline!` + `pass_eval(...).without_regressions` blocks CI when accuracy drops on a model update or prompt tweak.
+- **[Find the cheapest viable fallback list](docs/guide/optimizing_retry_policy.md)** — `Step.recommend(candidates:, min_score:)` returns the cheapest list of models that still passes your evals. `production_mode:` measures retry-aware cost.
+- **[A/B test prompts](docs/guide/eval_first.md)** — `SummarizeArticleV2.compare_with(SummarizeArticleV1, eval: "regression")` reports whether the new prompt is safe to ship.
+- **[Budget caps](docs/guide/output_schema.md)** — `max_cost`, `max_input`, `max_output` refuse the request before calling the API when an estimate exceeds the limit.
 
-Two tries on mini (variance retry) before paying for full-fat gpt-4.1.
-
-## Know which model to use — with data
-
-Don't guess. Define test cases, compare models, get numbers:
-
-```ruby
-ClassifyTicket.define_eval("regression") do
-  add_case "billing", input: "I was charged twice", expected: { priority: "high" }
-  add_case "feature", input: "Add dark mode please", expected: { priority: "low" }
-  add_case "outage",  input: "Database is down",    expected: { priority: "urgent" }
-end
-
-comparison = ClassifyTicket.compare_models("regression",
-  models: %w[gpt-4.1-nano gpt-4.1-mini gpt-4.1])
-```
-
-```
-Candidate                  Score       Cost  Avg Latency
----------------------------------------------------------
-gpt-4.1-nano                0.67    $0.0001         48ms
-gpt-4.1-mini                1.00    $0.0004         92ms
-gpt-4.1                     1.00    $0.0021        210ms
-
-Cheapest at 100%: gpt-4.1-mini
-```
-
-Nano fails on edge cases. Mini and full both score 100% — but mini is **5x cheaper**. Now you know.
-
-Running live against gpt-5 / o-series? Pass `runs: 3` to average out sampling variance (OpenAI forces `temperature=1.0` server-side, so one unlucky run can misclassify a viable candidate). See [Reducing variance with `runs:`](docs/guide/optimizing_retry_policy.md#reducing-variance-with-runs).
-
-Want the *effective* cost — first-attempt plus retries — rather than the single-shot headline number? Pass `production_mode: { fallback: "gpt-5-mini" }` and the table gains `escalation`, `effective cost`, and a `Chain` column. See [Production-mode cost measurement](docs/guide/optimizing_retry_policy.md#production-mode-cost-measurement).
-
-## Let the gem tell you what to do
-
-Don't read tables — get a recommendation. Supports `model + reasoning_effort` combinations:
-
-```ruby
-rec = ClassifyTicket.recommend("regression",
-  candidates: [
-    { model: "gpt-4.1-nano" },
-    { model: "gpt-4.1-mini" },
-    { model: "gpt-5-mini", reasoning_effort: "low" },
-    { model: "gpt-5-mini", reasoning_effort: "high" },
-  ],
-  min_score: 0.95
-)
-
-rec.best           # => { model: "gpt-4.1-mini" }
-rec.retry_chain    # => [{ model: "gpt-4.1-nano" }, { model: "gpt-4.1-mini" }]
-rec.to_dsl         # => "retry_policy models: %w[gpt-4.1-nano gpt-4.1-mini]"
-rec.savings        # => savings vs your current model (if configured)
-```
-
-Copy `rec.to_dsl` into your step. Done.
-
-## Catch regressions before users do
-
-A model update silently dropped your accuracy? A prompt tweak broke an edge case? You'll know before deploying:
-
-```ruby
-# Save a baseline once:
-report = ClassifyTicket.run_eval("regression", context: { model: "gpt-4.1-nano" })
-report.save_baseline!(model: "gpt-4.1-nano")
-
-# In CI — block merge if anything regressed:
-expect(ClassifyTicket).to pass_eval("regression")
-  .with_context(model: "gpt-4.1-nano")
-  .without_regressions
-```
-
-```ruby
-diff = report.compare_with_baseline(model: "gpt-4.1-nano")
-diff.regressed?    # => true
-diff.regressions   # => [{case: "outage", baseline: {passed: true}, current: {passed: false}}]
-diff.score_delta   # => -0.33
-```
-
-No more "it worked in the playground". Regressions are caught in CI, not production.
-
-## A/B test your prompts
-
-Changed a prompt? Compare old vs new on the same dataset with regression safety:
-
-```ruby
-diff = ClassifyTicketV2.compare_with(ClassifyTicketV1,
-  eval: "regression", model: "gpt-4.1-mini")
-
-diff.safe_to_switch?  # => true (no regressions)
-diff.improvements     # => [{case: "outage", ...}]
-diff.score_delta      # => +0.33
-```
-
-```ruby
-# CI gate:
-expect(ClassifyTicketV2).to pass_eval("regression")
-  .compared_with(ClassifyTicketV1)
-  .with_minimum_score(0.8)
-```
-
-## Chain steps with fail-fast
-
-Pipeline stops at the first contract failure — no wasted tokens on downstream steps:
-
-```ruby
-class TicketPipeline < RubyLLM::Contract::Pipeline::Base
-  step ClassifyTicket,  as: :classify
-  step RouteToTeam,     as: :route
-  step DraftResponse,   as: :draft
-end
-
-result = TicketPipeline.run("I was charged twice")
-result.outputs_by_step[:classify]   # => {priority: "high", category: "billing"}
-result.trace.total_cost             # => $0.000128
-```
-
-## Gate merges on quality and cost
-
-```ruby
-# RSpec — block merge if accuracy drops or cost spikes
-expect(ClassifyTicket).to pass_eval("regression")
-  .with_minimum_score(0.8)
-  .with_maximum_cost(0.01)
-
-# Rake — run all evals across all steps
-RubyLLM::Contract::RakeTask.new do |t|
-  t.minimum_score = 0.8
-  t.maximum_cost = 0.05
-end
-# bundle exec rake ruby_llm_contract:eval
-```
-
-## Full power: data-driven retry chains
-
-The pieces above — evals, compare_models, recommend — combine into a workflow that replaces guesswork with measured optimization. You define evals for your step, run `recommend` against all of them, find the eval that actually needs the strongest model, and build a retry chain where each attempt is as cheap as the data allows.
-
-The difference: instead of "gpt-5-mini seems to work, let's use it everywhere", you get "nano handles 4/6 scenarios, mini@low catches the 5th, full mini only fires on the hardest edge case — first attempt is 4× cheaper."
-
-Full procedure with examples: **[Optimizing retry_policy](docs/guide/optimizing_retry_policy.md)**
+Also supports [multi-step pipelines](docs/guide/pipeline.md) with fail-fast and [best-effort retries without fallback](docs/guide/best_practices.md) (`retry_policy attempts: 3` for sampling variance).
 
 ## Docs
 
 | Guide | |
 |-------|-|
-| [Getting Started](docs/guide/getting_started.md) | Features walkthrough, model escalation, eval |
-| [Eval-First](docs/guide/eval_first.md) | Practical workflow for prompt engineering with datasets, baselines, and A/B gates |
-| [Optimizing retry_policy](docs/guide/optimizing_retry_policy.md) | Find the cheapest retry chain that passes all your evals |
-| [Best Practices](docs/guide/best_practices.md) | 6 patterns for bulletproof validates |
-| [Output Schema](docs/guide/output_schema.md) | Full schema reference + constraints |
-| [Pipeline](docs/guide/pipeline.md) | Multi-step composition, timeout, fail-fast |
-| [Testing](docs/guide/testing.md) | Test adapter, RSpec matchers |
-| [Migration](docs/guide/migration.md) | Adopting the gem in existing Rails apps |
+| [Getting Started](docs/guide/getting_started.md) | Features walkthrough |
+| [Eval-First](docs/guide/eval_first.md) | Datasets, baselines, A/B gates |
+| [Optimizing retry_policy](docs/guide/optimizing_retry_policy.md) | Fallback lists + production-mode cost |
+| [Best Practices](docs/guide/best_practices.md) | Validate patterns, retry-without-fallback |
+| [Output Schema](docs/guide/output_schema.md) | Full schema DSL reference + constraints |
+| [Pipeline](docs/guide/pipeline.md) | Multi-step with fail-fast |
+| [Testing](docs/guide/testing.md) | Test adapter, RSpec + Minitest matchers |
+| [Migration](docs/guide/migration.md) | Adopting in existing Rails apps |
 
 ## Roadmap
 
-**v0.7.1 (current):** Follow-up — `Step::Base#run_once` no longer masks adapter-phase `ArgumentError` as `:input_error`. Programmer bugs in adapter code now propagate; DSL misconfiguration still becomes `:input_error` via narrower rescue.
-
-**v0.7.0:** Sharpened retry semantics. `DEFAULT_RETRY_ON` now targets LLM output variance only (`:validation_failed`, `:parse_error`); transport errors are delegated to ruby_llm's Faraday retry. `AdapterCaller` narrowed to let programmer errors propagate instead of masking them as retries. Breaking change — see [CHANGELOG](CHANGELOG.md) for migration.
-
-**v0.6:** "What should I do?" — `Step.recommend` returns optimal model, reasoning effort, and retry chain. Per-attempt `reasoning_effort` in retry policies.
-
-**v0.5:** Prompt A/B testing with `compare_with`. Soft observations with `observe`.
-
-**v0.4:** Eval history, batch concurrency, pipeline per-step eval, Minitest, structured logging.
-
-**v0.3:** Baseline regression detection, migration guide.
+Latest: **v0.7.1** — `run_once` no longer masks adapter bugs as `:input_error`. See [CHANGELOG](CHANGELOG.md) for history.
 
 ## License
 
