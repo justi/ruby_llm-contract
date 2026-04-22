@@ -1,5 +1,7 @@
 # Best Practices
 
+> Read this when writing your first `validate` rules and you want patterns that catch real bugs instead of restating schema.
+
 Schema guarantees valid JSON structure. An LLM can still return structurally perfect JSON that is **semantically wrong**. Schema handles _shape_, validates handle _meaning_.
 
 All examples extend the `SummarizeArticle` step from the [README](../../README.md).

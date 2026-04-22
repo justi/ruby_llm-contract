@@ -1,5 +1,7 @@
 # Migration Guide
 
+> Read this when adopting the gem in an existing Rails app with a raw `LlmClient.call` service you want to replace. Skip if starting fresh — go to [Getting Started](getting_started.md) instead.
+
 How to adopt `ruby_llm-contract` in an existing Rails app. Examples use `SummarizeArticle` — the flagship step from the [README](../../README.md) — but the pattern applies to any single-input / structured-output service.
 
 ## Step 1: Start with the simplest service

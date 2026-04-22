@@ -1,5 +1,7 @@
 # Eval-First
 
+> Read this when you need to prevent silent prompt regressions in CI. Skip if your LLM output is evaluated only by humans and never gated in an automated pipeline.
+
 If you change prompts by feel, you ship regressions by feel.
 
 Concrete scenario: `SummarizeArticle` has been running in production for two weeks. Customer success notices that complaints about service outages keep getting `tone: "analytical"` instead of `"negative"` — so their "critical feedback" filter silently misses angry users. Someone tweaks the system prompt to emphasise negative sentiment. It fixes the outage article but now three neutral product-update articles get misclassified as `"negative"`. You find out from a Slack thread.

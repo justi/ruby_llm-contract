@@ -1,5 +1,7 @@
 # Find the cheapest viable fallback list
 
+> Read this when you have 2+ evals and want to know empirically — not by guessing — which models belong in `retry_policy` and in what order.
+
 You defined `SummarizeArticle` in the [README](../../README.md) with `retry_policy models: %w[gpt-4.1-nano gpt-4.1-mini gpt-4.1]`. That list was a guess. `optimize_retry_policy` tells you which models your evals actually need, so you stop paying for the strong model when `nano` was enough — or stop shipping `nano` when the hardest eval proves it isn't.
 
 ## Requirements

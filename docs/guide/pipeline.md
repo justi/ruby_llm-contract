@@ -1,5 +1,7 @@
 # Pipeline
 
+> Read this when one step isn't enough — you need multi-step with fail-fast, automatic data threading, and per-step models.
+
 Chain multiple steps with automatic data threading, fail-fast, per-step models, trace, and timeout.
 
 A pipeline needs more than one step to be interesting. This guide grows the `SummarizeArticle` step from the [README](../../README.md) into a three-step content pipeline that tags and routes the summary to a UI card.

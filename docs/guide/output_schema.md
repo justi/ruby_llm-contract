@@ -1,5 +1,7 @@
 # Output Schema
 
+> Read this as a reference for the schema DSL — every constraint, nested objects, arrays of objects, the full pattern table.
+
 Declare the expected output structure using [ruby_llm-schema](https://github.com/danielfriis/ruby_llm-schema) DSL. The schema serves **two purposes**:
 
 1. **Output validation** — replaces type and shape checks (enums, ranges, required fields). One declaration instead of many.

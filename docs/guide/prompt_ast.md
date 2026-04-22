@@ -1,5 +1,7 @@
 # Prompt AST
 
+> Read this when your prompt has more than one shape (per-tenant, per-language, per-audience) and string concatenation is starting to drift.
+
 Prompts are structured data, not strings. That matters the moment `SummarizeArticle` has to ship in more than one shape — a different audience per tenant, a different language per region, a different tone template for a B2B vs consumer card. Building those variants by string-concatenating a monolithic prompt leads to silent drift across environments. The AST gives you typed nodes (`system`, `rule`, `section`, `example`, `user`) that compose, diff, and snapshot-test cleanly.
 
 Available node types:
