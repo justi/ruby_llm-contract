@@ -186,20 +186,36 @@ module RubyLLM
                                             "{ |c| c.default_adapter = ... } or pass context: { adapter: ... }"
           end
 
+          # ADR-0021 deliverable 2: narrow ArgumentError rescue to DSL-setup phase only.
+          #
+          # DSL misconfiguration (e.g. `prompt has not been set`, missing required
+          # attributes) surfaces as ArgumentError when constructing Runner. We catch
+          # that and return :input_error — these are contract-definition issues the
+          # caller can handle as "bad input to the step definition".
+          #
+          # Runner#call itself does NOT get a blanket rescue: input-type validation
+          # failures return :input_error from within InputValidator; adapter/runtime
+          # programmer bugs (NoMethodError, adapter-code ArgumentError) must propagate
+          # instead of being silently masked as :input_error.
           def run_once(input, adapter:, model:, context_temperature: nil, extra_options: {})
             effective_temp = context_temperature || temperature
-            Runner.new(
-              input_type: input_type, output_type: output_type,
-              prompt_block: prompt, contract_definition: effective_contract,
-              adapter: adapter, model: model, output_schema: output_schema,
-              max_output: max_output, max_input: max_input, max_cost: max_cost,
-              on_unknown_pricing: on_unknown_pricing,
-              temperature: effective_temp, extra_options: extra_options,
-              observers: class_observers
-            ).call(input)
-          rescue ArgumentError => e
-            Result.new(status: :input_error, raw_output: nil, parsed_output: nil,
-                       validation_errors: [e.message])
+            runner =
+              begin
+                Runner.new(
+                  input_type: input_type, output_type: output_type,
+                  prompt_block: prompt, contract_definition: effective_contract,
+                  adapter: adapter, model: model, output_schema: output_schema,
+                  max_output: max_output, max_input: max_input, max_cost: max_cost,
+                  on_unknown_pricing: on_unknown_pricing,
+                  temperature: effective_temp, extra_options: extra_options,
+                  observers: class_observers
+                )
+              rescue ArgumentError => e
+                return Result.new(status: :input_error, raw_output: nil, parsed_output: nil,
+                                  validation_errors: [e.message])
+              end
+
+            runner.call(input)
           end
 
           def log_result(result)

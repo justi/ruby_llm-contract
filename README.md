@@ -350,7 +350,9 @@ Full procedure with examples: **[Optimizing retry_policy](docs/guide/optimizing_
 
 ## Roadmap
 
-**v0.7 (current):** Sharpened retry semantics. `DEFAULT_RETRY_ON` now targets LLM output variance only (`:validation_failed`, `:parse_error`); transport errors are delegated to ruby_llm's Faraday retry. `AdapterCaller` narrowed to let programmer errors propagate instead of masking them as retries. Breaking change — see [CHANGELOG](CHANGELOG.md) for migration.
+**v0.7.1 (current):** Follow-up — `Step::Base#run_once` no longer masks adapter-phase `ArgumentError` as `:input_error`. Programmer bugs in adapter code now propagate; DSL misconfiguration still becomes `:input_error` via narrower rescue.
+
+**v0.7.0:** Sharpened retry semantics. `DEFAULT_RETRY_ON` now targets LLM output variance only (`:validation_failed`, `:parse_error`); transport errors are delegated to ruby_llm's Faraday retry. `AdapterCaller` narrowed to let programmer errors propagate instead of masking them as retries. Breaking change — see [CHANGELOG](CHANGELOG.md) for migration.
 
 **v0.6:** "What should I do?" — `Step.recommend` returns optimal model, reasoning effort, and retry chain. Per-attempt `reasoning_effort` in retry policies.
 

@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.7.1 (2026-04-22)
+
+### Changed (behavioral, follow-up to v0.7.0)
+
+- **`Step::Base#run_once` no longer swallows adapter-phase `ArgumentError` as `:input_error`.** The previous blanket `rescue ArgumentError` was there to convert DSL misconfiguration (e.g. missing `prompt`) into an `:input_error` Result. Side effect: programmer bugs in adapter code that raised `ArgumentError` (wrong arity, bad config argument) were silently coerced into `:input_error` and retried as if the user had given bad input. Now the rescue is narrowed to the Runner-construction phase only — DSL configuration errors still produce `:input_error` (the `prompt has not been set` case is regression-tested), but `ArgumentError` raised from adapter code during `Runner#call` propagates to the caller. Input-type validation failures continue to produce `:input_error` through `InputValidator`'s own scoped rescue, unchanged.
+
 ## 0.7.0 (2026-04-21)
 
 ### Breaking changes
