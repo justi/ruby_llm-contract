@@ -59,7 +59,7 @@ Everything below is optional — the example above is a complete step. Reach for
 - **[CI regression gates](docs/guide/getting_started.md)** — `define_eval` + `save_baseline!` + `pass_eval(...).without_regressions` blocks CI when accuracy drops on a model update or prompt tweak.
 - **[Find the cheapest viable fallback list](docs/guide/optimizing_retry_policy.md)** — `Step.recommend(candidates:, min_score:)` returns the cheapest list of models that still passes your evals. `production_mode:` measures retry-aware cost.
 - **[A/B test prompts](docs/guide/eval_first.md)** — `SummarizeArticleV2.compare_with(SummarizeArticleV1, eval: "regression")` reports whether the new prompt is safe to ship.
-- **[Budget caps](docs/guide/output_schema.md)** — `max_cost`, `max_input`, `max_output` refuse the request before calling the API when an estimate exceeds the limit.
+- **[Budget caps](docs/guide/getting_started.md)** — `max_cost`, `max_input`, `max_output` refuse the request before calling the API when an estimate exceeds the limit.
 
 Also supports [multi-step pipelines](docs/guide/pipeline.md) with fail-fast and [best-effort retries without fallback](docs/guide/best_practices.md) (`retry_policy attempts: 3` for sampling variance).
 
@@ -72,6 +72,7 @@ Also supports [multi-step pipelines](docs/guide/pipeline.md) with fail-fast and 
 | [Optimizing retry_policy](docs/guide/optimizing_retry_policy.md) | Fallback lists + production-mode cost |
 | [Best Practices](docs/guide/best_practices.md) | Validate patterns, retry-without-fallback |
 | [Output Schema](docs/guide/output_schema.md) | Full schema DSL reference + constraints |
+| [Prompt AST](docs/guide/prompt_ast.md) | Prompt DSL reference (system/rule/section/example) |
 | [Pipeline](docs/guide/pipeline.md) | Multi-step with fail-fast |
 | [Testing](docs/guide/testing.md) | Test adapter, RSpec + Minitest matchers |
 | [Migration](docs/guide/migration.md) | Adopting in existing Rails apps |
