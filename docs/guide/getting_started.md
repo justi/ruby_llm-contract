@@ -47,7 +47,7 @@ result = SummarizeArticle.run(article_text)
 result.status           # => :ok
 result.parsed_output    # => { tldr: "...", takeaways: [...], tone: "analytical" }
 result.trace[:model]    # => "gpt-4.1-mini"  (first model that passed)
-result.trace[:cost]     # => 0.000042
+result.trace[:cost]     # => 0.00052  (sum of all attempts)
 result.trace[:attempts]
 # => [
 #   { attempt: 1, model: "gpt-4.1-nano", status: :validation_failed, cost: 0.00010, latency_ms: 45, ... },
