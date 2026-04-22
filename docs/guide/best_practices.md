@@ -82,9 +82,9 @@ class AnalyzeStep < RubyLLM::Contract::Step::Base
 end
 ```
 
-## 6. Model escalation
+## 6. Model fallback
 
-Small models are cheap but hallucinate. Big models are accurate but expensive. Start cheap, escalate only when validates catch a failure:
+Small models are cheap but hallucinate. Big models are accurate but expensive. Start cheap, fall back only when validates catch a failure:
 
 ```ruby
 class AnalyzeCompetitor < RubyLLM::Contract::Step::Base
@@ -99,13 +99,10 @@ class AnalyzeCompetitor < RubyLLM::Contract::Step::Base
   validate("weaknesses are specific") { |o| o[:weakness_1].to_s.split.length >= 5 }
 
   retry_policy models: %w[gpt-4.1-nano gpt-4.1-mini gpt-4.1]
-  # Attempt 1: nano ($0.10/M) — handles 90% of requests
-  # Attempt 2: mini ($0.40/M) — handles 9% that nano can't
-  # Attempt 3: full ($2.00/M) — handles the last 1%
 end
 ```
 
-**Key insight:** without contracts, you can't do model escalation — you'd have no way to know if the cheap model's output is good enough. Validates are the quality gate that makes cost optimization possible.
+**Key insight:** without contracts, you can't do model fallback — you'd have no way to know if the cheap model's output is good enough. Validates are the quality gate that makes cost optimization possible. See [Optimizing retry_policy](optimizing_retry_policy.md) for how to find the cheapest viable fallback list for your step.
 
 ## Summary
 
@@ -116,4 +113,4 @@ end
 | Conditional business rules | `validate` |
 | Content quality (not empty, not template) | `validate` |
 | Data preserved across pipeline steps | `validate` + schema carry-through |
-| Cost optimization via model escalation | `retry_policy` + `validate` as quality gate |
+| Cost optimization via model fallback | `retry_policy` + `validate` as quality gate |

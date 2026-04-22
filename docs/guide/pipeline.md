@@ -132,13 +132,13 @@ result = EntityPipeline.run("Apple released the iPhone.", timeout_ms: 30_000)
 ## Pipeline eval
 
 ```ruby
-TicketPipeline.define_eval("e2e") do
-  add_case "billing ticket",
-    input: "I was charged twice on my credit card",
-    expected: { subject: /billing/i }
+MeetingFollowUp.define_eval("e2e") do
+  add_case "quarterly planning transcript",
+    input: "Q2 planning meeting transcript: we decided...",
+    expected: { subject: /follow-up/i }
 end
 
-report = TicketPipeline.run_eval("e2e", context: { model: "gpt-4.1-mini" })
+report = MeetingFollowUp.run_eval("e2e", context: { model: "gpt-4.1-mini" })
 report.print_summary
 ```
 
@@ -155,3 +155,8 @@ result.pretty_print
 report.print_summary
 # Tabular pass/fail breakdown (Eval::Report)
 ```
+
+## See also
+
+- [Testing](testing.md) — `MeetingFollowUp.test(..., responses: { extract: ..., analyze: ..., email: ... })` for pipeline-level spec adapters.
+- [Optimizing retry_policy](optimizing_retry_policy.md) — `optimize_retry_policy` runs per-step; pipelines benchmark one step at a time.
