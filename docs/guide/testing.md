@@ -29,14 +29,14 @@ result = SummarizeArticle.run("article text", context: { adapter: adapter })
 result.ok?  # => true
 ```
 
-Multi-step pipeline testing with per-step named responses:
+Multi-step pipeline testing with per-step named responses (using `ArticleCardPipeline` from [Pipeline](pipeline.md)):
 
 ```ruby
-result = MyPipeline.test("input",
+result = ArticleCardPipeline.test("article text",
   responses: {
-    extract:  { decisions: [{ id: "D1", description: "ship", made_by: "lead" }] },
-    analyze:  { analyses: [{ action_item_id: "A1", status: "clear", issues: [] }] },
-    email:    { subject: "Follow-up", body: "Hi team, ..." }
+    summarize: { tldr: "...", takeaways: %w[a b c], tone: "analytical" },
+    tag:       { tldr: "...", takeaways: %w[a b c], tone: "analytical", hashtags: %w[#ruby #release] },
+    card:      { headline: "Ruby 3.4 ships", summary: "...", hashtags: %w[#ruby #release], sentiment_icon: "🧠" }
   }
 )
 ```
@@ -101,9 +101,9 @@ end
 ```ruby
 stub_steps(
   SummarizeArticle => { response: { tldr: "...", takeaways: %w[a b c], tone: "neutral" } },
-  RelatedArticles  => { response: { related: %w[article-1 article-2] } }
+  GenerateHashtags => { response: { tldr: "...", takeaways: %w[a b c], tone: "neutral", hashtags: %w[#ruby #release] } }
 ) do
-  result = ArticlePipeline.run("article text")
+  result = ArticleCardPipeline.run("article text")
 end
 ```
 

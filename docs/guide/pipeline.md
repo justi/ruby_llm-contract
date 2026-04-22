@@ -2,102 +2,85 @@
 
 Chain multiple steps with automatic data threading, fail-fast, per-step models, trace, and timeout.
 
-## Full example: Meeting transcript to follow-up email
+A pipeline needs more than one step to be interesting. This guide grows the `SummarizeArticle` step from the [README](../../README.md) into a three-step content pipeline that tags and routes the summary to a UI card.
 
-Three steps, three different LLM skills, three contracts:
+## Full example: article → summary → hashtags → card
 
 ```ruby
-# Step 1: Extract — the LLM is a "listener" parsing a messy transcript
-class ExtractDecisions < RubyLLM::Contract::Step::Base
-  output_schema do
-    array :decisions do
-      string :id
-      string :description
-      string :made_by
-    end
-    array :action_items do
-      string :id
-      string :task
-      string :owner
-      string :deadline
-    end
-  end
-
+# Step 1 — the flagship step from README, unchanged.
+class SummarizeArticle < RubyLLM::Contract::Step::Base
   prompt <<~PROMPT
-    Extract decisions and action items from a meeting transcript.
-    Only include decisions explicitly stated, never infer.
-    Assign sequential IDs: D1, D2, ... for decisions, A1, A2, ... for action items.
+    Summarize this article for a UI card. Return a short TL;DR,
+    3 to 5 key takeaways, and a tone label.
 
     {input}
   PROMPT
+
+  output_schema do
+    string :tldr
+    array  :takeaways, of: :string, min_items: 3, max_items: 5
+    string :tone, enum: %w[neutral positive negative analytical]
+  end
+
+  validate("TL;DR fits the card") { |o, _| o[:tldr].length <= 200 }
 end
 
-# Step 2: Analyze — the LLM is a "critic" finding vague assignments
-class ResolveAmbiguities < RubyLLM::Contract::Step::Base
+# Step 2 — reads SummarizeArticle's output, produces hashtags suitable for social posts.
+class GenerateHashtags < RubyLLM::Contract::Step::Base
   input_type Hash
 
   output_schema do
-    array :analyses do
-      string :action_item_id
-      string :status, enum: %w[clear ambiguous]
-      array :issues do
-        string :field, enum: %w[owner deadline scope]
-        string :problem
-        string :clarification_question
-      end
-    end
+    # Carry through the summary fields downstream consumers (and the next step) need.
+    string :tldr
+    array  :takeaways, of: :string
+    string :tone, enum: %w[neutral positive negative analytical]
+    # Add new field.
+    array  :hashtags, of: :string, min_items: 2, max_items: 5
   end
 
-  prompt <<~PROMPT
-    Review action items for completeness.
-    Flag vague owners, missing deadlines, unclear scope.
-
-    Action items: {action_items}
-  PROMPT
-
-  validate("all action items analyzed") do |output, input|
-    output[:analyses].map { |a| a[:action_item_id] }.sort ==
-      input[:action_items].map { |a| a[:id] }.sort
+  prompt do
+    rule "Preserve tldr / takeaways / tone exactly as given."
+    user "Article summary: {tldr}\nTone: {tone}\nGenerate 2 to 5 concise hashtags."
   end
+
+  validate("tone preserved") { |o, input| o[:tone] == input[:tone] }
 end
 
-# Step 3: Synthesize — the LLM is a "writer" producing a send-ready email
-class GenerateFollowUp < RubyLLM::Contract::Step::Base
+# Step 3 — final shape the UI card consumes.
+class BuildArticleCard < RubyLLM::Contract::Step::Base
   input_type Hash
 
   output_schema do
-    string :subject
-    string :body
-    integer :decisions_count
-    integer :action_items_count
+    string :headline
+    string :summary
+    array  :hashtags, of: :string
+    string :sentiment_icon, enum: %w[😐 🙂 ⚠️ 🧠]
   end
 
-  prompt <<~PROMPT
-    Write a follow-up email. List decisions, clear action items with owners
-    and deadlines, and embed clarification questions for ambiguous items.
+  prompt do
+    rule "Headline <= 70 chars. Summary is the incoming tldr reprinted verbatim."
+    rule "Pick sentiment_icon from: 😐 neutral, 🙂 positive, ⚠️ negative, 🧠 analytical."
+    user "TL;DR: {tldr}\nTone: {tone}\nHashtags: {hashtags}"
+  end
 
-    Decisions: {decisions}
-    Analyses: {analyses}
-  PROMPT
-
-  validate("subject must be concise") { |o| o[:subject].length <= 80 }
+  validate("summary is the tldr verbatim") { |o, input| o[:summary] == input[:tldr] }
 end
 
-# Pipeline: extract → analyze → email
-class MeetingFollowUp < RubyLLM::Contract::Pipeline::Base
-  step ExtractDecisions,    as: :extract
-  step ResolveAmbiguities,  as: :analyze
-  step GenerateFollowUp,    as: :email
+# Pipeline: summarize → hashtags → card
+class ArticleCardPipeline < RubyLLM::Contract::Pipeline::Base
+  step SummarizeArticle, as: :summarize
+  step GenerateHashtags, as: :tag
+  step BuildArticleCard, as: :card
 end
 ```
 
 ## Running and inspecting
 
 ```ruby
-result = MeetingFollowUp.run(transcript, context: { adapter: adapter })
+result = ArticleCardPipeline.run(article_text, context: { adapter: adapter })
 result.ok?                          # => true
-result.outputs_by_step[:extract]    # => {decisions: [...], action_items: [...]}
-result.outputs_by_step[:email]      # => {subject: "Follow-up: Q2 planning", body: "Hi team, ..."}
+result.outputs_by_step[:summarize]  # => { tldr: "...", takeaways: [...], tone: "analytical" }
+result.outputs_by_step[:card]       # => { headline: "...", summary: "...", hashtags: [...], sentiment_icon: "🧠" }
 result.trace.total_cost             # => 0.000128 (all steps combined)
 result.trace.total_latency_ms       # => 2340
 ```
@@ -107,38 +90,38 @@ result.trace.total_latency_ms       # => 2340
 Each step catches hallucinations before they spread:
 
 ```ruby
-result = MeetingFollowUp.run("just some random text")
-result.failed?                      # => true
-result.failed_step                  # => :extract (no real decisions found → stops here)
-# analyze and email never run — no hallucinated email goes out
+result = ArticleCardPipeline.run("")
+result.failed?        # => true
+result.failed_step    # => :summarize (empty input fails schema / validate → stops here)
+# tag and card never run — no downstream tokens spent on garbage
 ```
 
 ## Per-step model override
 
 ```ruby
-class EntityPipeline < RubyLLM::Contract::Pipeline::Base
-  step ExtractEntities,   as: :extract,   model: "gpt-4.1-nano"
-  step NormalizeEntities,  as: :normalize, model: "gpt-4.1-nano"
-  step ClassifyEntities,   as: :classify,  model: "gpt-4.1-mini"
+class ArticleCardPipeline < RubyLLM::Contract::Pipeline::Base
+  step SummarizeArticle, as: :summarize, model: "gpt-4.1-mini"
+  step GenerateHashtags, as: :tag,       model: "gpt-4.1-nano"
+  step BuildArticleCard, as: :card,      model: "gpt-4.1-nano"
 end
 ```
 
 ## Timeout
 
 ```ruby
-result = EntityPipeline.run("Apple released the iPhone.", timeout_ms: 30_000)
+result = ArticleCardPipeline.run(article_text, timeout_ms: 30_000)
 ```
 
 ## Pipeline eval
 
 ```ruby
-MeetingFollowUp.define_eval("e2e") do
-  add_case "quarterly planning transcript",
-    input: "Q2 planning meeting transcript: we decided...",
-    expected: { subject: /follow-up/i }
+ArticleCardPipeline.define_eval("e2e") do
+  add_case "ruby 3.4 release",
+    input: "Ruby 3.4 ships with frozen string literals by default and better YJIT...",
+    expected: { sentiment_icon: "🧠" }
 end
 
-report = MeetingFollowUp.run_eval("e2e", context: { model: "gpt-4.1-mini" })
+report = ArticleCardPipeline.run_eval("e2e", context: { model: "gpt-4.1-mini" })
 report.print_summary
 ```
 
@@ -158,5 +141,5 @@ report.print_summary
 
 ## See also
 
-- [Testing](testing.md) — `MeetingFollowUp.test(..., responses: { extract: ..., analyze: ..., email: ... })` for pipeline-level spec adapters.
+- [Testing](testing.md) — `ArticleCardPipeline.test(..., responses: { summarize: ..., tag: ..., card: ... })` for pipeline-level spec adapters.
 - [Optimizing retry_policy](optimizing_retry_policy.md) — `optimize_retry_policy` runs per-step; pipelines benchmark one step at a time.

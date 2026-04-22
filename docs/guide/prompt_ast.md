@@ -4,49 +4,65 @@ Prompts are structured data, not strings. Available node types:
 
 ```ruby
 prompt do
-  system "Main system instruction."          # system message
-  rule   "Return JSON only."                 # appended as separate system message
-  section "CONTEXT", "Product: Acme Inc."    # labeled system message: [CONTEXT]\n...
-  example input: "hello", output: "hi"       # user/assistant message pair
-  user   "Process this: {input}"             # user message with interpolation
+  system  "You summarize articles for a UI card."     # system message
+  rule    "Return valid JSON only."                   # appended as separate system message
+  section "AUDIENCE", "Rails developers"              # labeled system message: [AUDIENCE]\n...
+  example input:  "Ruby 3.4 ships frozen strings...", # user/assistant few-shot pair
+          output: '{"tldr":"...","takeaways":[...],"tone":"analytical"}'
+  user    "{input}"                                   # user message with interpolation
 end
 ```
 
-Or just a plain string (wraps as user message):
+Or just a plain string (wraps as a single user message):
 
 ```ruby
-prompt "Classify the intent of this text: {input}"
+prompt "Summarize this article for a UI card. {input}"
 ```
 
 The AST is immutable, diffable, and hashable. Useful for snapshot testing and auditing prompt changes.
 
 ## Hash inputs with variable interpolation
 
-When input is a Hash, each key becomes a template variable:
+When input is a Hash, each key becomes a template variable. For example, if `SummarizeArticle` evolves to accept explicit audience and language instead of raw article text:
 
 ```ruby
-class GenerateComment < RubyLLM::Contract::Step::Base
+class SummarizeArticle < RubyLLM::Contract::Step::Base
   input_type RubyLLM::Contract::Types::Hash.schema(
-    thread_title: RubyLLM::Contract::Types::String,
-    subreddit: RubyLLM::Contract::Types::String,
+    article:  RubyLLM::Contract::Types::String,
+    audience: RubyLLM::Contract::Types::String,
     language: RubyLLM::Contract::Types::String
   )
 
   prompt do
-    system "You are a helpful community member."
-    rule   "Write in {language}."
-    rule   "Stay on topic for r/{subreddit}."
-    user   "Thread: {thread_title}\n\nWrite a helpful comment."
+    system  "You summarize articles for a UI card."
+    rule    "Write the TL;DR and takeaways in {language}."
+    section "AUDIENCE", "{audience}"
+    user    "{article}"
+  end
+
+  output_schema do
+    string :tldr
+    array  :takeaways, of: :string, min_items: 3, max_items: 5
+    string :tone, enum: %w[neutral positive negative analytical]
   end
 end
 ```
 
+Every `{key}` in a prompt node is pulled from the input hash at run time. Missing keys raise — making wire-up bugs loud, not silent.
+
 ## Cross-validating output against input
 
-Validate blocks support 2-arity to compare output against input:
+Validate blocks support 2-arity `|output, input|` so you can check that the model's answer stays faithful to the request:
 
 ```ruby
-validate("all IDs must match input") do |output, input|
-  output.map { |r| r[:id] }.sort == input.map { |t| t[:id] }.sort
+validate("tldr is not just the article reprinted") do |output, input|
+  # Guard against lazy models that return the input verbatim.
+  output[:tldr].length < input[:article].length / 2
+end
+
+validate("no takeaway repeats the TL;DR") do |output, _input|
+  output[:takeaways].none? { |t| t == output[:tldr] }
 end
 ```
+
+The first example uses `input`; the second ignores it. Both are legal 2-arity signatures — Ruby accepts the unused `_input` parameter naming convention.
