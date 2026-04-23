@@ -176,3 +176,4 @@ SummarizeArticle.estimate_eval_cost("regression",
 - [Optimizing retry_policy](optimizing_retry_policy.md) — find the cheapest viable fallback list with `compare_models` and `optimize_retry_policy`.
 - [Testing](testing.md) — test adapter, `stub_step`, full RSpec + Minitest matcher reference.
 - [Output Schema](output_schema.md) — nested objects in arrays, constraints, pattern reference.
+- [Rails integration](rails_integration.md) — where step classes live, initializer, jobs, logging, specs, CI gate.

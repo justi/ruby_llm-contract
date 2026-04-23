@@ -77,6 +77,7 @@ Also supports [multi-step pipelines](docs/guide/pipeline.md) with fail-fast and 
 |-------|---------------------------|
 | [Why contracts?](docs/guide/why.md) | Recognise the four production failures the gem exists for |
 | [Getting Started](docs/guide/getting_started.md) | Walk the full feature set on one concrete step |
+| [Rails integration](docs/guide/rails_integration.md) | Directory, initializer, jobs, logging, specs, CI gate — 7 FAQs for Rails devs |
 | [Adopt in an existing Rails app](docs/guide/migration.md) | Replace raw `LlmClient.call` with a contract, Before/After |
 | [Prevent silent prompt regressions](docs/guide/eval_first.md) | Evals, baselines, CI gates that block quality drift |
 | [Control retry cost and fallback behaviour](docs/guide/optimizing_retry_policy.md) | Find the cheapest viable fallback list empirically |
