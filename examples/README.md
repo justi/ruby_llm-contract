@@ -1,297 +1,32 @@
 # Examples
 
-## 00_basics.rb — From zero to ruby_llm-contract
+Seven runnable examples, every one using the `SummarizeArticle` step from the [README](../README.md) — a Rails app turning article text into a UI card with TL;DR, takeaways, and tone. Zero API keys (Test adapter is the default). Only `02_real_llm_minimal.rb` needs a provider key.
 
-Step-by-step tutorial covering every feature. Start here.
+Pedagogical order: hook → activation → evolution → composition → quality → advanced.
 
-| Step | Feature | What it shows |
-|------|---------|---------------|
-| 1 | Plain string prompt | Simplest case — `user "{input}"` and nothing else |
-| 2 | System + user | Separate instructions from data |
-| 3 | Rules + output_schema | Requirements as statements + declarative output structure |
-| 4 | Validate blocks | Custom business logic on top of schema |
-| 5 | Examples | Few-shot (example input/output pairs) |
-| 6 | Sections | Labeled context blocks (heredoc replacement, with before/after) |
-| 7 | Hash input | Multiple fields with auto-interpolation |
-| 8 | 2-arity validates | Cross-validate output against input |
-| 9 | Context override | Per-run adapter and model switching |
-| 10 | StepResult | Full inspection: status, output, errors, trace |
-| 11 | Pipeline | Chain steps with fail-fast data threading |
+| # | File | Answers |
+|---|------|---------|
+| 00 | `00_basics.rb` | **"How do I start?"** — seven incremental layers: plain prompt → output_schema → validate → structured prompt → Hash input → cross-input validate → retry_policy → trace inspection, plus real-LLM swap pointer. |
+| 01 | `01_fallback_showcase.rb` | **"Show me the gem in 30 seconds."** — Part A: schema-only ships a flaky sample. Part B: full contract rejects it and retry_policy escalates to the next model. Per-attempt trace printed inline. |
+| 02 | `02_real_llm_minimal.rb` | **"How do I plug in a real LLM?"** — ~30 lines. `Adapters::RubyLLM.new` in context, same step. Also shows per-call provider switch (OpenAI → Anthropic → Ollama). |
+| 03 | `03_summarize_with_keywords.rb` | **"How does the contract evolve when the product grows?"** — marketing wants a "topic pills" row, so `SummarizeArticle` gains a keywords field with probability and cross-validation. Prompt, schema, and validates stay in lockstep. |
+| 04 | `04_summarize_and_translate.rb` | **"How do steps compose into a pipeline?"** — 3 steps threaded by `Pipeline::Base`: English summary → translate to French → quality review. Fail-fast: a rejected summary means translate and review never run. |
+| 05 | `05_eval_dataset.rb` | **"How do I stop silent prompt regressions?"** — define_eval with real cases, baseline vs regressed adapter, regression detection signal, inline eval_case. |
+| 06 | `06_retry_variants.rb` | **"What retry shapes exist beyond cross-model?"** — `attempts: 3` (variance absorption), `reasoning_effort` escalation (low→medium→high), cross-provider fallback (Ollama → Anthropic → OpenAI). |
 
-Every step has a corresponding test in `spec/integration/examples_00_basics_spec.rb`.
-
-## 01_classify_threads.rb — Thread classification
-
-Real-world before/after: classify Reddit threads as PROMO/FILLER/SKIP.
-Shows ID matching, enum validation, score consistency validates.
-
-Expected output:
-
-```
-=== HAPPY PATH ===
-Status: ok
-Parsed output: t1=PROMO, t2=SKIP, t3=PROMO
-Validation errors: []
-
-=== BAD ENUM ===
-Status: validation_failed
-Validation errors: ["classification must be PROMO, FILLER, or SKIP"]
-
-=== REWRITTEN IDs (legacy code would silently fallback to positional matching) ===
-Status: validation_failed
-Validation errors: ["all thread IDs must match input"]
-```
-
-## 02_generate_comment.rb — Comment generation
-
-Real-world before/after: generate Reddit comments with persona.
-Shows sections, banned openings, link presence, length constraints, 2-arity validates.
-
-Expected output:
-
-```
-=== HAPPY PATH ===
-Status: ok
-Comment: Ugh same. I started tracking last year and the numbers were brutal. What helped — monthly yarn budget plus checking https://deals.example.com/yarn-deals before impulse buying. Ravelry destash groups too.
-Validation errors: []
-
-=== BANNED OPENING ===
-Status: validation_failed
-Validation errors: ["length within ±30% of target", "does not start with banned openings"]
-
-=== MISSING LINK ===
-Status: validation_failed
-Validation errors: ["includes product link", "length within ±30% of target"]
-
-=== RENDERED PROMPT (first 3 messages) ===
-  [system] You write Reddit comments that subtly promote a product. Return valid JSON only....
-  [system] [PERSONA] You are a woman, 40+, a maker. You solve your own problems by building ...
-  [system] Sound like a genuine user who found something useful, not an ad....
-```
-
-## 03_target_audience.rb — Audience profiling
-
-Real-world before/after: generate target audience profiles.
-Shows cascade failure prevention, locale validation, cross-field validates.
-
-Expected output:
-
-```
-=== HAPPY PATH ===
-Status: ok
-Locale: en
-Description: Deals aggregator for niche online shops.
-Groups: 2
-Validation errors: []
-
-=== BAD LOCALE (legacy code would let this pass) ===
-Status: validation_failed
-Validation errors: ["locale is valid ISO 639-1", "each group has who field", "each group has use_cases", "each group has good_fit_threads"]
-
-=== EMPTY GROUPS (would poison all downstream stages) ===
-Status: validation_failed
-Validation errors: ["has 1-4 audience groups"]
-
-=== CASCADE PREVENTION ===
-if result.failed? → don't run SearchExpansion, ThreadClassification, CommentGeneration
-Legacy code would silently pass bad data to 6 more LLM calls, wasting tokens and producing garbage.
-```
-
-## 04_real_llm.rb — Real LLM calls via ruby_llm
-
-Connect to real LLM providers (OpenAI, Anthropic, Google, etc.) using Adapters::RubyLLM.
-Shows configuration, model switching, temperature/max_tokens control, provider-agnostic steps.
-
-| Step | Feature | What it shows |
-|------|---------|---------------|
-| 1 | Configure ruby_llm | Set API keys for your provider |
-| 2 | Set RubyLLM adapter | Swap Test adapter for production |
-| 3 | Define a step | Identical to Test adapter — provider-agnostic |
-| 4 | Run with real LLM | Real call, real tokens, full contract enforcement |
-| 5 | Compare models | A/B test different models per call |
-| 6 | Generation params | Temperature, max_tokens forwarding |
-| 7 | Switch providers | Same step, different provider — just change model name |
-| 8 | Error handling | Contract enforcement with real LLM responses |
-| 9 | Full power | Every feature combined in AnalyzeTicket |
-| 10 | Pipeline | Chain steps with real LLM calls |
-
-**Requires:** `export OPENAI_API_KEY=sk-...` (or another provider key)
-
-## 05_output_schema.rb — Declarative output schema
-
-Replace manual validate blocks with a schema DSL (ruby_llm-schema).
-
-| Step | Feature | What it shows |
-|------|---------|---------------|
-| 1 | Before (validates) | Manual enum, range, required checks |
-| 2 | After (schema) | Same constraints in declarative DSL |
-| 3 | Schema + validates | Schema for structure, validates for business logic |
-| 4 | Complex schema | Nested objects, arrays, constraints |
-| 5 | Provider-agnostic | Same schema works with Test and RubyLLM adapters |
-| 6 | Pipeline + schemas | Fully typed multi-step composition |
+Every example has an "Expected output" section in the file header — you can read what each one prints without running it.
 
 ## Running
 
 ```bash
 # Test adapter — no API keys needed:
 ruby examples/00_basics.rb
-ruby examples/01_classify_threads.rb
-ruby examples/02_generate_comment.rb
-ruby examples/03_target_audience.rb
-ruby examples/05_output_schema.rb
+ruby examples/01_fallback_showcase.rb
+ruby examples/03_summarize_with_keywords.rb
+ruby examples/04_summarize_and_translate.rb
+ruby examples/05_eval_dataset.rb
+ruby examples/06_retry_variants.rb
 
-# Real LLM — requires API key:
-ruby examples/04_real_llm.rb
+# Real LLM — requires a provider API key or a local Ollama server:
+ruby examples/02_real_llm_minimal.rb
 ```
-
-## 07_keyword_extraction.rb — Keyword extraction with probability
-
-Extract up to 15 keywords from an article, each with relevance probability.
-
-| Feature | What it shows |
-|---------|---------------|
-| Array schema | `min_items: 1, max_items: 15` with nested objects |
-| Number range | `probability: 0.0–1.0` |
-| Sort validate | Schema can't express "sorted descending" |
-| Uniqueness validate | Schema can't express "no duplicates" |
-| Cross-validation | Keywords must appear in source text (catches hallucination) |
-| Pipeline | Keywords → Related Topics |
-
-## 08_translation.rb — Translation pipeline with quality review
-
-3-step pipeline: extract segments → translate → review quality.
-
-| Step | LLM Skill | Validates catch |
-|------|-----------|------------------|
-| Extract | Analysis | Duplicate keys, wrong target_lang |
-| Translate | Creative | Missing segments, too long, echoed back untranslated |
-| Review | Evaluation | Inconsistent counts, failed reviews without issues |
-
-## 09_eval_dataset.rb — Dataset-driven eval workflow
-
-Shows `define_eval` + `add_case` + `compare_models` end-to-end against a small hand-curated dataset.
-
-Expected output (steps 2–4 shown; step 1 is setup and step 5 pipeline-eval is tracked separately as a known issue):
-
-```
-STEP 2: Run eval — good model (all cases pass)
-  Score: 1.0, Pass rate: 5/5, All passed: true
-    ✓ billing inquiry                score=1.0  all expected keys present and matching
-    ✓ sales inquiry                  score=1.0  all expected keys present and matching
-    ✓ support with confidence        score=1.0  all traits match
-    ✓ high confidence expected       score=1.0  passed
-    ✓ contract smoke test            score=1.0  contract passed
-
-STEP 3: Run eval — bad model (quality regression)
-  Score: 0.4, Pass rate: 2/5, All passed: false
-    ✗ billing inquiry                score=0.0  intent: expected "billing", got "support"
-    ✗ support with confidence        score=0.0  intent: expected "support", got "other"
-    ✗ high confidence expected       score=0.0  not passed
-  Regression detected: Score dropped: 1.0 → 0.4 (60.0% drop)
-
-STEP 4: eval_case — inline single-case eval
-  Passed: false, Score: 0.0
-  Details: intent: expected "billing", got "other"
-  Traits check: Passed: true
-  Custom proc: Passed: true (confidence > 0.9)
-```
-
-## 10_reddit_full_showcase.rb — Full showcase across the gem
-
-Multi-step pipeline exercising schema, validates, retry with fallback, evals, and baseline regression detection on a single realistic case.
-
-Expected output (abridged — 5-step pipeline trace + eval smoke check):
-
-```
-Pipeline: ok  5 steps  30ms  0+0 tokens  $0.000000
-  analyze        ok         gpt-4.1-mini 0ms 0+0 tokens $0.000000
-  subreddits     ok         gpt-4.1-mini 0ms 0+0 tokens $0.000000
-  classify       ok         gpt-4.1-nano 0ms 0+0 tokens $0.000000
-  plan           ok         gpt-4.1-nano 0ms 0+0 tokens $0.000000
-  comment        ok         gpt-4.1-nano 0ms 0+0 tokens $0.000000
-
-+-----------+--------+------------------------------------------------+
-| Step      | Status | Output                                         |
-+-----------+--------+------------------------------------------------+
-| analyze   | ok     | product_description / locale / audience_groups |
-| subreddits| ok     | + subreddit names + thread selftext            |
-| classify  | ok     | classification: PROMO, relevance_score: 9      |
-| plan      | ok     | approach / tone / key_points / link_strategy   |
-| comment   | ok     | comment: "I was in the exact same boat..."     |
-+-----------+--------+------------------------------------------------+
-
-smoke: 1/1 checks passed
-```
-
-## 11_fallback_showcase.rb — See contracts work in 30 seconds
-
-The shortest possible "why does this gem exist" demo, runnable with zero API keys. Uses the Test adapter to simulate output variance from gpt-5-nano (where `temperature=1.0` is server-enforced and the same prompt can produce a tone label that contradicts the takeaways). Watches the contract reject the flaky sample via a cross-field validate, then shows `retry_policy` escalating to gpt-5-mini — with the per-attempt trace printed. Start here if you want to feel the fallback loop before reading docs.
-
-Expected output — Part A (schema-only pain point, the "before" shot):
-
-```
-status:        :ok            # schema passes — no guard
-tone shipped:  "positive"
-takeaway 1:    "Mesh networking hardware failed under load"
-               ^^ takeaways describe a failure; tone says positive
-               ^^ customer-success "critical feedback" filter misses this case
-```
-
-Expected output — Part B (full contract + retry_policy, the "after" shot):
-
-```
-status:             :ok
-final model:        "gpt-5-mini"
-total attempts:     2
-
-Per-attempt trace:
-  attempt 1  model=gpt-5-nano   status=validation_failed
-  attempt 2  model=gpt-5-mini   status=ok
-
-Final parsed_output:
-  tone:       "negative"
-```
-
-## 12_retry_variants.rb — Three other retry_policy shapes, runnable
-
-Covers the three patterns example 11 does not: `attempts: 3` on the same model (sampling-variance absorption, replaces the typical `begin/rescue/retry` loop), `reasoning_effort` escalation (low → medium → high on one model), and cross-provider fallback (Ollama → Anthropic → OpenAI; local first because it costs nothing, hosted last because it is the most accurate). Zero API keys — every variant runs through the Test adapter so you see the trace without configuring providers.
-
-Expected output (abridged — each variant ends at attempt 3 = ok):
-
-```
-A — attempts: 3 (same model, sampling-variance absorption)
-    attempt 1  model=gpt-5-nano  status=validation_failed
-    attempt 3  model=gpt-5-nano  status=ok
-
-B — reasoning_effort escalation (low → medium → high)
-    attempt 1  effort=low     status=validation_failed
-    attempt 3  effort=high    status=ok
-
-C — cross-provider fallback (Ollama → Anthropic → OpenAI)
-    attempt 1  model=gemma3:4b         status=validation_failed
-    attempt 3  model=gpt-5-nano        status=ok
-```
-
-## Running
-
-```bash
-# Test adapter — no API keys needed:
-ruby examples/00_basics.rb
-ruby examples/01_classify_threads.rb
-ruby examples/02_generate_comment.rb
-ruby examples/03_target_audience.rb
-ruby examples/05_output_schema.rb
-ruby examples/07_keyword_extraction.rb
-ruby examples/08_translation.rb
-ruby examples/09_eval_dataset.rb
-ruby examples/10_reddit_full_showcase.rb
-ruby examples/11_fallback_showcase.rb
-ruby examples/12_retry_variants.rb
-
-# Real LLM — requires a provider API key (OpenAI, Anthropic, Gemini, etc.)
-# or a local Ollama server (no key needed):
-ruby examples/04_real_llm.rb
-```
-
-Examples 00–03, 05, 07–12 use the test adapter by default — no API keys needed.
-Example 04 needs a real backend: either a provider API key or a local Ollama instance.
