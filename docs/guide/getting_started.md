@@ -1,222 +1,178 @@
 # Getting Started
 
-## When you need more
+> Read this to walk through every feature on one concrete step for the first time.
 
-The heredoc prompt is the starting point. Add features as your production needs grow:
+The README shows a minimal `SummarizeArticle` step. This guide walks through the features you reach for as production requirements grow: budget caps so runaway inputs don't drain your LLM provider budget, evals so you catch regressions in CI, and CI gating so a merge that lowers accuracy gets blocked.
+
+## The walkthrough
+
+Start with the README example, then add features one layer at a time. Each is optional — use what you need.
 
 ```ruby
-class ClassifyTicket < RubyLLM::Contract::Step::Base
-  # STEP 1: You already have this — your prompt as a heredoc
+class SummarizeArticle < RubyLLM::Contract::Step::Base
+  # 1. Prompt (required)
   prompt <<~PROMPT
-    Classify this support ticket by priority and category.
-    Return JSON with priority, category, and confidence fields.
+    Summarize this article for a UI card. Return a short TL;DR,
+    3 to 5 key takeaways, and a tone label.
 
     {input}
   PROMPT
 
-  # STEP 2: Add schema — sent to the LLM provider, which forces the model
-  # to return this exact JSON structure (replaces manual type validates)
+  # 2. Schema — sent to the provider via with_schema, validated client-side
   output_schema do
-    string :priority, enum: %w[low medium high urgent]
-    string :category, enum: %w[billing technical feature other]
-    number :confidence, minimum: 0.0, maximum: 1.0
+    string :tldr
+    array  :takeaways, of: :string, min_items: 3, max_items: 5
+    string :tone, enum: %w[neutral positive negative analytical]
   end
 
-  # STEP 3: Add business logic that schema can't express
-  validate("high confidence") { |o| o[:confidence] > 0.5 }
+  # 3. Business rules — things JSON Schema cannot express
+  validate("TL;DR fits the card")  { |o, _| o[:tldr].length <= 200 }
+  validate("takeaways are unique") { |o, _| o[:takeaways].uniq.size == o[:takeaways].size }
 
-  # STEP 4: Start with a cheap model, auto-escalate when contract fails
+  # 4. Retry with model fallback on validation_failed / parse_error
   retry_policy models: %w[gpt-4.1-nano gpt-4.1-mini gpt-4.1]
 
-  # STEP 5: Refuse before calling the LLM if input is too large or expensive
+  # 5. Refuse before calling the LLM if input is too large or estimated cost exceeds the cap
   max_input  2_000
   max_output 4_000
   max_cost   0.01
 end
 ```
 
-Each step is optional. Here's what each layer catches in production:
+## Validation and retry behavior
 
-**Validation catches wrong answers** (and retry auto-escalates to fix them):
-```ruby
-result = ClassifyTicket.run("Server is on fire, data is gone!")
-result.status            # => :validation_failed
-result.validation_errors # => ["high confidence"]
-result.parsed_output     # => {priority: "low", category: "billing", confidence: 0.2}
-# ^ LLM said "low priority" for a data loss incident. validate caught it.
-# With retry_policy, the gem automatically retries with a smarter model.
-# Without retry_policy, you get the failed result and decide what to do.
-```
+When the cheap model returns output that fails a `validate` block or can't be parsed, retry falls back to the next model in `models:` and tries again.
 
-**Retry with model escalation saves money:**
 ```ruby
-result = ClassifyTicket.run("I need help with billing")
+result = SummarizeArticle.run(article_text)
+
+result.status           # => :ok
+result.parsed_output    # => { tldr: "...", takeaways: [...], tone: "analytical" }
+result.trace[:model]    # => "gpt-4.1-mini"  (first model that passed)
+result.trace[:cost]     # => 0.00052  (sum of all attempts)
 result.trace[:attempts]
-# => [{attempt: 1, model: "gpt-4.1-nano",  status: :validation_failed},  # $0.0001
-#     {attempt: 2, model: "gpt-4.1-mini",  status: :ok}]                 # $0.0004
-# Nano hallucinated, mini got it right. Never called full ($0.002).
-# 90% of requests succeed on nano. You only pay more when you have to.
+# => [
+#   { attempt: 1, model: "gpt-4.1-nano", status: :validation_failed, cost: 0.00010, latency_ms: 45, ... },
+#   { attempt: 2, model: "gpt-4.1-mini", status: :ok,                cost: 0.00042, latency_ms: 92, ... }
+# ]
 ```
 
-**Model priority:** `retry_policy models: %w[nano mini full]` tries models left to right. First model is always tried first. `context: { model: "..." }` is ignored when `retry_policy` is set — the policy controls model selection. Without `retry_policy`, the model comes from `context[:model]` or `default_model`.
+If the whole chain exhausts, `result.status` is the status of the last attempt (`:validation_failed` or `:parse_error`) and `result.parsed_output` is the last attempt's output. The caller decides what to do — ship it anyway, fall back to a template, or raise.
 
-**Reasoning effort:** For models that support it, control how much the model "thinks" before answering:
+## Evals and CI gates
+
+An eval is a named scenario you can run to verify the step still works. `sample_response` makes it offline — zero API calls — so CI can run it on every merge without burning budget.
+
 ```ruby
-result = ClassifyTicket.run(ticket, context: { reasoning_effort: "low" })
-# "low" / "medium" / "high" — passed to the provider via with_params
+SummarizeArticle.define_eval("smoke") do
+  default_input <<~ARTICLE
+    Ruby 3.4 ships with frozen string literals on by default, measurable YJIT
+    speedups on Rails workloads, and tightened Warning.warn category filtering.
+    The release notes also mention several parser fixes and faster keyword
+    argument handling.
+  ARTICLE
+
+  sample_response({
+    tldr: "Ruby 3.4 brings frozen string literals by default, YJIT speedups, and parser fixes.",
+    takeaways: [
+      "Frozen string literals are the default",
+      "YJIT adds measurable speedups on Rails workloads",
+      "Warning.warn category filtering is tighter"
+    ],
+    tone: "analytical"
+  })
+end
+
+report = SummarizeArticle.run_eval("smoke")
+report.passed?  # => true — schema + validates pass on the canned response
+report.score    # => 1.0
+report.print_summary
 ```
 
-**Limits prevent runaway costs:**
+For real regression testing, define cases with expected output (online — calls the LLM):
+
 ```ruby
-result = ClassifyTicket.run(giant_10mb_document)
+SummarizeArticle.define_eval("regression") do
+  add_case "ruby release",
+           input: "Ruby 3.4 was released...",
+           expected: { tone: "analytical" }  # partial match
+
+  add_case "critical review",
+           input: "The new mesh networking hardware failed under load...",
+           expected: { tone: "negative" }
+end
+```
+
+Gate CI on score and cost thresholds:
+
+```ruby
+# RSpec — blocks merge if accuracy drops or cost spikes
+expect(SummarizeArticle).to pass_eval("regression")
+  .with_minimum_score(0.8)
+  .with_maximum_cost(0.01)
+```
+
+Save a baseline once, then block regressions automatically:
+
+```ruby
+report = SummarizeArticle.run_eval("regression")
+report.save_baseline!
+
+# In CI:
+expect(SummarizeArticle).to pass_eval("regression").without_regressions
+```
+
+`without_regressions` fails the build only if a previously-passing case now fails — a new model version, a prompt tweak, or an upstream change that silently lowered quality.
+
+## Budget caps
+
+`max_input`, `max_output`, and `max_cost` are preflight checks — the LLM is never called if an estimate exceeds the limit. Zero tokens spent, zero cost.
+
+```ruby
+result = SummarizeArticle.run(giant_10mb_document)
 result.status            # => :limit_exceeded
 result.validation_errors # => ["Input token limit exceeded: estimated 32000 tokens, max 2000"]
-# LLM was never called. Zero tokens spent. Zero cost.
 ```
 
-`max_cost` refuses the call when model pricing is unknown (fail closed). Register pricing for custom or fine-tuned models:
+`max_cost` fails closed when the model's pricing isn't known — register custom or fine-tuned models explicitly:
 
 ```ruby
 RubyLLM::Contract::CostCalculator.register_model("ft:gpt-4o-custom",
   input_per_1m: 3.0, output_per_1m: 6.0)
 ```
 
-**Eval verifies your contract — offline or online:**
-
-Offline mode (zero API calls) — uses a canned response to verify schema + validates:
-```ruby
-ClassifyTicket.define_eval("smoke") do
-  default_input "My invoice is wrong"
-  sample_response({ priority: "high", category: "billing", confidence: 0.92 })
-end
-
-report = ClassifyTicket.run_eval("smoke")
-report.passed?  # => true — schema + validates pass on sample data
-report.score    # => 1.0
-```
-
-Online mode (v0.2) — define cases with expected output, then compare models:
-```ruby
-ClassifyTicket.define_eval("regression") do
-  add_case "billing complaint",
-           input: "My invoice is wrong",
-           expected: { priority: "high", category: "billing" }  # partial match
-
-  add_case "urgent outage",
-           input: "Server is down, customers affected",
-           expected: { priority: "urgent" }
-end
-
-# Run against one model
-report = ClassifyTicket.run_eval("regression")
-report.score  # => 1.0
-
-# Compare models — find the cheapest one that passes
-comparison = ClassifyTicket.compare_models("regression",
-                                           models: %w[gpt-4.1-nano gpt-4.1-mini gpt-4.1])
-comparison.print_summary
-#   Model                      Score       Cost  Avg Latency
-#   ---------------------------------------------------------
-#   gpt-4.1-nano                0.50    $0.0001         48ms
-#   gpt-4.1-mini                1.00    $0.0004         92ms
-#   gpt-4.1                     1.00    $0.0021        210ms
-#
-#   Cheapest at 100%: gpt-4.1-mini
-```
-
-In CI — gate on score threshold and cost:
-```ruby
-# rspec
-expect(ClassifyTicket).to pass_eval("regression")
-  .with_minimum_score(0.8)
-  .with_maximum_cost(0.01)
-```
-
-## Structured Prompts
-
-When you need system instructions, rules, or few-shot examples, upgrade from heredoc to block:
+Or opt into a soft warning instead of a refusal when pricing is missing:
 
 ```ruby
-class ClassifyIntent < RubyLLM::Contract::Step::Base
-  output_schema do
-    string :intent, enum: %w[sales support billing]
-    number :confidence, minimum: 0.0, maximum: 1.0
-  end
-
-  prompt do
-    system "Classify the user's intent."
-    rule   "Return JSON only."
-    example input: "I want to buy", output: '{"intent":"sales","confidence":0.95}'
-    user   "{input}"
-  end
-
-  validate("high confidence") { |o| o[:confidence] > 0.5 }
-  retry_policy models: %w[gpt-4.1-nano gpt-4.1-mini gpt-4.1]
-end
+max_cost 0.01, on_unknown_pricing: :warn
 ```
 
-## Dynamic Prompts
+Default is `:refuse`. Use `:warn` only when you accept running without a cost ceiling (fine-tuned models you trust, private endpoints).
 
-When your prompt needs data from Rails objects — conditional sections, formatted lists, runtime context — the block receives `|input|`:
+### Preflight cost estimates
+
+Check what a call is likely to cost before invoking it:
 
 ```ruby
-class ClassifyThreads < RubyLLM::Contract::Step::Base
-  input_type Hash
+SummarizeArticle.estimate_cost(input: article_text)
+# => { model: "gpt-4.1-mini", input_tokens: 812, output_tokens_estimate: 4000, estimated_cost: 0.00243 }
 
-  prompt do |input|
-    system "You classify Reddit threads for #{input[:url]}."
-    section "PRODUCT", input[:product_context]
-    section "PAGES", input[:pages].map { |p| "- #{p[:title]}" }.join("\n") if input[:pages]&.any?
-    user input[:threads].to_json
-  end
-
-  validate("all classified") do |output, input|
-    output[:threads].map { |t| t[:id] }.sort == input[:thread_ids].sort
-  end
-
-  retry_policy models: %w[gpt-4.1-mini gpt-4.1-mini gpt-4.1]
-end
+# Estimate what a full eval would cost across candidate models
+SummarizeArticle.estimate_eval_cost("regression",
+  models: %w[gpt-4.1-nano gpt-4.1-mini gpt-4.1])
+# => { "gpt-4.1-nano" => 0.00041, "gpt-4.1-mini" => 0.0018, "gpt-4.1" => 0.0092 }
 ```
 
-| Your prompt needs | Use |
-|-------------------|-----|
-| Static text, one variable | `prompt "Classify: {input}"` |
-| Multiple messages, static | `prompt do; system "..."; user "{input}"; end` |
-| Dynamic data from objects | `prompt do \|input\|; section "X", input[:data]; end` |
+`estimate_cost` returns `nil` when pricing isn't registered. `estimate_eval_cost` silently treats unknown-pricing cases as `$0.00` and sums the rest — it does **not** fail closed the way `max_cost` does. Treat its output as a floor, not a guarantee; register pricing via `CostCalculator.register_model` before relying on it for budget decisions.
 
-## Already using ruby_llm?
+## `output_schema` vs `with_schema`
 
-You might think: "I already have `RubyLLM.chat`, `with_schema`, and my own retry loop. Why do I need this?"
+`with_schema` in `ruby_llm` tells the provider to force a specific JSON structure. `output_schema` in this gem does the same thing (calls `with_schema` under the hood) **plus** validates the response client-side. Cheaper models sometimes ignore schema constraints — `with_schema` is a request; `output_schema` is a request plus verification.
 
-**What you write today (per call site):**
-```ruby
-3.times do |attempt|
-  response = RubyLLM.chat(model: "gpt-4.1-mini").ask(prompt)
-  parsed = JSON.parse(response.content)
-  break if parsed["priority"].in?(%w[low medium high urgent])
-rescue JSON::ParserError
-  next
-end
-```
-Multiply by 7 call sites = ~500 lines of boilerplate. Each with its own retry logic, error handling, and validation.
+## See also
 
-**What you write with this gem:**
-```ruby
-class ClassifyTicket < RubyLLM::Contract::Step::Base
-  prompt "Classify this ticket by priority.\n\n{input}"
-  validate("valid priority") { |o| %w[low medium high urgent].include?(o[:priority]) }
-  retry_policy models: %w[gpt-4.1-nano gpt-4.1-mini gpt-4.1]
-end
-```
-
-**Three things you can't easily build yourself:**
-
-1. **Model escalation with quality gate.** Start every request on nano ($0.10/M tokens). When `validate` catches a bad answer, auto-retry on mini ($0.40/M), then full ($2.00/M). 90% of requests succeed on nano. At 10k requests/month: ~$40 instead of ~$200.
-
-2. **Eval that matters.** Offline smoke tests with `sample_response` (zero API calls). Online regression with `add_case` + partial matching. `compare_models` to find the cheapest model that passes. Cost tracking per eval run. CI gating with `with_minimum_score(0.8)` and `with_maximum_cost(0.01)`. No other Ruby gem does this.
-
-3. **Defensive parsing.** LLM wraps JSON in ` ```json ``` `? Stripped. UTF-8 BOM? Stripped. Prose around JSON? Extracted. `null` response? Caught. 14 edge cases in the parser.
-
-**`output_schema` vs `with_schema`:**
-
-`with_schema` in ruby_llm tells the provider to force a specific JSON structure. `output_schema` in this gem does the **same thing** (calls `with_schema` under the hood) **plus** validates the response client-side. Why both? Because cheaper models sometimes ignore schema constraints. `with_schema` is a request; `output_schema` is a request + verification.
+- [Prompt AST](prompt_ast.md) — prompt DSL variants: `system`, `rule`, `section`, `example`, `user`, and dynamic prompts with `|input|`.
+- [Eval-First](eval_first.md) — datasets, baselines, A/B gates, the workflow that makes the above evals useful.
+- [Optimizing retry_policy](optimizing_retry_policy.md) — find the cheapest viable fallback list with `compare_models` and `optimize_retry_policy`.
+- [Testing](testing.md) — test adapter, `stub_step`, full RSpec + Minitest matcher reference.
+- [Output Schema](output_schema.md) — nested objects in arrays, constraints, pattern reference.

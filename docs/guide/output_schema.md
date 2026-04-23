@@ -1,56 +1,57 @@
 # Output Schema
 
+> Read this as a reference for the schema DSL — every constraint, nested objects, arrays of objects, the full pattern table.
+
 Declare the expected output structure using [ruby_llm-schema](https://github.com/danielfriis/ruby_llm-schema) DSL. The schema serves **two purposes**:
 
-1. **Output validation** — replaces structural validates (enums, ranges, required fields). One declaration instead of many.
-2. **Provider-side enforcement** — with the RubyLLM adapter, the schema is sent to the LLM provider via `chat.with_schema(...)`, so the model is **forced** to return JSON matching the schema.
+1. **Output validation** — replaces type and shape checks (enums, ranges, required fields). One declaration instead of many.
+2. **Provider-side request** — with the RubyLLM adapter, the schema is sent to the LLM provider via `chat.with_schema(...)`, asking the model to return JSON matching the shape. Cheaper models sometimes ignore the request, which is why client-side validation (point 1) still matters.
 
-## Schema replaces structural validates
+All examples below extend the `SummarizeArticle` step from the [README](../../README.md).
+
+## Schema replaces type and shape checks
 
 ```ruby
 # WITHOUT schema — many validates:
-validate("must include intent") { |o| o[:intent].to_s != "" }
-validate("intent must be allowed") { |o| %w[sales support billing].include?(o[:intent]) }
-validate("confidence must be a number") { |o| o[:confidence].is_a?(Numeric) }
-validate("confidence in range") { |o| o[:confidence]&.between?(0.0, 1.0) }
+validate("tldr must be a string")          { |o| o[:tldr].is_a?(String) }
+validate("takeaways must be an array")     { |o| o[:takeaways].is_a?(Array) }
+validate("takeaways 3 to 5")               { |o| (3..5).cover?(o[:takeaways].size) }
+validate("tone must be an allowed label")  { |o| %w[neutral positive negative analytical].include?(o[:tone]) }
 
 # WITH schema — one declaration:
 output_schema do
-  string :intent, enum: %w[sales support billing]
-  number :confidence, minimum: 0.0, maximum: 1.0
+  string :tldr
+  array  :takeaways, of: :string, min_items: 3, max_items: 5
+  string :tone, enum: %w[neutral positive negative analytical]
 end
 ```
 
 ## Nested objects in arrays
 
-Use `object do...end` inside `array`:
+Use `object do...end` inside `array` when you need more than a primitive per element. Concrete scenario: the UI card grows a "confidence bar" next to each takeaway so editors can see which points the model was sure about vs guessing. That requires `confidence` paired with `text`, not two parallel arrays that could desync. Nested objects make the pairing a schema invariant:
 
 ```ruby
 output_schema do
-  string :locale
-  array :groups, min_items: 1, max_items: 3 do
+  string :tldr
+  array :takeaways, min_items: 3, max_items: 5 do
     object do
-      string :who
-      array :use_cases do
-        string
-      end
-      array :tags do
-        string
-      end
+      string :text
+      number :confidence, minimum: 0.0, maximum: 1.0
     end
   end
+  string :tone, enum: %w[neutral positive negative analytical]
 end
 ```
 
 ## Schema pattern reference
 
 | Your output looks like | Schema pattern | Example |
-|------------------------|---------------|---------|
-| `{"intent": "billing", "score": 0.9}` | Flat fields | `string :intent; number :score` |
-| `{"tags": ["ruby", "llm"]}` | Array of primitives | `array :tags do; string; end` |
-| `{"groups": [{"who": "...", "tags": [...]}]}` | Array of objects | `array :groups do; object do; string :who; end; end` |
+|---|---|---|
+| `{"tldr": "...", "tone": "positive"}` | Flat fields | `string :tldr; string :tone, enum: [...]` |
+| `{"takeaways": ["...", "..."]}` | Array of primitives | `array :takeaways, of: :string, min_items: 3, max_items: 5` |
+| `{"takeaways": [{"text": "...", "confidence": 0.9}]}` | Array of objects | `array :takeaways do; object do; string :text; number :confidence; end; end` |
 
-The schema tells the LLM provider **exactly** what JSON structure to return. Without `object do...end`, `array :groups do; string :who; end` tells the provider "groups is an array of strings" — and that's what you get back.
+Without `object do...end`, `array :takeaways do; string :text; end` tells the provider "takeaways is an array of strings" — not objects. That's what you get back.
 
 ## Why schema alone is not enough
 
@@ -58,26 +59,32 @@ Schema validates **shape** — correct types, allowed values, field presence. Bu
 
 ```ruby
 output_schema do
-  string :intent, enum: %w[sales support billing]
-  number :confidence, minimum: 0.0, maximum: 1.0
+  string :tldr
+  array  :takeaways, of: :string, min_items: 3, max_items: 5
+  string :tone, enum: %w[neutral positive negative analytical]
 end
 
-# Schema says lang must be a string — but doesn't know what language you ASKED for.
-validate("language must match requested") { |output, input| output[:lang] == input[:lang] }
+# Schema allows any string for :tldr — but a 500-char "summary" breaks the UI card.
+validate("TL;DR fits the card") { |o, _| o[:tldr].length <= 200 }
 
-# Schema says confidence is 0.0-1.0 — but can't express conditional logic.
-validate("high confidence for extreme sentiments") do |o|
-  next true if o[:intent] == "other"
-  o[:confidence] >= 0.7
+# Schema enforces 3–5 takeaways — but says nothing about them being distinct.
+validate("takeaways are unique") { |o, _| o[:takeaways].uniq.size == o[:takeaways].size }
+
+# Schema can't express cross-field rules.
+validate("critical tone requires at least one concrete risk") do |o, _|
+  next true unless o[:tone] == "negative"
+  o[:takeaways].any? { |t| t.match?(/fail|break|crash|outage|vulnerab/i) }
 end
 ```
 
 ## Supported constraints
 
 | Constraint | Types | Example |
-|-----------|-------|---------|
-| `enum` | string, integer | `string :status, enum: %w[active inactive]` |
-| `minimum` / `maximum` | number, integer | `number :score, minimum: 0, maximum: 100` |
-| `minLength` / `maxLength` | string | `string :name, minLength: 1, maxLength: 100` |
-| `minItems` / `maxItems` | array | `array :tags, minItems: 1, maxItems: 10` |
-| `additionalProperties` | object | Set to `false` in schema to reject extra keys |
+|---|---|---|
+| `enum` | string, integer | `string :tone, enum: %w[neutral positive negative analytical]` |
+| `minimum` / `maximum` | number, integer | `number :confidence, minimum: 0.0, maximum: 1.0` |
+| `min_length` / `max_length` | string | `string :tldr, min_length: 1, max_length: 200` |
+| `min_items` / `max_items` | array | `array :takeaways, of: :string, min_items: 3, max_items: 5` |
+| `additional_properties` | object | Set to `false` in the schema to reject extra keys |
+
+Keyword args use Ruby snake_case (`min_length`, `min_items`). The DSL converts them internally to JSON Schema's camelCase (`minLength`, `minItems`) before sending the schema to the provider — you don't need to write camelCase in Ruby.

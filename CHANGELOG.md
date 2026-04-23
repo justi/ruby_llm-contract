@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.7.2 (2026-04-22)
+
+### Changed
+
+- **Terminal output labels renamed for consistency with README narrative.** `print_summary` now prints `Hardest eval` (was `Constraining eval`), `Suggested fallback list` (was `Suggested chain`), and the production-mode table uses `first-attempt` / `fallback %` as column headers (was `single-shot` / `escalation`). Programmatic metric names unchanged: `single_shot_cost`, `single_shot_latency_ms`, `escalation_rate`. `RetryOptimizer::Result` exposes `hardest_eval` as an alias for `constraining_eval`.
+
+### Documentation
+
+- **`docs/guide/optimizing_retry_policy.md` rewritten** — 17.7k → 6.4k characters. Continues the `SummarizeArticle` narrative from README. Offline mode clearly positioned as wiring-check; real optimization runs via `LIVE=1 RUNS=3`. Output samples match actual `print_summary` format.
+- **`docs/guide/getting_started.md` rewritten** — 8.7k → 6.1k. Every example uses `SummarizeArticle`. Evals + CI gates section moved before Budget caps. Structured Prompts / Dynamic Prompts / "Already using ruby_llm?" / Reasoning effort sections removed; content delegated to `prompt_ast.md` and README.
+- **`docs/guide/eval_first.md` refined** — 6.3k → 5.0k. Switched to `SummarizeArticle` case. Team workflow section compressed with links back to `getting_started.md` for the matcher chain.
+- **`docs/guide/testing.md` refined** — 10.7k → 7.4k. Switched to `SummarizeArticle` case. Threshold gating / Rake task / baseline walkthrough / prompt A/B sections delegated back to `getting_started.md` and `eval_first.md`.
+- **`docs/guide/output_schema.md` DSL bug fix** — the Supported constraints table documented JSON Schema camelCase keys (`minLength`, `minItems`, `additionalProperties`) that are not valid DSL arguments. Every copy-paste from the previous table would have raised `ArgumentError`. Switched to snake_case (`min_length`, `min_items`, `additional_properties`) as the DSL actually expects; added a short note on the internal camelCase conversion.
+- **`docs/guide/best_practices.md`, `pipeline.md`, `migration.md` sanity pass** — terminology alignment (model escalation → model fallback where narrative; `escalate` DSL method unchanged) and `SummarizeArticle` case where the guide is not inherently multi-step.
+
 ## 0.7.1 (2026-04-22)
 
 ### Changed (behavioral, follow-up to v0.7.0)

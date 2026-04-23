@@ -1,360 +1,270 @@
 # Testing
 
-## Test Adapter
+> Read this when writing deterministic unit specs for contract steps. Skip if you only ever run live evals in CI and never stub LLM calls.
 
-Ship deterministic specs with zero API calls. The adapter accepts String, Hash, or Array:
+CI that hits a real LLM on every commit is slow and costly: tests take minutes instead of milliseconds, every rerun spends money, and flakes on provider hiccups block merges. The Test adapter + `stub_step` make LLM-backed specs run like ordinary unit tests — deterministic, offline, free. Live evals stay as an opt-in CI stage for quality gating (see [Eval-First](eval_first.md)).
+
+How to write deterministic specs and matchers for steps built on `ruby_llm-contract`. Examples use `SummarizeArticle` (the flagship step from the [README](../../README.md)).
+
+## Test adapter
+
+Ships deterministic specs with zero API calls. Accepts a String, Hash, or Array:
 
 ```ruby
 # String JSON
-adapter = RubyLLM::Contract::Adapters::Test.new(response: '{"intent":"billing"}')
-
-# Hash — auto-converted to JSON
-adapter = RubyLLM::Contract::Adapters::Test.new(response: { intent: "billing" })
-
-# Multiple sequential responses
 adapter = RubyLLM::Contract::Adapters::Test.new(
-  responses: [{ intent: "billing" }, { intent: "sales" }]
+  response: '{"tldr":"...","takeaways":["a","b","c"],"tone":"neutral"}'
 )
 
-result = ClassifyIntent.run("Change my invoice", context: { adapter: adapter })
+# Hash — auto-converted to JSON
+adapter = RubyLLM::Contract::Adapters::Test.new(
+  response: { tldr: "...", takeaways: %w[a b c], tone: "neutral" }
+)
+
+# Multiple sequential responses (one per call)
+adapter = RubyLLM::Contract::Adapters::Test.new(
+  responses: [
+    { tldr: "...", takeaways: %w[a b c], tone: "neutral" },
+    { tldr: "...", takeaways: %w[x y z], tone: "analytical" }
+  ]
+)
+
+result = SummarizeArticle.run("article text", context: { adapter: adapter })
 result.ok?  # => true
 ```
 
-Multi-step pipeline testing with named responses:
+Multi-step pipeline testing with per-step named responses (using `ArticleCardPipeline` from [Pipeline](pipeline.md)):
 
 ```ruby
-result = MyPipeline.test("input",
+result = ArticleCardPipeline.test("article text",
   responses: {
-    extract:  { decisions: [...] },
-    analyze:  { analyses: [...] },
-    email:    { subject: "Follow-up", body: "..." }
+    summarize: { tldr: "...", takeaways: %w[a b c], tone: "analytical" },
+    tag:       { tldr: "...", takeaways: %w[a b c], tone: "analytical", hashtags: %w[#ruby #release] },
+    card:      { headline: "Ruby 3.4 ships", summary: "...", hashtags: %w[#ruby #release], sentiment_icon: "🧠" }
   }
 )
 ```
 
 ## Output keys are always symbols
 
-Parsed output uses **symbol keys**, never string keys:
+Parsed output uses **symbol keys**, never strings:
 
 ```ruby
-result.parsed_output[:priority]   # => "high" ✓
-result.parsed_output["priority"]  # => nil ✗
+result.parsed_output[:tldr]     # => "..." ✓
+result.parsed_output["tldr"]    # => nil ✗
 ```
 
-The gem warns if a `validate` or `verify` block returns `nil` — usually a sign of string key access on symbolized data.
+The gem warns if a `validate` or `verify` block returns `nil` — usually a sign of string-key access on symbol-keyed data.
 
-## RSpec Setup
+## RSpec setup
 
-Add to your `spec_helper.rb`:
+In `spec_helper.rb`:
 
 ```ruby
 require "ruby_llm/contract/rspec"
 ```
 
-This gives you: `satisfy_contract`, `pass_eval` matchers, and the `stub_step` helper.
+You get the `satisfy_contract` matcher, `pass_eval` matcher, and the `stub_step` helpers.
 
-## stub_step Helper
+## stub_step helpers
 
-Stubs a specific step to return a canned response. Other steps are unaffected:
+`stub_step` canned-responses a single step; other steps run normally.
 
 ```ruby
-RSpec.describe ClassifyIntent do
-  before { stub_step(described_class, response: { intent: "billing" }) }
+RSpec.describe SummarizeArticle do
+  before { stub_step(described_class, response: { tldr: "...", takeaways: %w[a b c], tone: "neutral" }) }
 
-  it "satisfies contract" do
-    result = described_class.run("Change my invoice")
+  it "satisfies its contract" do
+    result = described_class.run("article text")
     expect(result).to satisfy_contract
   end
 end
 ```
 
-For multiple responses:
+**Sequential responses:**
+
 ```ruby
-stub_step(described_class, responses: [{ intent: "billing" }, { intent: "sales" }])
+stub_step(described_class, responses: [
+  { tldr: "...", takeaways: %w[a b c], tone: "neutral" },
+  { tldr: "...", takeaways: %w[x y z], tone: "analytical" }
+])
 ```
 
-### Block form (auto-cleanup)
-
-Stub is scoped to the block — automatically cleaned up after:
+**Block form (auto-cleanup):**
 
 ```ruby
-stub_step(ClassifyTicket, response: { priority: "high" }) do
-  result = ClassifyTicket.run("test")
-  # stub active here
+stub_step(SummarizeArticle, response: { tldr: "...", takeaways: %w[a b c], tone: "neutral" }) do
+  result = SummarizeArticle.run("article text")
+  # stub is active here
 end
-# stub gone — original behavior restored
+# stub gone — original adapter restored
 ```
 
-### Multiple steps at once
-
-`stub_steps` stubs multiple steps with different responses in one block:
+**Multiple steps at once:**
 
 ```ruby
 stub_steps(
-  ClassifyTicket => { response: { priority: "high" } },
-  RouteToTeam => { response: { team: "billing" } }
+  SummarizeArticle => { response: { tldr: "...", takeaways: %w[a b c], tone: "neutral" } },
+  GenerateHashtags => { response: { tldr: "...", takeaways: %w[a b c], tone: "neutral", hashtags: %w[#ruby #release] } }
 ) do
-  result = TicketPipeline.run("I was charged twice")
+  result = ArticleCardPipeline.run("article text")
 end
 ```
 
-### Global stub
+**Global stub for all steps:**
 
-To stub ALL steps globally:
 ```ruby
 stub_all_steps(response: { default: true })
 ```
 
-In RSpec, non-block stubs are auto-cleaned after each example. In Minitest, `teardown` restores the original adapter automatically (via `MinitestHelpers`).
+In RSpec, non-block stubs auto-clean after each example. In Minitest, `teardown` restores the original adapter (via `MinitestHelpers`).
 
-## RSpec Matchers
+## Minitest
+
+Require `ruby_llm/contract/minitest` in your `test_helper.rb`. You get the same `satisfy_contract` / `pass_eval` assertions and `stub_step` helper, adapted for Minitest syntax.
+
+## RSpec matchers
 
 ```ruby
-RSpec.describe ClassifyIntent do
-  before { stub_step(described_class, response: { intent: "billing" }) }
+RSpec.describe SummarizeArticle do
+  before { stub_step(described_class, response: { tldr: "...", takeaways: %w[a b c], tone: "neutral" }) }
 
-  it "satisfies contract" do
-    result = described_class.run("Change my invoice")
+  it "satisfies its contract" do
+    result = described_class.run("article text")
     expect(result).to satisfy_contract
   end
 
-  it "catches invalid output" do
-    stub_step(described_class, response: { intent: "unknown" })
-    result = described_class.run("hello")
-    expect(result).not_to satisfy_contract
+  it "rejects invalid output" do
+    stub_step(described_class, response: { tldr: "x" * 300, takeaways: %w[a b c], tone: "neutral" })
+    result = described_class.run("article text")
+    expect(result).not_to satisfy_contract  # TL;DR > 200 chars fails validate
   end
 
-  it "passes eval" do
+  it "passes its eval" do
     expect(described_class).to pass_eval("smoke")
   end
 end
 ```
 
-## Offline vs Online Eval
+`pass_eval` supports a matcher chain — full reference lives in [Getting Started](getting_started.md) under Evals and CI gates. Quick summary:
 
-Evals run in two modes depending on how the eval is defined and what context is passed:
+- `.with_context(model: "gpt-4.1-mini")` — pick model / pass adapter
+- `.with_minimum_score(0.8)` — gate on average score
+- `.with_maximum_cost(0.01)` — gate on total cost
+- `.without_regressions` — block any previously-passing case that now fails (reads the baseline)
+- `.compared_with(SummarizeArticleV1)` — A/B against another step; implies regression check
 
-| Has `sample_response`? | Context has adapter? | Mode | API calls |
-|------------------------|---------------------|------|-----------|
-| Yes | No | **Offline** — uses sample_response as canned answer | Zero |
-| Yes | Yes | **Online** — ignores sample_response, calls real LLM | Real |
+## Offline vs online eval
+
+Evals run in one of two modes depending on how they're defined and what context is passed:
+
+| Has `sample_response`? | Context has adapter/model? | Mode | API calls |
+|---|---|---|---|
+| Yes | No | **Offline** — uses `sample_response` as canned answer | Zero |
+| Yes | Yes | **Online** — ignores `sample_response`, calls real LLM | Real |
 | No | Yes | **Online** — calls real LLM | Real |
 | No | No | **Skipped** — returns `:skipped`, excluded from score | Zero |
 
-**Default is offline.** If your eval has `sample_response`, `run_eval` uses it as a test adapter automatically. No API key needed.
-
-**To force online:** pass adapter or model in context:
-```ruby
-# Online — calls real LLM
-report = Step.run_eval("regression", context: { model: "gpt-4.1-nano" })
-
-# Offline — uses sample_response (default)
-report = Step.run_eval("smoke")
-```
-
-**In Rake task:**
-```ruby
-RubyLLM::Contract::RakeTask.new do |t|
-  # Without context: runs offline (sample_response)
-  # With context: runs online
-  t.context = { model: "gpt-4.1-nano" }  # online
-end
-```
-
-## Eval with Test Cases
-
-`add_case` inside `define_eval` for dataset-driven evaluation:
+Default is offline. To force online, pass adapter or model in context:
 
 ```ruby
-ClassifyTicket.define_eval("regression") do
-  add_case "billing", input: "I was charged twice", expected: { priority: "high" }
-  add_case "feature", input: "Add dark mode", expected: { priority: "low" }
-end
+# Online — real LLM call
+report = SummarizeArticle.run_eval("regression", context: { model: "gpt-4.1-nano" })
+
+# Offline — uses sample_response
+report = SummarizeArticle.run_eval("smoke")
 ```
 
-Each case runs the step and compares the output against `expected`. Fields in `expected` are matched by key -- extra output keys are ignored.
+`compare_with` intentionally ignores `sample_response` because canned data would make both sides look identical. Always pass `model:` or an adapter to A/B.
 
-Set a shared input with `default_input` when all cases share the same shape:
+## Inspecting failures
+
+`run_eval` returns a `Report`. Drill into per-case failures:
 
 ```ruby
-ClassifyTicket.define_eval("regression") do
-  default_input "I was charged twice"
-  add_case "detects billing", expected: { category: "billing" }
-  add_case "high priority",  expected: { priority: "high" }
-end
-```
-
-## Threshold-Based Gating
-
-Chain `.with_minimum_score` and `.with_maximum_cost` onto `pass_eval` to set acceptance thresholds:
-
-```ruby
-expect(ClassifyTicket).to pass_eval("regression")
-  .with_context(model: "gpt-4.1-mini")
-  .with_minimum_score(0.8)
-  .with_maximum_cost(0.01)
-```
-
-- `with_minimum_score(0.8)` -- pass if average score >= 0.8 (default requires 1.0)
-- `with_maximum_cost(0.01)` -- fail if total cost exceeds $0.01
-
-Both constraints must hold for the matcher to pass.
-
-## Rake Task
-
-Run all evals from the command line with a Rake task:
-
-```ruby
-# Rakefile
-require "ruby_llm/contract/rake_task"
-
-RubyLLM::Contract::RakeTask.new do |t|
-  t.minimum_score = 0.8
-  t.maximum_cost = 0.05
-  t.track_history = true       # auto-append every run to .eval_history/
-  t.fail_on_regression = true  # block if previously-passing case now fails
-  t.save_baseline = true       # save baseline after green run
-end
-```
-
-```sh
-rake ruby_llm_contract:eval
-```
-
-The task discovers every `define_eval` across your steps, runs them, and aborts if any threshold is breached. In Rails apps it automatically depends on `:environment`.
-
-## Inspecting Failures
-
-`run_eval` returns a `Report`. Drill into failures for programmatic assertions or debugging:
-
-```ruby
-report = ClassifyTicket.run_eval("regression")
+report = SummarizeArticle.run_eval("regression")
 
 report.score       # => 0.5
 report.pass_rate   # => "1/2"
 report.total_cost  # => 0.003
 
 report.failures.each do |result|
-  puts result.name       # => "feature"
-  puts result.mismatches # => { priority: { expected: "low", got: "medium" } }
-  puts result.output     # full parsed output hash
-  puts result.details    # human-readable explanation
+  puts result.name        # => "critical review"
+  puts result.mismatches  # => { tone: { expected: "negative", got: "analytical" } }
+  puts result.output      # full parsed output hash
+  puts result.details     # human-readable explanation
 end
 ```
 
-`mismatches` returns a hash of keys where `expected` and actual output diverge -- handy for pinpointing which field a model got wrong.
+`mismatches` is a hash of keys where expected and actual output diverge — pinpoints which field the model got wrong.
 
-## Baseline Regression Detection
-
-Like `schema.rb` for your LLM quality — save what works, catch when it breaks.
-
-```ruby
-# First run — everything passes, save as baseline
-report = ClassifyTicket.run_eval("regression", context: { model: "gpt-4.1-nano" })
-report.save_baseline!(model: "gpt-4.1-nano")
-# Writes to .eval_baselines/ClassifyTicket/regression_gpt-4_1-nano.json
-```
-
-Later — after a prompt change, model update, or provider weight shift:
-
-```ruby
-report = ClassifyTicket.run_eval("regression", context: { model: "gpt-4.1-nano" })
-diff = report.compare_with_baseline(model: "gpt-4.1-nano")
-
-diff.regressed?      # => true
-diff.regressions     # => [{case: "outage", baseline: {passed: true}, current: {passed: false}}]
-diff.improvements    # => []
-diff.score_delta     # => -0.33
-diff.new_cases       # => cases added since baseline
-diff.removed_cases   # => cases removed since baseline (treated as regression if passing)
-```
-
-### CI gate on regressions
-
-```ruby
-# RSpec — block merge if any previously-passing case now fails
-expect(ClassifyTicket).to pass_eval("regression")
-  .with_context(model: "gpt-4.1-nano")
-  .without_regressions
-```
-
-```ruby
-# Rake — auto-save baseline after green, fail on regression
-RubyLLM::Contract::RakeTask.new do |t|
-  t.minimum_score = 0.8
-  t.fail_on_regression = true
-  t.save_baseline = true
-end
-```
-
-### What counts as a regression
-
-- A case that **passed** in baseline but **fails** now
-- A case that **passed** in baseline but is **missing** from current eval (removed or skipped)
-- Score drop alone is NOT a regression — use `with_minimum_score` for that
-
-## Prompt A/B Testing
-
-Compare two prompts side-by-side with regression safety:
-
-```ruby
-diff = ClassifyTicketV2.compare_with(ClassifyTicketV1,
-  eval: "regression", model: "gpt-4.1-mini")
-
-diff.safe_to_switch?    # => true (no regressions, no score drop, identical cases)
-diff.improvements       # => [{case: "outage", ...}]
-diff.regressions        # => []
-diff.score_delta        # => +0.33
-diff.score_regressions  # => per-case score drops
-```
-
-`safe_to_switch?` enforces:
-- Both sides have evaluated cases (no empty/skipped)
-- Identical case names, inputs, AND expected values (no dataset manipulation)
-- No pass→fail regressions or removed passing cases
-- No per-case score drops (even if the average stays flat)
-
-**Important:** `compare_with` requires a real adapter or model — it will NOT use `sample_response`. A/B testing with canned data gives identical results for both sides. Pass `model:` for real LLM calls, or explicit test adapters per step for deterministic tests.
-
-### CI gate for prompt changes
-
-```ruby
-# Block merge if new prompt regresses any case
-expect(ClassifyTicketV2).to pass_eval("regression")
-  .compared_with(ClassifyTicketV1)
-  .with_minimum_score(0.8)
-```
-
-`compared_with` implies regression check — `.without_regressions` is optional.
-
-## Soft Observations
+## Soft observations
 
 Log suspicious-but-not-invalid output without failing the contract:
 
 ```ruby
-class EvaluateComparative < RubyLLM::Contract::Step::Base
-  validate("scores in range") { |o| (1..10).include?(o[:score_a]) }
-  observe("scores should differ") { |o| o[:score_a] != o[:score_b] }
+class CompareArticles < RubyLLM::Contract::Step::Base
+  prompt "Score the article pair for relevance. Return JSON: {score_a: 1-10, score_b: 1-10}.\n\n{input}"
+
+  output_schema do
+    integer :score_a, minimum: 1, maximum: 10
+    integer :score_b, minimum: 1, maximum: 10
+  end
+
+  validate("scores in range") { |o, _| (1..10).cover?(o[:score_a]) && (1..10).cover?(o[:score_b]) }
+  observe("scores should differ") { |o, _| o[:score_a] != o[:score_b] }
 end
 
-result = EvaluateComparative.run(input)
-result.ok?            # => true (observe never fails)
-result.observations   # => [{description: "scores should differ", passed: false}]
+adapter = RubyLLM::Contract::Adapters::Test.new(response: { score_a: 5, score_b: 5 })
+result  = CompareArticles.run("two identical-looking articles", context: { adapter: adapter })
+
+result.ok?           # => true (observe never fails the contract)
+result.observations  # => [{ description: "scores should differ", passed: false }]
 ```
 
-Observations run only when validation passes. Failed observations are logged via `Contract.logger`.
+`observe` runs only after validation passes. Failed observations are logged via `RubyLLM::Contract.logger` — useful for "I want to know this happened without blocking the response".
 
-### Baseline file format
+## Asserting on `around_call`
 
-Baselines are JSON files in `.eval_baselines/` — add to git:
+`around_call` fires **once per run** with the final result (after retry fallback) and exceptions propagate. That makes it straightforward to test:
+
+```ruby
+class LoggedSummarize < RubyLLM::Contract::Step::Base
+  prompt "Summarize: {input}"
+  output_schema { string :tldr }
+
+  around_call do |_step, input, result|
+    CallLog.record(model: result.trace.model, cost: result.trace.cost, input_size: input.length)
+  end
+end
+
+RSpec.describe LoggedSummarize do
+  it "logs once per run, with final model + total cost" do
+    adapter = RubyLLM::Contract::Adapters::Test.new(response: { tldr: "ok" })
+    expect(CallLog).to receive(:record).once.with(hash_including(:model, :cost, :input_size))
+
+    LoggedSummarize.run("article text", context: { adapter: adapter })
+  end
+end
+```
+
+The callback receives `(step, input, result)` — the same `Result` the caller sees. Not invoked per-attempt inside a `retry_policy` chain; if you need per-attempt visibility, read `result.trace[:attempts]` inside the block.
+
+## Baseline file format
+
+Baselines are JSON files in `.eval_baselines/` — commit them to git:
 
 ```
 .eval_baselines/
-  ClassifyTicket/
+  SummarizeArticle/
     regression_gpt-4_1-nano.json
     regression_gpt-4_1-mini.json
-  EvaluatePersona/
-    smoke.json
 ```
 
-Each file contains dataset name, step name, score, and per-case results. No timestamps — re-saving an identical baseline produces no git diff.
+Each file contains dataset name, step name, score, and per-case results. No timestamps — re-saving an identical baseline produces no git diff. Baseline semantics (what counts as a regression, how `compare_with_baseline` works) are covered in [Getting Started](getting_started.md#evals-and-ci-gates) and [Eval-First](eval_first.md).
+
+## See also
+
+- [Getting Started](getting_started.md) — `pass_eval` matcher chain, threshold gating, Rake task, baseline regressions.
+- [Eval-First](eval_first.md) — `compare_with` prompt A/B workflow.
+- [Pipeline](pipeline.md) — pipeline-level testing with named step responses.

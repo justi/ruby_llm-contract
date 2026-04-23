@@ -6,7 +6,7 @@ RubyLLM::Contract::Pipeline::Base   # optional: compose steps
 
 RubyLLM::Contract::Step::Base       # single contracted step
   ├── Step::Dsl                  # DSL macros (prompt, validate, output_schema, etc.)
-  ├── Step::RetryExecutor        # retry with model escalation
+  ├── Step::RetryExecutor        # retry with model fallback
   ├── Step::LimitChecker         # preflight cost/token checks
   ├── Prompt::AST                # structured prompt (immutable)
   │     ├── Prompt::Builder      # DSL: system, rule, example, user, section
@@ -37,7 +37,6 @@ RubyLLM::Contract::Eval             # quality measurement
   ├── Eval::Recommender          # model recommendation algorithm (candidates → optimal config)
   └── Eval::Recommendation       # recommendation result (best, retry_chain, savings, to_dsl)
 
-RubyLLM::Contract::CI               # CI / Rails integration
-  ├── RakeTask                   # rake ruby_llm_contract:eval
-  └── Railtie                    # auto-loads eval files in Rails
+RubyLLM::Contract::RakeTask         # rake ruby_llm_contract:eval
+RubyLLM::Contract::Railtie          # auto-loads eval files in Rails
 ```

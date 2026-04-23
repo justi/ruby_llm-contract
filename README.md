@@ -17,6 +17,12 @@ RubyLLM::Contract.configure { |c| c.default_model = "gpt-4.1-mini" }
 
 Works with any `ruby_llm` provider (OpenAI, Anthropic, Gemini, etc).
 
+## Do I need this?
+
+Use this if LLM output affects production behaviour, money, user trust, or downstream code. You probably don't need it if you have one low-risk prompt, manually inspect every result, or only generate best-effort prose.
+
+Already using structured outputs from your provider? This gem adds business-rule validation, retry with model fallback, evals, regression gating, and test stubs on top of them — the layer that stops schema-valid-but-wrong output from reaching users. See [Why contracts?](docs/guide/why.md) for the four production failure modes the gem exists for.
+
 ## Example
 
 A Rails app takes article text extracted from a user-submitted URL and wants to show a summary card: a short TL;DR, 3–5 key takeaways, and a tone label. The output has to fit the UI (TL;DR under 200 chars) and the schema has to be strict enough to render without conditionals.
@@ -57,7 +63,7 @@ You could write this loop yourself once. The gem gives you the loop, a trace of 
 Everything below is optional — the example above is a complete step. Reach for these when one step isn't enough.
 
 - **[CI regression gates](docs/guide/getting_started.md)** — `define_eval` + `save_baseline!` + `pass_eval(...).without_regressions` blocks CI when accuracy drops on a model update or prompt tweak.
-- **[Find the cheapest viable fallback list](docs/guide/optimizing_retry_policy.md)** — `Step.recommend(candidates:, min_score:)` returns the cheapest list of models that still passes your evals. `production_mode:` measures retry-aware cost.
+- **[Find the cheapest viable fallback list](docs/guide/optimizing_retry_policy.md)** — `Step.recommend("regression", candidates: [...], min_score: 0.95)` returns the cheapest list of models that still passes your evals. `production_mode:` measures retry-aware cost.
 - **[A/B test prompts](docs/guide/eval_first.md)** — `SummarizeArticleV2.compare_with(SummarizeArticleV1, eval: "regression")` reports whether the new prompt is safe to ship.
 - **[Budget caps](docs/guide/getting_started.md)** — `max_cost`, `max_input`, `max_output` refuse the request before calling the API when an estimate exceeds the limit.
 
@@ -65,21 +71,24 @@ Also supports [multi-step pipelines](docs/guide/pipeline.md) with fail-fast and 
 
 ## Docs
 
-| Guide | |
-|-------|-|
-| [Getting Started](docs/guide/getting_started.md) | Features walkthrough |
-| [Eval-First](docs/guide/eval_first.md) | Datasets, baselines, A/B gates |
-| [Optimizing retry_policy](docs/guide/optimizing_retry_policy.md) | Fallback lists + production-mode cost |
-| [Best Practices](docs/guide/best_practices.md) | Validate patterns, retry-without-fallback |
-| [Output Schema](docs/guide/output_schema.md) | Full schema DSL reference + constraints |
-| [Prompt AST](docs/guide/prompt_ast.md) | Prompt DSL reference (system/rule/section/example) |
-| [Pipeline](docs/guide/pipeline.md) | Multi-step with fail-fast |
-| [Testing](docs/guide/testing.md) | Test adapter, RSpec + Minitest matchers |
-| [Migration](docs/guide/migration.md) | Adopting in existing Rails apps |
+**New here?** Read in order: this README → [Why contracts?](docs/guide/why.md) → [Getting Started](docs/guide/getting_started.md).
+
+| Guide | What it does for your app |
+|-------|---------------------------|
+| [Why contracts?](docs/guide/why.md) | Recognise the four production failures the gem exists for |
+| [Getting Started](docs/guide/getting_started.md) | Walk the full feature set on one concrete step |
+| [Adopt in an existing Rails app](docs/guide/migration.md) | Replace raw `LlmClient.call` with a contract, Before/After |
+| [Prevent silent prompt regressions](docs/guide/eval_first.md) | Evals, baselines, CI gates that block quality drift |
+| [Control retry cost and fallback behaviour](docs/guide/optimizing_retry_policy.md) | Find the cheapest viable fallback list empirically |
+| [Write validate rules that catch real bugs](docs/guide/best_practices.md) | Patterns for cross-input checks and content-quality rules |
+| [Stub LLM calls in tests](docs/guide/testing.md) | Deterministic specs, RSpec + Minitest matchers |
+| [Chain LLM calls into a pipeline](docs/guide/pipeline.md) | Multi-step with fail-fast and per-step models |
+| [Schema DSL reference](docs/guide/output_schema.md) | Every constraint, nested objects, pattern table |
+| [Prompt DSL reference](docs/guide/prompt_ast.md) | `system` / `rule` / `section` / `example` / `user` nodes |
 
 ## Roadmap
 
-Latest: **v0.7.1** — `run_once` no longer masks adapter bugs as `:input_error`. See [CHANGELOG](CHANGELOG.md) for history.
+Latest: **v0.7.2** — terminal output labels and guides aligned with the fallback narrative; `output_schema.md` DSL bug fix. See [CHANGELOG](CHANGELOG.md) for history.
 
 ## License
 
