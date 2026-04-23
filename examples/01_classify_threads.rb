@@ -126,10 +126,12 @@ class ClassifyThreadsWithSchema < RubyLLM::Contract::Step::Base
 
   output_schema do
     array :threads do
-      string :id
-      string :classification, enum: %w[PROMO FILLER SKIP]
-      integer :relevance_score, minimum: 0, maximum: 10
-      string :thread_intent, enum: %w[seeking_help sharing discussion venting]
+      object do
+        string :id
+        string :classification, enum: %w[PROMO FILLER SKIP]
+        integer :relevance_score, minimum: 0, maximum: 10
+        string :thread_intent, enum: %w[seeking_help sharing discussion venting]
+      end
     end
   end
 

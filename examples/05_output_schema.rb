@@ -152,8 +152,10 @@ class ProfileAudience < RubyLLM::Contract::Step::Base
   output_schema do
     string :locale, description: "ISO 639-1 language code"
     array :groups, min_items: 1, max_items: 4 do
-      string :who, description: "Audience segment name"
-      array :pain_points, of: :string, min_items: 1
+      object do
+        string :who, description: "Audience segment name"
+        array :pain_points, of: :string, min_items: 1
+      end
     end
   end
 

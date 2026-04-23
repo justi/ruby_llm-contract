@@ -25,15 +25,77 @@ Every step has a corresponding test in `spec/integration/examples_00_basics_spec
 Real-world before/after: classify Reddit threads as PROMO/FILLER/SKIP.
 Shows ID matching, enum validation, score consistency validates.
 
+Expected output:
+
+```
+=== HAPPY PATH ===
+Status: ok
+Parsed output: t1=PROMO, t2=SKIP, t3=PROMO
+Validation errors: []
+
+=== BAD ENUM ===
+Status: validation_failed
+Validation errors: ["classification must be PROMO, FILLER, or SKIP"]
+
+=== REWRITTEN IDs (legacy code would silently fallback to positional matching) ===
+Status: validation_failed
+Validation errors: ["all thread IDs must match input"]
+```
+
 ## 02_generate_comment.rb — Comment generation
 
 Real-world before/after: generate Reddit comments with persona.
 Shows sections, banned openings, link presence, length constraints, 2-arity validates.
 
+Expected output:
+
+```
+=== HAPPY PATH ===
+Status: ok
+Comment: Ugh same. I started tracking last year and the numbers were brutal. What helped — monthly yarn budget plus checking https://deals.example.com/yarn-deals before impulse buying. Ravelry destash groups too.
+Validation errors: []
+
+=== BANNED OPENING ===
+Status: validation_failed
+Validation errors: ["length within ±30% of target", "does not start with banned openings"]
+
+=== MISSING LINK ===
+Status: validation_failed
+Validation errors: ["includes product link", "length within ±30% of target"]
+
+=== RENDERED PROMPT (first 3 messages) ===
+  [system] You write Reddit comments that subtly promote a product. Return valid JSON only....
+  [system] [PERSONA] You are a woman, 40+, a maker. You solve your own problems by building ...
+  [system] Sound like a genuine user who found something useful, not an ad....
+```
+
 ## 03_target_audience.rb — Audience profiling
 
 Real-world before/after: generate target audience profiles.
 Shows cascade failure prevention, locale validation, cross-field validates.
+
+Expected output:
+
+```
+=== HAPPY PATH ===
+Status: ok
+Locale: en
+Description: Deals aggregator for niche online shops.
+Groups: 2
+Validation errors: []
+
+=== BAD LOCALE (legacy code would let this pass) ===
+Status: validation_failed
+Validation errors: ["locale is valid ISO 639-1", "each group has who field", "each group has use_cases", "each group has good_fit_threads"]
+
+=== EMPTY GROUPS (would poison all downstream stages) ===
+Status: validation_failed
+Validation errors: ["has 1-4 audience groups"]
+
+=== CASCADE PREVENTION ===
+if result.failed? → don't run SearchExpansion, ThreadClassification, CommentGeneration
+Legacy code would silently pass bad data to 6 more LLM calls, wasting tokens and producing garbage.
+```
 
 ## 04_real_llm.rb — Real LLM calls via ruby_llm
 
@@ -109,9 +171,57 @@ Extract up to 15 keywords from an article, each with relevance probability.
 
 Shows `define_eval` + `add_case` + `compare_models` end-to-end against a small hand-curated dataset.
 
+Expected output (steps 2–4 shown; step 1 is setup and step 5 pipeline-eval is tracked separately as a known issue):
+
+```
+STEP 2: Run eval — good model (all cases pass)
+  Score: 1.0, Pass rate: 5/5, All passed: true
+    ✓ billing inquiry                score=1.0  all expected keys present and matching
+    ✓ sales inquiry                  score=1.0  all expected keys present and matching
+    ✓ support with confidence        score=1.0  all traits match
+    ✓ high confidence expected       score=1.0  passed
+    ✓ contract smoke test            score=1.0  contract passed
+
+STEP 3: Run eval — bad model (quality regression)
+  Score: 0.4, Pass rate: 2/5, All passed: false
+    ✗ billing inquiry                score=0.0  intent: expected "billing", got "support"
+    ✗ support with confidence        score=0.0  intent: expected "support", got "other"
+    ✗ high confidence expected       score=0.0  not passed
+  Regression detected: Score dropped: 1.0 → 0.4 (60.0% drop)
+
+STEP 4: eval_case — inline single-case eval
+  Passed: false, Score: 0.0
+  Details: intent: expected "billing", got "other"
+  Traits check: Passed: true
+  Custom proc: Passed: true (confidence > 0.9)
+```
+
 ## 10_reddit_full_showcase.rb — Full showcase across the gem
 
 Multi-step pipeline exercising schema, validates, retry with fallback, evals, and baseline regression detection on a single realistic case.
+
+Expected output (abridged — 5-step pipeline trace + eval smoke check):
+
+```
+Pipeline: ok  5 steps  30ms  0+0 tokens  $0.000000
+  analyze        ok         gpt-4.1-mini 0ms 0+0 tokens $0.000000
+  subreddits     ok         gpt-4.1-mini 0ms 0+0 tokens $0.000000
+  classify       ok         gpt-4.1-nano 0ms 0+0 tokens $0.000000
+  plan           ok         gpt-4.1-nano 0ms 0+0 tokens $0.000000
+  comment        ok         gpt-4.1-nano 0ms 0+0 tokens $0.000000
+
++-----------+--------+------------------------------------------------+
+| Step      | Status | Output                                         |
++-----------+--------+------------------------------------------------+
+| analyze   | ok     | product_description / locale / audience_groups |
+| subreddits| ok     | + subreddit names + thread selftext            |
+| classify  | ok     | classification: PROMO, relevance_score: 9      |
+| plan      | ok     | approach / tone / key_points / link_strategy   |
+| comment   | ok     | comment: "I was in the exact same boat..."     |
++-----------+--------+------------------------------------------------+
+
+smoke: 1/1 checks passed
+```
 
 ## 11_fallback_showcase.rb — See contracts work in 30 seconds
 

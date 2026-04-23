@@ -278,15 +278,19 @@ class ExtractMeetingItems < RubyLLM::Contract::Step::Base
 
   output_schema do
     array :decisions do
-      string :id
-      string :description
-      string :made_by
+      object do
+        string :id
+        string :description
+        string :made_by
+      end
     end
     array :action_items do
-      string :id
-      string :task
-      string :owner
-      string :deadline
+      object do
+        string :id
+        string :task
+        string :owner
+        string :deadline
+      end
     end
   end
 
@@ -303,23 +307,31 @@ class AnalyzeAmbiguities < RubyLLM::Contract::Step::Base
 
   output_schema do
     array :decisions do
-      string :id
-      string :description
-      string :made_by
+      object do
+        string :id
+        string :description
+        string :made_by
+      end
     end
     array :action_items do
-      string :id
-      string :task
-      string :owner
-      string :deadline
+      object do
+        string :id
+        string :task
+        string :owner
+        string :deadline
+      end
     end
     array :analyses do
-      string :action_item_id
-      string :status, enum: %w[clear ambiguous]
-      array :issues do
-        string :field, enum: %w[owner deadline scope]
-        string :problem
-        string :clarification_question
+      object do
+        string :action_item_id
+        string :status, enum: %w[clear ambiguous]
+        array :issues do
+          object do
+            string :field, enum: %w[owner deadline scope]
+            string :problem
+            string :clarification_question
+          end
+        end
       end
     end
   end
