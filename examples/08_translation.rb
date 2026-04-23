@@ -40,11 +40,13 @@ class ExtractSegments < RubyLLM::Contract::Step::Base
     string :source_lang
     string :target_lang
     array :segments, min_items: 1 do
-      string :key, description: "Unique identifier like hero_headline, cta_button"
-      string :text, description: "Original text to translate"
-      string :context, enum: %w[headline subheadline description cta legal testimonial]
-      integer :max_length, description: "Max character count for the translation"
-      string :tone, enum: %w[punchy professional casual formal technical]
+      object do
+        string :key, description: "Unique identifier like hero_headline, cta_button"
+        string :text, description: "Original text to translate"
+        string :context, enum: %w[headline subheadline description cta legal testimonial]
+        integer :max_length, description: "Max character count for the translation"
+        string :tone, enum: %w[punchy professional casual formal technical]
+      end
     end
   end
 
@@ -87,13 +89,15 @@ class TranslateSegments < RubyLLM::Contract::Step::Base
     string :source_lang
     string :target_lang
     array :translations, min_items: 1 do
-      string :key
-      string :original
-      string :translated
-      string :context, enum: %w[headline subheadline description cta legal testimonial]
-      integer :max_length, description: "Carried through from extraction for downstream validation"
-      integer :original_length
-      integer :translated_length
+      object do
+        string :key
+        string :original
+        string :translated
+        string :context, enum: %w[headline subheadline description cta legal testimonial]
+        integer :max_length, description: "Carried through from extraction for downstream validation"
+        integer :original_length
+        integer :translated_length
+      end
     end
   end
 
@@ -146,9 +150,11 @@ class ReviewTranslations < RubyLLM::Contract::Step::Base
     integer :total_segments
     integer :passed_segments
     array :reviews, min_items: 1 do
-      string :key
-      string :verdict, enum: %w[pass warning fail]
-      string :issue, description: "Empty if pass, description if warning/fail"
+      object do
+        string :key
+        string :verdict, enum: %w[pass warning fail]
+        string :issue, description: "Empty if pass, description if warning/fail"
+      end
     end
   end
 

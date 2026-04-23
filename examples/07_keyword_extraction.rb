@@ -28,8 +28,10 @@ class ExtractKeywords < RubyLLM::Contract::Step::Base
 
   output_schema do
     array :keywords, min_items: 1, max_items: 15 do
-      string :keyword, description: "1-3 word keyword or phrase"
-      number :probability, minimum: 0.0, maximum: 1.0
+      object do
+        string :keyword, description: "1-3 word keyword or phrase"
+        number :probability, minimum: 0.0, maximum: 1.0
+      end
     end
   end
 
@@ -164,8 +166,10 @@ class SuggestRelatedTopics < RubyLLM::Contract::Step::Base
 
   output_schema do
     array :topics, min_items: 3, max_items: 5 do
-      string :title
-      string :angle, description: "Unique angle or hook for the topic"
+      object do
+        string :title
+        string :angle, description: "Unique angle or hook for the topic"
+      end
     end
   end
 
