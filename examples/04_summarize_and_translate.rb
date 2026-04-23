@@ -133,10 +133,17 @@ ARTICLE = "Ruby 3.4 ships with frozen string literals on by default, measurable 
 
 result = TranslatedSummaryPipeline.run(ARTICLE, context: { adapter: adapter })
 
-puts "Pipeline: #{result.ok? ? "ok" : "failed"}"
-puts "Final TL;DR (FR):  #{result.outputs_by_step[:translate][:tldr]}"
-puts "Review verdict:    #{result.outputs_by_step[:review][:overall_verdict]}"
-puts "Total cost:        $#{result.trace.total_cost}"
+puts "Pipeline: #{result.ok? ? "ok" : "failed"}"                      # => Pipeline: ok
+puts "Final TL;DR (FR):  #{result.outputs_by_step[:translate][:tldr]}" # => "Ruby 3.4 arrive avec ..."
+puts "Review verdict:    #{result.outputs_by_step[:review][:overall_verdict]}" # => pass
+puts "Total cost:        $#{result.trace.total_cost || '0.0 (Test adapter)'}"  # => real cost under Adapters::RubyLLM
+
+# Example console output (with Test adapter):
+#
+#   Pipeline: ok
+#   Final TL;DR (FR):  Ruby 3.4 arrive avec les littéraux de chaînes figés, des gains YJIT, ...
+#   Review verdict:    pass
+#   Total cost:        $0.0 (Test adapter)
 
 # =============================================================================
 # What this showcases

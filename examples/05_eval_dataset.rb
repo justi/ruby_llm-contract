@@ -14,6 +14,26 @@
 # model, and the inline eval_case helper for quick checks.
 #
 # Run: ruby examples/05_eval_dataset.rb
+#
+# Expected output:
+#
+#   Run 1 — good configuration (baseline)
+#     Score:      1.0
+#     Pass rate:  3/3
+#     Passed?:    true
+#
+#   Run 2 — a prompt tweak broke tone classification on complaints
+#     Score:      0.67
+#     Pass rate:  2/3
+#       ✓ ruby release         all expected keys present and matching
+#       ✗ outage complaint     tone: expected "negative", got "analytical"
+#       ✓ product launch       all expected keys present and matching
+#   Regression detected: 1.0 → 0.67 (33% drop)
+#
+#   Inline eval_case (quick one-off check)
+#     Passed:   true
+#     Score:    1.0
+#     Details:  all expected keys present and matching
 # =============================================================================
 
 require_relative "../lib/ruby_llm/contract"

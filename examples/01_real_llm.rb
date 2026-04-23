@@ -54,15 +54,30 @@ ARTICLE
 puts "Calling LLM..."
 result = SummarizeArticle.run(ARTICLE)
 
-puts "Status:      #{result.status}"
-puts "Final model: #{result.trace[:model]}"
-puts "Latency:     #{result.trace[:latency_ms]}ms"
-puts "Tokens:      #{result.trace[:usage]}"
-puts "Cost:        $#{result.trace[:cost]}"
+puts "Status:      #{result.status}"               # => ok
+puts "Final model: #{result.trace[:model]}"        # => "gpt-5-mini" (or nano if it passed first)
+puts "Latency:     #{result.trace[:latency_ms]}ms" # => e.g. 820ms (real network time)
+puts "Tokens:      #{result.trace[:usage]}"        # => {input_tokens: 142, output_tokens: 96}
+puts "Cost:        $#{result.trace[:cost]}"        # => $0.000128 (sum across retries)
 puts
 puts "TL;DR:       #{result.parsed_output[:tldr]}"
 puts "Takeaways:"
 result.parsed_output[:takeaways].each { |t| puts "  - #{t}" }
+
+# Example console output (numbers vary per run):
+#
+#   Calling LLM...
+#   Status:      ok
+#   Final model: gpt-5-mini
+#   Latency:     820ms
+#   Tokens:      {input_tokens: 142, output_tokens: 96}
+#   Cost:        $0.000128
+#
+#   TL;DR:       Ruby 3.4 brings frozen string literals, YJIT speedups, parser fixes.
+#   Takeaways:
+#     - Frozen string literals are the default in Ruby 3.4
+#     - YJIT delivers measurable Rails speedups
+#     - Parser fixes and keyword argument handling improve
 
 # =============================================================================
 # Switch provider with a context override — no code change to the step

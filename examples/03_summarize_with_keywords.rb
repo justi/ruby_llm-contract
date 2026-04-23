@@ -14,6 +14,19 @@
 # the validates grow — the contract keeps all three in lockstep.
 #
 # Run: ruby examples/03_summarize_with_keywords.rb
+#
+# Expected output:
+#
+#   Status:    ok
+#   TL;DR:     Ruby 3.4 brings frozen string literals, YJIT speedups, parser fixes.
+#   Tone:      analytical
+#
+#   Keywords (sorted by probability):
+#     0.95  ###################  Ruby 3.4
+#     0.9   ##################   frozen string literals
+#     0.85  #################    YJIT
+#     0.7   ##############       Rails workloads
+#     0.6   ############         parser fixes
 # =============================================================================
 
 require_relative "../lib/ruby_llm/contract"
