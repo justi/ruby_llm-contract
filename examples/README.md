@@ -113,6 +113,40 @@ Shows `define_eval` + `add_case` + `compare_models` end-to-end against a small h
 
 Multi-step pipeline exercising schema, validates, retry with fallback, evals, and baseline regression detection on a single realistic case.
 
+## 11_fallback_showcase.rb — See contracts work in 30 seconds
+
+The shortest possible "why does this gem exist" demo, runnable with zero API keys. Uses the Test adapter to simulate output variance from gpt-5-nano (where `temperature=1.0` is server-enforced and the same prompt can produce a tone label that contradicts the takeaways). Watches the contract reject the flaky sample via a cross-field validate, then shows `retry_policy` escalating to gpt-5-mini — with the per-attempt trace printed. Start here if you want to feel the fallback loop before reading docs.
+
+Expected output (Part B, after the schema-only pain point in Part A):
+
+```
+attempt 1  model=gpt-5-nano   status=validation_failed
+attempt 2  model=gpt-5-mini   status=ok
+
+Final parsed_output:
+  tone:       "negative"
+```
+
+## 12_retry_variants.rb — Three other retry_policy shapes, runnable
+
+Covers the three patterns example 11 does not: `attempts: 3` on the same model (sampling-variance absorption, replaces the typical `begin/rescue/retry` loop), `reasoning_effort` escalation (low → medium → high on one model), and cross-provider fallback (Ollama → Anthropic → OpenAI; local first because it costs nothing, hosted last because it is the most accurate). Zero API keys — every variant runs through the Test adapter so you see the trace without configuring providers.
+
+Expected output (abridged — each variant ends at attempt 3 = ok):
+
+```
+A — attempts: 3 (same model, sampling-variance absorption)
+    attempt 1  model=gpt-5-nano  status=validation_failed
+    attempt 3  model=gpt-5-nano  status=ok
+
+B — reasoning_effort escalation (low → medium → high)
+    attempt 1  effort=low     status=validation_failed
+    attempt 3  effort=high    status=ok
+
+C — cross-provider fallback (Ollama → Anthropic → OpenAI)
+    attempt 1  model=gemma3:4b         status=validation_failed
+    attempt 3  model=gpt-5-nano        status=ok
+```
+
 ## Running
 
 ```bash
@@ -126,10 +160,13 @@ ruby examples/07_keyword_extraction.rb
 ruby examples/08_translation.rb
 ruby examples/09_eval_dataset.rb
 ruby examples/10_reddit_full_showcase.rb
+ruby examples/11_fallback_showcase.rb
+ruby examples/12_retry_variants.rb
 
-# Real LLM — requires Ollama or API key:
+# Real LLM — requires a provider API key (OpenAI, Anthropic, Gemini, etc.)
+# or a local Ollama server (no key needed):
 ruby examples/04_real_llm.rb
 ```
 
-Examples 00–03, 05, 07–10 use the test adapter by default — no API keys needed.
-Example 04 requires an API key.
+Examples 00–03, 05, 07–12 use the test adapter by default — no API keys needed.
+Example 04 needs a real backend: either a provider API key or a local Ollama instance.

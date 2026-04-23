@@ -41,22 +41,28 @@ expect(SummarizeArticle).to pass_eval("regression").without_regressions
 
 The "tweak helped one case, broke three" scenario is caught at PR review. No Slack-thread surprises.
 
-## Failure 3 — Refusal as valid JSON
+## Failure 3 — Sampling variance on fixed-temperature models
 
-Cheap models sometimes refuse to answer, and they do it in-schema. `gpt-4.1-nano` happily returns `{ "tldr": "I cannot help with that request.", "takeaways": ["Please provide more context", "I need more information", "Unable to summarize"], "tone": "neutral" }`. Every field is the right type. Schema passes. You ship a UI card that apologises to the user.
+OpenAI's gpt-5 and o-series run with `temperature=1.0` server-side — you cannot lower it. That means the same prompt on the same model can produce different answers between calls. An outage complaint classified `tone: "negative"` on Monday may come back `tone: "positive"` on Tuesday, with no code change in between. Schema passes both. Your customer-success filter silently misroutes the Tuesday case.
 
-Validates + retry with model fallback turn this from a silent ship into an automatic recovery:
+A `validate` block that cross-checks fields against each other turns a one-in-N flaky output into a deterministic retry:
 
 ```ruby
-validate("not a refusal") do |o, _|
-  !o[:tldr].match?(/i (cannot|can't|am unable)/i) &&
-    o[:takeaways].none? { |t| t.match?(/please provide|more context|unable to/i) }
+validate("tone matches severity keywords") do |o, _|
+  severity = /fail|crash|outage|broken|bug|error/i
+  flagged = o[:takeaways].any? { |t| t.match?(severity) }
+  next true unless flagged
+  %w[negative analytical].include?(o[:tone])
 end
 
-retry_policy models: %w[gpt-4.1-nano gpt-4.1-mini gpt-4.1]
+retry_policy models: %w[gpt-5-nano gpt-5-mini gpt-5]
 ```
 
-Nano refuses → contract rejects → mini gets the call. The user never sees the refusal. Your logs show the retry and the cost.
+Nano misclassifies the tone on the first attempt → contract rejects → mini gets the call and returns a different sample. Variance absorbed; the user never sees the flaky run. Your logs show the retry rate and the cost delta.
+
+**See it in 30 seconds:** `ruby examples/11_fallback_showcase.rb` — zero API keys required. The Test adapter simulates a tone/takeaways mismatch on the first attempt and a consistent sample on the retry, then prints the per-attempt trace.
+
+`retry_policy` has three other shapes beyond cross-model escalation — same-model `attempts: 3` (absorbs sampling variance without paying for a stronger tier), `reasoning_effort` escalation (low → medium → high on one model), and cross-provider fallback (Ollama → Anthropic → OpenAI — local first because it costs nothing, hosted last because it is the most accurate). `examples/12_retry_variants.rb` runs all three through the Test adapter with the trace printed.
 
 ## Failure 4 — Runaway cost and no fallback policy
 
@@ -85,7 +91,7 @@ The 40-page PDF returns `status: :limit_exceeded` — zero tokens spent. The 80/
 |---|---|
 | Schema-valid but logically wrong output | `validate(...) { |o, i| ... }` with 2-arity for cross-checks |
 | Silent prompt regression after a tweak | `define_eval` + `pass_eval(...).without_regressions` in CI |
-| Cheap model refuses in-schema | `validate("not a refusal")` + `retry_policy models: [...]` |
+| Sampling variance on fixed-temperature models (gpt-5 / o-series) | Cross-field `validate(...)` + `retry_policy models: [...]` |
 | Runaway cost on pathological inputs | `max_input`, `max_output`, `max_cost` preflight |
 | 80/20 traffic paying the premium model rate | `retry_policy` + `optimize_retry_policy` |
 | Leaked placeholder / input echo / tone drift | `validate` with content and cross-input checks |

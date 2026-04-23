@@ -171,10 +171,10 @@ result = ClassifyIntent.eval_case(
   context: { adapter: good_adapter }
 )
 
-puts "Passed: #{result[:passed]}"
-puts "Score: #{result[:score]}"
-puts "Output: #{result[:output]}"
-puts "Details: #{result[:details]}"
+puts "Passed: #{result.passed?}"
+puts "Score: #{result.score}"
+puts "Output: #{result.output}"
+puts "Details: #{result.details}"
 
 # With expected_traits
 result2 = ClassifyIntent.eval_case(
@@ -188,8 +188,8 @@ result2 = ClassifyIntent.eval_case(
 )
 
 puts "\nTraits check:"
-puts "Passed: #{result2[:passed]}"
-puts "Details: #{result2[:details]}"
+puts "Passed: #{result2.passed?}"
+puts "Details: #{result2.details}"
 
 # With custom proc evaluator
 result3 = ClassifyIntent.eval_case(
@@ -203,7 +203,7 @@ result3 = ClassifyIntent.eval_case(
 )
 
 puts "\nCustom proc:"
-puts "Passed: #{result3[:passed]} (confidence > 0.9)"
+puts "Passed: #{result3.passed?} (confidence > 0.9)"
 
 # =============================================================================
 # STEP 5: Evaluating a pipeline
