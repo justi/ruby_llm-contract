@@ -6,17 +6,15 @@ Seven pre-emptive answers to the questions that come up first.
 
 ## 1. Where do step classes live?
 
-Any autoloaded directory works; most teams pick one of:
+**Recommended: `app/contracts/`.** The gem's Railtie auto-reloads eval files under `app/contracts/eval/` and `app/steps/eval/` in development, so picking `app/contracts/` aligns with the default reload paths.
 
 ```
-app/llm_steps/summarize_article.rb   # class SummarizeArticle
 app/contracts/summarize_article.rb   # class SummarizeArticle
-app/services/llm/summarize_article.rb # class Llm::SummarizeArticle
 ```
 
-Pick the convention that matches the rest of your `app/` — Rails 7/8 autoloading resolves all three. `app/llm_steps/` reads cleanest when you have more than two or three steps; `app/services/llm/` fits shops that already namespace service objects.
+Any autoloaded directory works (`app/llm_steps/`, `app/services/llm/`, etc.) — Rails 7/8 autoloading resolves them all, and the step class itself does not depend on the path. Pick the default if you have no stronger convention.
 
-Keep evals in the same file as the step (`define_eval` block at the bottom of the class) — one source of truth per contract.
+Keep evals in the same file as the step (`define_eval` block at the bottom of the class) — one source of truth per contract. If your evals grow too large for the class file, move them to `app/contracts/eval/summarize_article_eval.rb` — the Railtie reloads that directory explicitly in development.
 
 ## 2. Initializer configuration
 
@@ -35,7 +33,7 @@ end
 
 In specs, override the default adapter to `Adapters::Test` in `spec_helper.rb` (or use `stub_step` per-example — see §5).
 
-The gem ships a `Railtie` that autoloads `app/**/*_eval.rb` files so a `SummarizeArticle.run_eval("regression")` picks up the eval you defined inside the step.
+Evals defined inside a step class (the recommended pattern) are picked up as soon as Rails autoloads the class — you do not need the eval file in any special directory. If you move evals into separate files under `app/contracts/eval/` or `app/steps/eval/`, the gem's Railtie reloads those two directories explicitly on each request in development; other directories follow standard Rails autoloading rules.
 
 ## 3. Background jobs — never call LLMs inline in a controller
 
@@ -50,7 +48,10 @@ class SummarizeArticleJob < ApplicationJob
     result  = SummarizeArticle.run(article.body)
 
     if result.ok?
-      article.update!(summary: result.parsed_output)
+      # parsed_output uses symbol keys in memory. jsonb/json columns round-trip
+      # as strings on reload, so either use deep_stringify_keys before write or
+      # access downstream with string keys — pick one convention and stick to it.
+      article.update!(summary: result.parsed_output.deep_stringify_keys)
     else
       article.update!(summary_error: result.validation_errors.join("; "))
     end
@@ -58,7 +59,7 @@ class SummarizeArticleJob < ApplicationJob
 end
 ```
 
-`SummarizeArticleJob.perform_later(article.id)` returns in milliseconds; the controller stays responsive. If you use Sidekiq, pair `queue_as :llm` with a dedicated concurrency cap in `sidekiq.yml` so LLM calls do not starve your web workers.
+`SummarizeArticleJob.perform_later(article.id)` returns in milliseconds; the controller stays responsive. If you use Sidekiq, pair `queue_as :llm` with a dedicated concurrency cap in `sidekiq.yml` so long-running LLM calls do not starve other job queues (mailers, webhooks, cleanups).
 
 ## 4. Logging and observability
 
@@ -72,7 +73,7 @@ class SummarizeArticle < RubyLLM::Contract::Step::Base
     AiCallLog.create!(
       step: step.name,
       model: result.trace[:model],
-      status: result.status,
+      status: result.status.to_s,
       latency_ms: result.trace[:latency_ms],
       input_tokens: result.trace[:usage]&.dig(:input_tokens),
       output_tokens: result.trace[:usage]&.dig(:output_tokens),
@@ -83,11 +84,43 @@ class SummarizeArticle < RubyLLM::Contract::Step::Base
 end
 ```
 
-For Appsignal / Honeybadger / Datadog — emit an `ActiveSupport::Notifications` event from inside `around_call` and subscribe in an initializer:
+The `AiCallLog` model assumed above is a thin audit record. One possible migration:
 
 ```ruby
-ActiveSupport::Notifications.instrument("ruby_llm_contract.run",
-  step: step.name, model: result.trace[:model], status: result.status)
+# rails g model AiCallLog step:string model:string status:string ...
+create_table :ai_call_logs do |t|
+  t.string  :step, null: false
+  t.string  :model
+  t.string  :status, null: false
+  t.integer :latency_ms
+  t.integer :input_tokens
+  t.integer :output_tokens
+  t.decimal :cost, precision: 10, scale: 6
+  t.jsonb   :validation_errors, default: []
+  t.timestamps
+end
+add_index :ai_call_logs, :step
+add_index :ai_call_logs, :status
+```
+
+For Appsignal / Honeybadger / Datadog, emit an `ActiveSupport::Notifications` event from inside the same `around_call` and subscribe in an initializer:
+
+```ruby
+class SummarizeArticle < RubyLLM::Contract::Step::Base
+  # ... prompt, schema, validates ...
+
+  around_call do |step, _input, result|
+    ActiveSupport::Notifications.instrument(
+      "ruby_llm_contract.run",
+      step: step.name, model: result.trace[:model], status: result.status
+    )
+  end
+end
+
+# config/initializers/observability.rb
+ActiveSupport::Notifications.subscribe("ruby_llm_contract.run") do |*, payload|
+  Appsignal.increment_counter("llm.run.#{payload[:status]}", 1, step: payload[:step])
+end
 ```
 
 Trace inspection in an admin UI: `result.trace[:attempts]` gives you per-attempt model, status, cost, latency — render it in a partial to debug production failures without re-running.
@@ -111,7 +144,8 @@ RSpec.describe ArticlesController do
 
     post :summarize, params: { article_id: article.id }
 
-    expect(article.reload.summary[:tldr]).to eq("...")
+    # NOTE: jsonb/json column round-trips as string keys on reload.
+    expect(article.reload.summary["tldr"]).to eq("...")
   end
 end
 ```
@@ -153,10 +187,10 @@ Add to your `Rakefile`:
 require "ruby_llm/contract/rake_task"
 
 RubyLLM::Contract::RakeTask.new do |t|
-  t.minimum_score        = 0.8
-  t.maximum_cost         = 0.05
-  t.fail_on_regression   = true
-  t.save_baseline        = true
+  t.minimum_score      = 0.8
+  t.maximum_cost       = 0.05
+  t.fail_on_regression = true
+  t.save_baseline      = false # read-only in CI; refresh baselines manually
 end
 ```
 
@@ -170,6 +204,11 @@ Then wire it in GitHub Actions:
 ```
 
 The job fails when a previously-passing eval case now fails, when the average score drops below the threshold, or when total cost exceeds the cap. That is the signal that blocks a prompt regression or an accidental model upgrade from shipping.
+
+**Two practical notes:**
+
+- **Live evals spend real money on every run** — provider tokens per case × number of cases × every merge. Keep the dataset small and targeted (5–15 high-value cases), use cheap models where quality allows, and rely on offline `sample_response` smoke tests in the bulk of CI runs. Live evals belong on merge-candidate branches and scheduled nightly runs, not on every commit.
+- **Baselines are checkout-managed** — commit them to git under `.eval_baselines/`. Refresh them in a separate manual workflow (or locally + a dedicated PR) rather than from the merge gate, which would dirty the checkout and race with the regression check it is supposed to run.
 
 ## See also
 
