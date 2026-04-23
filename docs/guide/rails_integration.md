@@ -142,7 +142,7 @@ RSpec.describe ArticlesController do
       tldr: "...", takeaways: %w[a b c], tone: "analytical"
     })
 
-    post :summarize, params: { article_id: article.id }
+    post :summarize, params: { id: article.id }
 
     # NOTE: jsonb/json column round-trips as string keys on reload.
     expect(article.reload.summary["tldr"]).to eq("...")
