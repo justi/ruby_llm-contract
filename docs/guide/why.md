@@ -60,9 +60,9 @@ retry_policy models: %w[gpt-5-nano gpt-5-mini gpt-5]
 
 Nano misclassifies the tone on the first attempt → contract rejects → mini gets the call and returns a different sample. Variance absorbed; the user never sees the flaky run. Your logs show the retry rate and the cost delta.
 
-**See it in 30 seconds:** `ruby examples/11_fallback_showcase.rb` — zero API keys required. The Test adapter simulates a tone/takeaways mismatch on the first attempt and a consistent sample on the retry, then prints the per-attempt trace.
+**See it in 30 seconds:** `ruby examples/06_fallback_showcase.rb` — zero API keys required. The Test adapter simulates a tone/takeaways mismatch on the first attempt and a consistent sample on the retry, then prints the per-attempt trace.
 
-`retry_policy` has three other shapes beyond cross-model escalation — same-model `attempts: 3` (absorbs sampling variance without paying for a stronger tier), `reasoning_effort` escalation (low → medium → high on one model), and cross-provider fallback (Ollama → Anthropic → OpenAI — local first because it costs nothing, hosted last because it is the most accurate). `examples/12_retry_variants.rb` runs all three through the Test adapter with the trace printed.
+`retry_policy` has three other shapes beyond cross-model escalation — same-model `attempts: 3` (absorbs sampling variance without paying for a stronger tier), `reasoning_effort` escalation (low → medium → high on one model), and cross-provider fallback (Ollama → Anthropic → OpenAI — local first because it costs nothing, hosted last because it is the most accurate). `examples/07_retry_variants.rb` runs all three through the Test adapter with the trace printed.
 
 ## Failure 4 — Runaway cost and no fallback policy
 

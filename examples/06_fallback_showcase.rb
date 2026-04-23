@@ -20,7 +20,7 @@
 #      happened across attempts.
 #
 # Run:
-#   ruby examples/11_fallback_showcase.rb
+#   ruby examples/06_fallback_showcase.rb
 #
 # Expected output:
 #
@@ -49,7 +49,7 @@
 #     takeaways:  3 items
 #     tone:       "negative"
 #
-# See also: examples/12_retry_variants.rb — same-model retry, reasoning_effort
+# See also: examples/07_retry_variants.rb — same-model retry, reasoning_effort
 # escalation, and cross-provider fallback (Ollama → Anthropic → OpenAI).
 # =============================================================================
 
