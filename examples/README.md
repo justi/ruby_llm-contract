@@ -117,11 +117,26 @@ Multi-step pipeline exercising schema, validates, retry with fallback, evals, an
 
 The shortest possible "why does this gem exist" demo, runnable with zero API keys. Uses the Test adapter to simulate output variance from gpt-5-nano (where `temperature=1.0` is server-enforced and the same prompt can produce a tone label that contradicts the takeaways). Watches the contract reject the flaky sample via a cross-field validate, then shows `retry_policy` escalating to gpt-5-mini — with the per-attempt trace printed. Start here if you want to feel the fallback loop before reading docs.
 
-Expected output (Part B, after the schema-only pain point in Part A):
+Expected output — Part A (schema-only pain point, the "before" shot):
 
 ```
-attempt 1  model=gpt-5-nano   status=validation_failed
-attempt 2  model=gpt-5-mini   status=ok
+status:        :ok            # schema passes — no guard
+tone shipped:  "positive"
+takeaway 1:    "Mesh networking hardware failed under load"
+               ^^ takeaways describe a failure; tone says positive
+               ^^ customer-success "critical feedback" filter misses this case
+```
+
+Expected output — Part B (full contract + retry_policy, the "after" shot):
+
+```
+status:             :ok
+final model:        "gpt-5-mini"
+total attempts:     2
+
+Per-attempt trace:
+  attempt 1  model=gpt-5-nano   status=validation_failed
+  attempt 2  model=gpt-5-mini   status=ok
 
 Final parsed_output:
   tone:       "negative"
