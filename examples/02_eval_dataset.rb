@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 # =============================================================================
-# EXAMPLE 9: Dataset-driven evals on SummarizeArticle
+# EXAMPLE 2: Dataset-driven evals on SummarizeArticle
 #
 # The pattern that stops silent prompt regressions:
 #   1. Define an eval with a handful of real articles and expected outcomes.

@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 # =============================================================================
-# EXAMPLE 7: SummarizeArticle v2 — growing prompt with a keywords field
+# EXAMPLE 1: SummarizeArticle v2 — growing prompt with a keywords field
 #
 # A common evolution in a real Rails app: the UI card shipped with TL;DR,
 # takeaways, and tone. Marketing now wants a "topic pills" row under the

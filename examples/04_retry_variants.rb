@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 # =============================================================================
-# EXAMPLE 12: retry_policy variants on SummarizeArticle
+# EXAMPLE 4: retry_policy variants on SummarizeArticle
 #
 # Example 11 covered the most common pattern: fall back from a cheap model
 # to a stronger one (gpt-5-nano → mini → gpt-5). This file runs the three

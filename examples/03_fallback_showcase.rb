@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 # =============================================================================
-# EXAMPLE 11: Fallback showcase — see contracts work in 30 seconds
+# EXAMPLE 3: Fallback showcase — see contracts work in 30 seconds
 #
 # This is the "why does this gem exist" demo, runnable with zero API keys.
 # Uses the Test adapter to simulate a real production failure mode:
@@ -202,6 +202,7 @@ puts
 # 4. result.trace[:attempts] gives you the per-attempt record for free, so
 #    you can log retry rate and the cost delta from escalation.
 #
-# Replace the Test adapter with Adapters::RubyLLM (see example 04) and this
-# exact same code runs against a real provider or a local Ollama server.
+# Replace the Test adapter with Adapters::RubyLLM (see Step 8 in
+# examples/00_basics.rb for the one-liner) and this exact same code runs
+# against a real provider or a local Ollama server.
 # =============================================================================
