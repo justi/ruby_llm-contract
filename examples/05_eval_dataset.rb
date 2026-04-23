@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 # =============================================================================
-# EXAMPLE 2: Dataset-driven evals on SummarizeArticle
+# EXAMPLE 5: Dataset-driven evals on SummarizeArticle
 #
 # The pattern that stops silent prompt regressions:
 #   1. Define an eval with a handful of real articles and expected outcomes.
@@ -13,7 +13,7 @@
 # with expected traits, running the eval, comparing a "good" to a "bad"
 # model, and the inline eval_case helper for quick checks.
 #
-# Run: ruby examples/02_eval_dataset.rb
+# Run: ruby examples/05_eval_dataset.rb
 #
 # Expected output:
 #

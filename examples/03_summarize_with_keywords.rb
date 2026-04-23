@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 # =============================================================================
-# EXAMPLE 1: SummarizeArticle v2 — growing prompt with a keywords field
+# EXAMPLE 3: SummarizeArticle v2 — growing prompt with a keywords field
 #
 # A common evolution in a real Rails app: the UI card shipped with TL;DR,
 # takeaways, and tone. Marketing now wants a "topic pills" row under the
@@ -13,7 +13,7 @@
 # the existing SummarizeArticle step. The prompt grows, the schema grows,
 # the validates grow — the contract keeps all three in lockstep.
 #
-# Run: ruby examples/01_summarize_with_keywords.rb
+# Run: ruby examples/03_summarize_with_keywords.rb
 #
 # Expected output:
 #

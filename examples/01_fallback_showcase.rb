@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 # =============================================================================
-# EXAMPLE 3: Fallback showcase — see contracts work in 30 seconds
+# EXAMPLE 1: Fallback showcase — see contracts work in 30 seconds
 #
 # This is the "why does this gem exist" demo, runnable with zero API keys.
 # Uses the Test adapter to simulate a real production failure mode:
@@ -20,7 +20,7 @@
 #      happened across attempts.
 #
 # Run:
-#   ruby examples/03_fallback_showcase.rb
+#   ruby examples/01_fallback_showcase.rb
 #
 # Expected output:
 #
@@ -49,7 +49,7 @@
 #     takeaways:  3 items
 #     tone:       "negative"
 #
-# See also: examples/04_retry_variants.rb — same-model retry, reasoning_effort
+# See also: examples/06_retry_variants.rb — same-model retry, reasoning_effort
 # escalation, and cross-provider fallback (Ollama → Anthropic → OpenAI).
 # =============================================================================
 

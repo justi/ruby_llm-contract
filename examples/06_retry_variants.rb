@@ -1,14 +1,14 @@
 # frozen_string_literal: true
 
 # =============================================================================
-# EXAMPLE 4: retry_policy variants on SummarizeArticle
+# EXAMPLE 6: retry_policy variants on SummarizeArticle
 #
-# Example 11 covered the most common pattern: fall back from a cheap model
+# Example 01 covered the most common pattern: fall back from a cheap model
 # to a stronger one (gpt-5-nano → mini → gpt-5). This file runs the three
 # other retry_policy shapes, each on the same SummarizeArticle step with
 # the Test adapter so no API keys are required.
 #
-# Run: ruby examples/04_retry_variants.rb
+# Run: ruby examples/06_retry_variants.rb
 #
 # Expected output (abridged):
 #

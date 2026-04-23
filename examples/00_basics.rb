@@ -157,33 +157,26 @@ r.trace[:cost]       # => sum of per-attempt costs
 # =============================================================================
 # STEP 8 — Swap the Test adapter for a real LLM
 # The step itself does not change. Point ruby_llm at your provider and
-# override the adapter via context (or set it globally).
+# pass Adapters::RubyLLM.new in context.
+#
+# See examples/02_real_llm_minimal.rb for a runnable ~30-line version.
 # =============================================================================
 
-# Provider setup (do once at boot):
-#
-#   RubyLLM.configure do |c|
-#     c.openai_api_key = ENV.fetch("OPENAI_API_KEY")
-#     # c.anthropic_api_key = ENV["ANTHROPIC_API_KEY"]
-#   end
-#
-# Run against the real provider — same step, same contract:
-#
-#   result = SummarizeArticleWithRetry.run(article_text,
-#     context: { adapter: RubyLLM::Contract::Adapters::RubyLLM.new })
+#   RubyLLM.configure { |c| c.openai_api_key = ENV.fetch("OPENAI_API_KEY") }
+#   adapter = RubyLLM::Contract::Adapters::RubyLLM.new
+#   result  = SummarizeArticleWithRetry.run(article_text, context: { adapter: adapter })
 #
 # Switch provider per call — ruby_llm resolves the provider from the model name:
-#
-#   # Anthropic Claude:
-#   SummarizeArticleWithRetry.run(article_text, context: { model: "claude-sonnet-4-6" })
-#   # Local Ollama (no API key, requires `ollama serve`):
-#   SummarizeArticleWithRetry.run(article_text, context: { model: "gemma3:4b" })
+#   SummarizeArticleWithRetry.run(article_text, context: { adapter: adapter, model: "claude-sonnet-4-6" })
+#   SummarizeArticleWithRetry.run(article_text, context: { adapter: adapter, model: "gemma3:4b" })  # local Ollama
 
 # =============================================================================
 # Where to go next
 #
-# 01_summarize_with_keywords.rb — growing prompt: add a keywords field
-# 02_eval_dataset.rb            — define_eval, add_case, regression detection
-# 03_fallback_showcase.rb       — see the retry loop run with the Test adapter
-# 04_retry_variants.rb          — attempts: 3, reasoning_effort, cross-provider
+# 01_fallback_showcase.rb       — see the retry loop run in 30 seconds
+# 02_real_llm_minimal.rb        — swap Test adapter for Adapters::RubyLLM
+# 03_summarize_with_keywords.rb — growing prompt: add a keywords field
+# 04_summarize_and_translate.rb — pipeline: summarize → translate → review
+# 05_eval_dataset.rb            — define_eval, add_case, regression detection
+# 06_retry_variants.rb          — attempts: 3, reasoning_effort, cross-provider
 # =============================================================================
