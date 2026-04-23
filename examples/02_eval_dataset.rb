@@ -13,7 +13,7 @@
 # with expected traits, running the eval, comparing a "good" to a "bad"
 # model, and the inline eval_case helper for quick checks.
 #
-# Run: ruby examples/05_eval_dataset.rb
+# Run: ruby examples/02_eval_dataset.rb
 #
 # Expected output:
 #

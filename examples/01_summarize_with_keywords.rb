@@ -13,7 +13,7 @@
 # the existing SummarizeArticle step. The prompt grows, the schema grows,
 # the validates grow — the contract keeps all three in lockstep.
 #
-# Run: ruby examples/03_summarize_with_keywords.rb
+# Run: ruby examples/01_summarize_with_keywords.rb
 #
 # Expected output:
 #

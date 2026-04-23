@@ -21,7 +21,7 @@ Works with any `ruby_llm` provider (OpenAI, Anthropic, Gemini, etc).
 
 Use this if LLM output affects production behaviour, money, user trust, or downstream code. You probably don't need it if you have one low-risk prompt, manually inspect every result, or only generate best-effort prose.
 
-Already using structured outputs from your provider? This gem adds business-rule validation, retry with model fallback, evals, regression gating, and test stubs on top of them — the layer that stops schema-valid-but-wrong output from reaching users. See [Why contracts?](docs/guide/why.md) for the four production failure modes the gem exists for, or run `ruby examples/06_fallback_showcase.rb` to see the fallback loop in 30 seconds (no API key needed).
+Already using structured outputs from your provider? This gem adds business-rule validation, retry with model fallback, evals, regression gating, and test stubs on top of them — the layer that stops schema-valid-but-wrong output from reaching users. See [Why contracts?](docs/guide/why.md) for the four production failure modes the gem exists for, or run `ruby examples/03_fallback_showcase.rb` to see the fallback loop in 30 seconds (no API key needed).
 
 ## Example
 

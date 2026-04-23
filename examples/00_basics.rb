@@ -155,13 +155,35 @@ r.trace[:attempts]   # => [{attempt: 1, model: "gpt-5-nano", status: :ok, ...}]
 r.trace[:cost]       # => sum of per-attempt costs
 
 # =============================================================================
+# STEP 8 — Swap the Test adapter for a real LLM
+# The step itself does not change. Point ruby_llm at your provider and
+# override the adapter via context (or set it globally).
+# =============================================================================
+
+# Provider setup (do once at boot):
+#
+#   RubyLLM.configure do |c|
+#     c.openai_api_key = ENV.fetch("OPENAI_API_KEY")
+#     # c.anthropic_api_key = ENV["ANTHROPIC_API_KEY"]
+#   end
+#
+# Run against the real provider — same step, same contract:
+#
+#   result = SummarizeArticleWithRetry.run(article_text,
+#     context: { adapter: RubyLLM::Contract::Adapters::RubyLLM.new })
+#
+# Switch provider per call — ruby_llm resolves the provider from the model name:
+#
+#   # Anthropic Claude:
+#   SummarizeArticleWithRetry.run(article_text, context: { model: "claude-sonnet-4-6" })
+#   # Local Ollama (no API key, requires `ollama serve`):
+#   SummarizeArticleWithRetry.run(article_text, context: { model: "gemma3:4b" })
+
+# =============================================================================
 # Where to go next
 #
-# 01_real_llm.rb                — swap Test adapter for Adapters::RubyLLM (real API)
-# 02_output_schema.rb           — richer schema patterns (nested objects, enums)
-# 03_summarize_with_keywords.rb — growing prompt: add a keywords field
-# 04_summarize_and_translate.rb — pipeline: summarize → translate → review
-# 05_eval_dataset.rb            — define_eval, add_case, regression detection
-# 06_fallback_showcase.rb       — see the retry loop run with the Test adapter
-# 07_retry_variants.rb          — attempts: 3, reasoning_effort, cross-provider
+# 01_summarize_with_keywords.rb — growing prompt: add a keywords field
+# 02_eval_dataset.rb            — define_eval, add_case, regression detection
+# 03_fallback_showcase.rb       — see the retry loop run with the Test adapter
+# 04_retry_variants.rb          — attempts: 3, reasoning_effort, cross-provider
 # =============================================================================

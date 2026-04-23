@@ -8,7 +8,7 @@
 # other retry_policy shapes, each on the same SummarizeArticle step with
 # the Test adapter so no API keys are required.
 #
-# Run: ruby examples/07_retry_variants.rb
+# Run: ruby examples/04_retry_variants.rb
 #
 # Expected output (abridged):
 #
