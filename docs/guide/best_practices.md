@@ -72,8 +72,7 @@ validate("takeaways aren't single words") do |o, _|
 end
 
 validate("no template placeholders leaked") do |o, _|
-  (o[:tldr] + o[:takeaways].join(" ")).exclude?("{") rescue
-    !(o[:tldr] + o[:takeaways].join(" ")).include?("{")
+  !(o[:tldr] + o[:takeaways].join(" ")).include?("{")
 end
 ```
 

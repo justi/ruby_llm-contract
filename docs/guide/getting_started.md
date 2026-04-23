@@ -163,7 +163,7 @@ SummarizeArticle.estimate_eval_cost("regression",
 # => { "gpt-4.1-nano" => 0.00041, "gpt-4.1-mini" => 0.0018, "gpt-4.1" => 0.0092 }
 ```
 
-Returns `nil` for a single call (or `0.0` summed) when pricing isn't registered — same failure mode as `max_cost`.
+`estimate_cost` returns `nil` when pricing isn't registered. `estimate_eval_cost` silently treats unknown-pricing cases as `$0.00` and sums the rest — it does **not** fail closed the way `max_cost` does. Treat its output as a floor, not a guarantee; register pricing via `CostCalculator.register_model` before relying on it for budget decisions.
 
 ## `output_schema` vs `with_schema`
 

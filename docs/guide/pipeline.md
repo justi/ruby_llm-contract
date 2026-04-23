@@ -89,12 +89,19 @@ result.trace.total_latency_ms       # => 2340
 
 ## Fail-fast behavior
 
-Each step catches hallucinations before they spread:
+When a step's schema, validate, or preflight check rejects the output, the pipeline stops there — downstream steps never run:
 
 ```ruby
-result = ArticleCardPipeline.run("")
+# Summarize returns a TL;DR over 200 chars → the "TL;DR fits the card" validate fails
+adapter = RubyLLM::Contract::Adapters::Test.new(response: {
+  tldr: "x" * 500,
+  takeaways: %w[one two three],
+  tone: "neutral"
+})
+
+result = ArticleCardPipeline.run("article text", context: { adapter: adapter })
 result.failed?        # => true
-result.failed_step    # => :summarize (empty input fails schema / validate → stops here)
+result.failed_step    # => :summarize (validate rejected; retries exhausted)
 # tag and card never run — no downstream tokens spent on garbage
 ```
 
