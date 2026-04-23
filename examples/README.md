@@ -171,7 +171,7 @@ Extract up to 15 keywords from an article, each with relevance probability.
 
 Shows `define_eval` + `add_case` + `compare_models` end-to-end against a small hand-curated dataset.
 
-Expected output (abridged across 5 steps):
+Expected output (steps 2–4 shown; step 1 is setup and step 5 pipeline-eval is tracked separately as a known issue):
 
 ```
 STEP 2: Run eval — good model (all cases pass)
