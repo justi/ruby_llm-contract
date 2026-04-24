@@ -146,6 +146,41 @@ puts "Total cost:        $#{result.trace.total_cost || '0.0 (Test adapter)'}"  #
 #   Total cost:        $0.0 (Test adapter)
 
 # =============================================================================
+# Evaluating the whole pipeline
+#
+# A pipeline can run against a dataset the same way a single step does.
+# The `expected:` hash matches the FINAL step's output — here the review
+# verdict — so a regression anywhere along the chain shows up in one place.
+# =============================================================================
+
+TranslatedSummaryPipeline.define_eval("smoke") do
+  add_case "release post",
+           input: "Ruby 3.4 ships with frozen string literals, YJIT speedups, parser fixes.",
+           expected: { overall_verdict: "pass" }
+end
+
+# One Test adapter response per step in order (summarise → translate → review):
+eval_adapter = RubyLLM::Contract::Adapters::Test.new(responses: [
+  { tldr: "Ruby 3.4 ships frozen string literals, YJIT speedups, parser fixes.",
+    takeaways: %w[frozen-strings yjit parser-fixes], tone: "analytical" },
+  { tldr: "Ruby 3.4 arrive avec les littéraux de chaînes figés, des gains YJIT, ...",
+    takeaways: %w[lit-figes yjit-fr parser-fr], tone: "analytical" },
+  { overall_verdict: "pass",
+    reviews: [{ takeaway_index: 0, verdict: "pass", issue: "" }] }
+])
+
+report = TranslatedSummaryPipeline.run_eval("smoke", context: { adapter: eval_adapter })
+puts "\nEval score:      #{report.score}"           # => 1.0
+puts "Eval pass rate:  #{report.pass_rate}"         # => 1/1
+puts "Eval passed?:    #{report.passed?}"           # => true
+
+# Example console output (with Test adapter):
+#
+#   Eval score:      1.0
+#   Eval pass rate:  1/1
+#   Eval passed?:    true
+
+# =============================================================================
 # What this showcases
 #
 # - Pipeline::Base composes steps; data threads automatically from
@@ -155,4 +190,7 @@ puts "Total cost:        $#{result.trace.total_cost || '0.0 (Test adapter)'}"  #
 # - Fail-fast: if SummarizeArticle's "TL;DR fits the card" validate
 #   rejects, the translate and review steps never run — no downstream
 #   tokens wasted.
+# - A pipeline has its own `define_eval` + `run_eval` pair; expectations
+#   match the final step's output, catching end-to-end regressions in one
+#   dataset instead of per-step duplicates.
 # =============================================================================
