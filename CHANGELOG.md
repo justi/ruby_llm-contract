@@ -1,5 +1,50 @@
 # Changelog
 
+## 0.7.3 (2026-04-24)
+
+Adoption-friction release. No runtime behavior changes — every delta is in `docs/`, `examples/`, or `spec/integration/` (plus the `version.rb` / Gemfile.lock bumps). Upgrading from 0.7.2 picks up the expanded guide set, the new runnable showcases, and one extra integration spec.
+
+### Documentation
+
+- **New guide: `docs/guide/why.md`** — four production failure modes the gem exists for (schema-valid logically wrong, silent prompt regression, sampling variance on fixed-temperature models, runaway cost). Opens from a concrete incident each time; designed for readers who have not yet felt the pain the gem relieves.
+- **New guide: `docs/guide/rails_integration.md`** — seven Rails-specific FAQs with runnable snippets: where step classes live (`app/contracts/`), initializer setup, background jobs, `around_call` observability, RSpec/Minitest stubs, error handling in controllers, CI gate wiring.
+- **README adoption-friction pass** — added a short "Do I need this?" block after Install, a reading-order hint (`README → why.md → getting_started.md`), and outcome-based labels in the docs index ("Prevent silent prompt regressions" instead of "Eval-First", etc.).
+- **TL;DR box at the top of every guide** — single-sentence orientation for readers who land via search; "Skip if" clause added where real confusion exists (`eval_first.md`, `testing.md`, `migration.md`).
+- **API coverage gaps closed** — `estimate_cost` / `estimate_eval_cost`, `max_cost on_unknown_pricing: :warn`, `run_eval(..., concurrency:)`, `around_call` testing patterns now documented in `getting_started.md`, `eval_first.md`, `testing.md`.
+- **Industry-standard terminology** — `temperature-locked` → `fixed-temperature`, `variance-induced` → `sampling variance`, `severity signals` → `severity keywords`, `takeaway drift` → `tone/takeaways mismatch`.
+- **`docs/architecture.md` refresh** — diagram now reflects the current class layout: added `Step::RetryPolicy`, `Pipeline::Result`, `Eval::AggregatedReport`, `Eval::BaselineDiff`, `Eval::PromptDiffComparator`, `Eval::EvalHistory`, `Eval::RetryOptimizer`, `OptimizeRakeTask`. Replaced the outdated `Eval::TraitEvaluator` entry with `Eval::ExpectationEvaluator`.
+- **Business framing added to guides** — every guide opens with a concrete production scenario or "why it matters" hook before the API reference.
+
+### Examples — consolidated on `SummarizeArticle`, renumbered 00-06
+
+The previous 12-file set mixed a private Reddit promo planner, customer support, meetings, keyword extraction, and translation. The new set is seven runnable files, each answering one adopter question on the README's `SummarizeArticle` case.
+
+| # | File | Answers |
+|---|------|---------|
+| 00 | `00_basics.rb` | How do I start? (seven incremental layers + real-LLM pointer) |
+| 01 | `01_fallback_showcase.rb` | Show me the gem in 30 seconds (zero API keys) |
+| 02 | `02_real_llm_minimal.rb` | How do I plug in a real LLM? (~30 lines) |
+| 03 | `03_summarize_with_keywords.rb` | How does the contract evolve? (growing prompt) |
+| 04 | `04_summarize_and_translate.rb` | Pipeline composition + pipeline-level `run_eval` |
+| 05 | `05_eval_dataset.rb` | How do I stop silent prompt regressions? |
+| 06 | `06_retry_variants.rb` | `attempts: 3`, `reasoning_effort` escalation, cross-provider (Ollama → Anthropic → OpenAI) |
+
+Every file carries an "Expected output" block in its header so readers see the result without running the script. The `docs/ideas/` directory is now fully untracked (already in `.gitignore`; one stray file removed from version control).
+
+### Examples — bug fixes carried along
+
+- **Schema pitfall fixed in 5 files** — `array :x do; string :y; ...; end` silently produces `items: string` and drops every declaration after the first, matching the documented pitfall in `spec/ruby_llm/contract/nested_schema_spec.rb:71`. Every affected array block is now wrapped in `object do...end`.
+- **`examples/05_eval_dataset.rb` (pre-renumber: `09_eval_dataset.rb`) `result[:passed]` → `result.passed?`** — the previous code called `[]` on an `Eval::CaseResult` and raised `NoMethodError` at runtime.
+
+### Testing
+
+- **New `spec/integration/pipeline_eval_spec.rb`** — three cases guaranteeing pipeline-level `run_eval` stays functional: happy path, final-step mismatch, and fail-fast propagation when an intermediate `validate` rejects. Closes the "09 STEP 5 pipeline evaluation" known issue flagged in the 0.7.2 release. The fail-fast case asserts `step_status == :validation_failed` and the validate's label in `details`, so a regression that short-circuits on schema instead of validate would fail loudly.
+
+### Deleted (private-project cleanup)
+
+- `examples/01_classify_threads.rb`, `02_generate_comment.rb`, `03_target_audience.rb`, `10_reddit_full_showcase.rb`, `spec/integration/reddit_pipeline_spec.rb` — Reddit Promo Planner was a separate private project; its examples do not belong in the gem's public repo.
+- `examples/02_output_schema.rb` — fully covered by `docs/guide/output_schema.md`; deleting avoids duplication.
+
 ## 0.7.2 (2026-04-22)
 
 ### Changed
