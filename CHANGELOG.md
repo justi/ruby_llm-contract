@@ -2,7 +2,7 @@
 
 ## 0.7.3 (2026-04-24)
 
-Adoption-friction release. No gem-level code changes — every delta is in `docs/`, `examples/`, or `spec/integration/`. Upgrading from 0.7.2 picks up the expanded guide set, the new runnable showcases, and one extra integration spec.
+Adoption-friction release. No runtime behavior changes — every delta is in `docs/`, `examples/`, or `spec/integration/` (plus the `version.rb` / Gemfile.lock bumps). Upgrading from 0.7.2 picks up the expanded guide set, the new runnable showcases, and one extra integration spec.
 
 ### Documentation
 
@@ -34,7 +34,7 @@ Every file carries an "Expected output" block in its header so readers see the r
 ### Examples — bug fixes carried along
 
 - **Schema pitfall fixed in 5 files** — `array :x do; string :y; ...; end` silently produces `items: string` and drops every declaration after the first, matching the documented pitfall in `spec/ruby_llm/contract/nested_schema_spec.rb:71`. Every affected array block is now wrapped in `object do...end`.
-- **`examples/09_eval_dataset.rb` `result[:passed]` → `result.passed?`** — the previous code called `[]` on an `Eval::CaseResult` and raised `NoMethodError` at runtime.
+- **`examples/05_eval_dataset.rb` (pre-renumber: `09_eval_dataset.rb`) `result[:passed]` → `result.passed?`** — the previous code called `[]` on an `Eval::CaseResult` and raised `NoMethodError` at runtime.
 
 ### Testing
 
