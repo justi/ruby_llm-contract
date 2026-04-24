@@ -86,10 +86,15 @@ RSpec.describe "Pipeline eval end-to-end" do
   end
 
   it "fails the eval when an intermediate step's validate rejects (fail-fast propagates to report)" do
+    # Schema has NO max_length on tldr, so the short response passes the
+    # schema and reaches the `validate("tldr fits card")` block. That
+    # validate rejects anything over 10 chars — exercises the intended
+    # invariant-rejection path (schema max_length + validate together
+    # would short-circuit on schema before validate ever sees the output).
     stub_const("SummarizeArticleStrict", Class.new(RubyLLM::Contract::Step::Base) do
       prompt "Summarize: {input}"
       output_schema do
-        string :tldr, max_length: 200
+        string :tldr
         array  :takeaways, of: :string, min_items: 3, max_items: 5
         string :tone, enum: %w[neutral positive negative analytical]
       end
@@ -108,14 +113,20 @@ RSpec.describe "Pipeline eval end-to-end" do
                expected: { overall_verdict: "pass" }
     end
 
+    # 50-char tldr: passes schema (no max_length), fails the validate.
     long_tldr_adapter = RubyLLM::Contract::Adapters::Test.new(responses: [
-      { tldr: "x" * 500, takeaways: %w[a b c], tone: "analytical" },
+      { tldr: "x" * 50, takeaways: %w[a b c], tone: "analytical" },
       { overall_verdict: "pass" }
     ])
 
     report = StrictPipeline.run_eval("fail_case", context: { adapter: long_tldr_adapter })
 
     expect(report.passed?).to be false
-    expect(report.results.first.details).to include("validation_failed").or include("step failed")
+    case_result = report.results.first
+    # Proves the validate path was exercised (not the schema):
+    # - step_status records why the intermediate step failed.
+    # - details references the validate label we defined.
+    expect(case_result.step_status).to eq(:validation_failed)
+    expect(case_result.details).to include("tldr fits card")
   end
 end
