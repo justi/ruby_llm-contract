@@ -79,7 +79,7 @@ Also supports [multi-step pipelines](docs/guide/pipeline.md) with fail-fast and 
 | What you write | Where it lives |
 |---|---|
 | `model`, `temperature`, `schema`, `instructions`, `tools`, `thinking` | covered by both — same idea, different DSL surface |
-| `validate :rule do |out| ... end` business invariants | only here |
+| `validate :rule do ... end` business invariants on output | only here |
 | `retry_policy escalate(...)` model escalation on validation failure | only here (different from RubyLLM's network-level retry) |
 | `max_cost` / `max_input` / `max_output` pre-flight refusal | only here |
 | `define_eval` + baseline regression + `compare_models` + `optimize_retry_policy` | only here (RubyLLM does not ship an eval framework) |
