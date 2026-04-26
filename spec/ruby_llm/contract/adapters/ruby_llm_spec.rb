@@ -17,6 +17,7 @@ RSpec.describe RubyLLM::Contract::Adapters::RubyLLM do
       allow(chat).to receive(:with_instructions).and_return(chat)
       allow(chat).to receive(:with_temperature).and_return(chat)
       allow(chat).to receive(:with_params).and_return(chat)
+      allow(chat).to receive(:with_thinking).and_return(chat)
       allow(chat).to receive(:add_message).and_return(nil)
       allow(chat).to receive(:ask).and_return(mock_response)
     end
@@ -123,19 +124,20 @@ RSpec.describe RubyLLM::Contract::Adapters::RubyLLM do
     end
 
     context "with reasoning_effort option" do
-      it "forwards reasoning_effort to the chat" do
+      it "forwards reasoning_effort via with_thinking (canonical path since 0.8)" do
         adapter.call(messages: [{ role: :user, content: "Hi" }], model: "gpt-4.1-mini", reasoning_effort: "low")
 
-        expect(mock_chat).to have_received(:with_params).with(reasoning_effort: "low")
+        expect(mock_chat).to have_received(:with_thinking).with(effort: "low")
       end
     end
 
     context "with both max_tokens and reasoning_effort" do
-      it "forwards both params together" do
+      it "forwards reasoning_effort via with_thinking and max_tokens via with_params" do
         adapter.call(messages: [{ role: :user, content: "Hi" }], model: "gpt-4.1-mini",
                      max_tokens: 100, reasoning_effort: "high")
 
-        expect(mock_chat).to have_received(:with_params).with(max_tokens: 100, reasoning_effort: "high")
+        expect(mock_chat).to have_received(:with_thinking).with(effort: "high")
+        expect(mock_chat).to have_received(:with_params).with(max_tokens: 100)
       end
     end
 

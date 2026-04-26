@@ -131,7 +131,7 @@ expect(SummarizeArticle).to pass_eval("regression").without_regressions
 ```ruby
 result = SummarizeArticle.run(giant_10mb_document)
 result.status            # => :limit_exceeded
-result.validation_errors # => ["Input token limit exceeded: estimated 32000 tokens, max 2000"]
+result.validation_errors # => ["Input token limit exceeded: estimated 32000 tokens (heuristic ±30%), max 2000"]
 ```
 
 `max_cost` fails closed when the model's pricing isn't known — register custom or fine-tuned models explicitly:

@@ -159,10 +159,27 @@ module RubyLLM
 
           def runtime_settings(context)
             policy = context.key?(:retry_policy_override) ? context[:retry_policy_override] : retry_policy
+            extra = context.slice(:provider, :assume_model_exists, :max_tokens, :reasoning_effort)
+
+            # Always pass the class-level `thinking` config to the adapter when
+            # set, so fields like `budget` survive a per-call `reasoning_effort`
+            # override. The adapter's `resolve_thinking_config` merges
+            # `reasoning_effort` over `thinking[:effort]` while keeping the
+            # rest of the hash intact.
+            #
+            # `reasoning_effort` is also seeded into extra_options for
+            # backward compat with eval_host / production_mode paths that
+            # read it from there — but only when the caller did not already
+            # provide one in context.
+            if respond_to?(:thinking) && thinking
+              extra[:thinking] = thinking
+              extra[:reasoning_effort] = thinking[:effort] if !extra.key?(:reasoning_effort) && thinking[:effort]
+            end
+
             {
               model: context[:model] || model || RubyLLM::Contract.configuration.default_model,
               temperature: context[:temperature],
-              extra_options: context.slice(:provider, :assume_model_exists, :max_tokens, :reasoning_effort),
+              extra_options: extra,
               policy: policy
             }
           end

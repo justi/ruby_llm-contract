@@ -22,7 +22,7 @@ module RubyLLM
         def collect_limit_errors(estimated)
           errors = []
           if max_input && estimated > max_input
-            errors << "Input token limit exceeded: estimated #{estimated} tokens, max #{max_input}"
+            errors << "Input token limit exceeded: estimated #{estimated} tokens (heuristic ±30%), max #{max_input}"
           end
           append_cost_error(estimated, errors) if max_cost
           errors
@@ -46,7 +46,7 @@ module RubyLLM
             handle_unknown_pricing(errors)
           elsif estimated_cost > max_cost
             errors << "Cost limit exceeded: estimated $#{format("%.6f", estimated_cost)} " \
-                      "(#{estimated} input + #{estimated_output} output tokens), " \
+                      "(#{estimated} input + #{estimated_output} output tokens, heuristic ±30%), " \
                       "max $#{format("%.6f", max_cost)}"
           end
         end

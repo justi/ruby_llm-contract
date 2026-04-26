@@ -7,6 +7,8 @@ Declare the expected output structure using [ruby_llm-schema](https://github.com
 1. **Output validation** — replaces type and shape checks (enums, ranges, required fields). One declaration instead of many.
 2. **Provider-side request** — with the RubyLLM adapter, the schema is sent to the LLM provider via `chat.with_schema(...)`, asking the model to return JSON matching the shape. Cheaper models sometimes ignore the request, which is why client-side validation (point 1) still matters.
 
+> **Same DSL `RubyLLM::Agent.schema` accepts.** `output_schema do ... end` here is a wrapper around `RubyLLM::Schema.create(&block)` plus a client-side validation step. `RubyLLM::Agent.schema` accepts the same block — choosing one over the other does not change the schema language. The difference: `Agent.schema` lets you pass a `Proc` evaluated in runtime context (dynamic per-call schema); `Step.output_schema` is eager-compiled at class load and additionally drives `output_type` inference and `Validator.validate`. Both can coexist.
+
 All examples below extend the `SummarizeArticle` step from the [README](../../README.md).
 
 ## Schema replaces type and shape checks

@@ -1,8 +1,10 @@
 # ruby_llm-contract
 
-**Validate and retry LLM outputs for [ruby_llm](https://github.com/crmne/ruby_llm).** Describe the answer you expect (JSON schema + business rules). If the model returns something that doesn't match, retry — optionally falling back to a stronger model — until it passes or you hit the budget.
+**Contracts + Evals for [ruby_llm](https://github.com/crmne/ruby_llm).**
 
-`ruby_llm` handles the HTTP side (rate limits, timeouts, streaming, tool calls, embeddings). This gem handles what the model *returned*: schema validation, business rules, retry with model fallback, datasets, regression tests.
+Your eval passed. Prod broke anyway? This gem wraps `RubyLLM::Chat` with input/output contracts, business-rule validation, retry with model escalation on validation failure, pre-flight cost ceilings, and an evaluation framework — so a flaky cheap-model call escalates to a stronger model instead of shipping garbage to your user.
+
+`ruby_llm` handles the HTTP side (rate limits, timeouts, streaming, tool calls, embeddings). This gem handles what the model *returned*: schema validation, business rules, model escalation on failed validation, datasets, regression tests.
 
 ## Install
 
@@ -65,9 +67,26 @@ Everything below is optional — the example above is a complete step. Reach for
 - **[CI regression gates](docs/guide/getting_started.md)** — `define_eval` + `save_baseline!` + `pass_eval(...).without_regressions` blocks CI when accuracy drops on a model update or prompt tweak.
 - **[Find the cheapest viable fallback list](docs/guide/optimizing_retry_policy.md)** — `Step.recommend("regression", candidates: [...], min_score: 0.95)` returns the cheapest list of models that still passes your evals. `production_mode:` measures retry-aware cost.
 - **[A/B test prompts](docs/guide/eval_first.md)** — `SummarizeArticleV2.compare_with(SummarizeArticleV1, eval: "regression")` reports whether the new prompt is safe to ship.
-- **[Budget caps](docs/guide/getting_started.md)** — `max_cost`, `max_input`, `max_output` refuse the request before calling the API when an estimate exceeds the limit.
+- **[Budget caps](docs/guide/getting_started.md)** — `max_cost`, `max_input`, `max_output` refuse the request before calling the API when a heuristic estimate (~±30% accuracy) exceeds the limit.
+- **[Reasoning effort / thinking config](docs/guide/optimizing_retry_policy.md)** — `thinking effort: :low` (or alias `reasoning_effort :low`) on the Step class; mirrors `RubyLLM::Agent.thinking` and forwards through `Chat#with_thinking`.
 
-Also supports [multi-step pipelines](docs/guide/pipeline.md) with fail-fast and [best-effort retries without fallback](docs/guide/best_practices.md) (`retry_policy attempts: 3` for sampling variance).
+Also supports [multi-step pipelines](docs/guide/pipeline.md) with fail-fast and `retry_policy attempts: N` for niche cases (we measured this empirically — for `gpt-4.1-nano` / `gpt-5-nano` on tasks with clear correctness criteria, same-model retry rarely helps; `escalate(model_2)` is the strategy that moves the needle, see [optimizing_retry_policy.md](docs/guide/optimizing_retry_policy.md)).
+
+## Relation to `RubyLLM::Agent`
+
+`RubyLLM::Agent` (since RubyLLM 1.12) and `Step::Base` here target the **same niche**: reusable, class-based prompts. They are siblings, not foundation-and-roof.
+
+| What you write | Where it lives |
+|---|---|
+| `model`, `temperature`, `schema`, `instructions`, `tools`, `thinking` | covered by both — same idea, different DSL surface |
+| `validate :rule do |out| ... end` business invariants | only here |
+| `retry_policy escalate(...)` model escalation on validation failure | only here (different from RubyLLM's network-level retry) |
+| `max_cost` / `max_input` / `max_output` pre-flight refusal | only here |
+| `define_eval` + baseline regression + `compare_models` + `optimize_retry_policy` | only here (RubyLLM does not ship an eval framework) |
+| Pipeline composition with `step SomeStep, as: :alias` | only here (RubyLLM intentionally leaves workflows as plain Ruby) |
+| `around_call`, named `observe` hooks with pass/fail in trace | only here |
+
+`Step::Base` does NOT use `Agent` internally today — both call into `RubyLLM::Chat` directly. The two abstractions can coexist on the same project: use `Agent` for prompt-only reuse, use `Step` when you need any of the contract-layer features above. The retry-strategy framing here (favouring `escalate(...)` over same-model `attempts: N`) is grounded in an empirical comparison; `attempts: N` stays in the API for niche cases.
 
 ## Docs
 
@@ -89,7 +108,7 @@ Also supports [multi-step pipelines](docs/guide/pipeline.md) with fail-fast and 
 
 ## Roadmap
 
-Latest: **v0.7.2** — terminal output labels and guides aligned with the fallback narrative; `output_schema.md` DSL bug fix. See [CHANGELOG](CHANGELOG.md) for history.
+Latest: **v0.8.0** — tagline + narrative repositioning around "Contracts + Evals for RubyLLM", `thinking` / `reasoning_effort` class macro, TokenEstimator labelled as heuristic, CostCalculator repositioned. See [CHANGELOG](CHANGELOG.md) for history.
 
 ## License
 
