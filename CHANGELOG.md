@@ -1,5 +1,41 @@
 # Changelog
 
+## 0.8.0 (2026-04-26)
+
+Narrative repositioning + small API additions. Internal architecture unchanged: no `Step::Base` refactor, no breaking changes to existing DSL.
+
+### Added
+
+- **`thinking(effort:, budget:)` class macro on `Step::Base`** — mirrors `RubyLLM::Agent.thinking` signature exactly. Stored as `{ effort:, budget: }` hash; reader returns the hash; supports `:default` reset semantics; superclass inheritance like `model`/`temperature`. The convenience alias `reasoning_effort(:low)` is implemented as `thinking(effort: :low)` — single normalized state, not separate ivar.
+- **Adapter wiring for `with_thinking`** — when `thinking` is set on the Step class, OR when `reasoning_effort:` is passed through context, OR when an attempt config in `retry_policy escalate(...)` carries `reasoning_effort:`, the RubyLLM adapter resolves the effective `{ effort:, budget: }` hash and forwards it via `chat.with_thinking(**)` — provider-agnostic (supports OpenAI `reasoning_effort` AND Anthropic extended-thinking budget). Precedence: per-attempt / context `reasoning_effort` overrides class-level `thinking[:effort]`; budget is taken from class-level `thinking[:budget]`. **Behavioural change vs 0.7.x**: `reasoning_effort` is now forwarded via `with_thinking` instead of `with_params`. Same wire-level OpenAI parameter; provider-agnostic Anthropic support is now automatic.
+
+### Dependencies
+
+- **`ruby_llm` constraint bumped from `~> 1.0` to `~> 1.12`** — `Chat#with_thinking` is the canonical path for reasoning effort + extended thinking; it shipped in RubyLLM 1.12. Adopters on `ruby_llm < 1.12` need to bump RubyLLM before upgrading this gem to 0.8.0.
+
+### Changed
+
+- **Tagline + README opening** — repositioned around "Contracts + Evals for RubyLLM". New "Relation to RubyLLM::Agent" section explicitly frames Step as a sibling abstraction (same niche as Agent, wider contract), not an alternative or foundation. README does not claim "Step uses Agent under the hood" — current call path is `Step → Runner → Adapters::RubyLLM → RubyLLM.chat` directly.
+- **`TokenEstimator` documented as heuristic** — module docstring expanded with explicit "±30% accuracy" framing. Refusal messages from `LimitChecker` now include `(heuristic ±30%)` suffix so adopters know the pre-flight number is estimated, not measured. RubyLLM 1.14 also has no pre-flight tokenizer; `RubyLLM::Tokens` is post-hoc only.
+- **`CostCalculator` repositioned in docs** — module narrative reframed from "cost calculator" to "fine-tune pricing registry + lookup with fallback chain". Math methods (`compute_cost`, `token_cost`, etc.) were already private; this release makes the docs match. Public API surface unchanged: `register_model`, `unregister_model`, `reset_custom_models!`, `calculate`.
+- **`output_schema` reframed in docs** — described as "wrapper around `RubyLLM::Schema` + client-side validation step", not a standalone feature. The schema language is identical to what `RubyLLM::Agent.schema` accepts; the difference is what wraps it.
+- **README retry framing** — `retry_policy escalate(...)` (model escalation on validation failure) is the marketed default. `retry_policy attempts: N` (same-model retry) stays in the API for backward compat and niche cases (subjective criteria, multi-step pipelines, weaker models) but is no longer marketed as a recommended default. Empirical basis: four small experiments across PDF quiz generation, GSM8K math (n=30 + n=120), and multi-constraint schedule generation found no useful lift for nano-class models on tasks with clear correctness criteria.
+
+### Documentation
+
+- **New disambiguation paragraphs** in `prompt_ast.md` (`Step.input_type` vs `RubyLLM::Agent.inputs`; `Prompt::Builder` multi-role DSL vs Agent ERB single-string template loader), `testing.md` (`Step.observe` vs `Chat#on_end_message` / `on_tool_call`), `output_schema.md` (relation to `Agent.schema`), and `optimizing_retry_policy.md` (orthogonal model + thinking dimensions).
+- **`getting_started.md` refusal message example** updated to include the new `(heuristic ±30%)` suffix.
+
+### Issues closed
+
+- **#11** (Optimizer is blind to same-model attempts) — closed after empirical experiments. `attempts: N` retry stays in API; not marketed as a default.
+- **#6** (Production cost reporting) — already implemented in 0.7.x; close confirmed.
+
+### Not in this release (deferred)
+
+- `output_schema` Proc form for runtime-input-aware schemas (parity with `Agent.schema` Proc form). Additive, low-risk; deferred to 0.9 to keep 0.8 scope tight.
+- H4 (Step composing `RubyLLM::Agent` internally as config holder) — verified feasible but ROI insufficient for current adopter base; trigger-based revisit, no calendar commitment.
+
 ## 0.7.3 (2026-04-24)
 
 Adoption-friction release. No runtime behavior changes — every delta is in `docs/`, `examples/`, or `spec/integration/` (plus the `version.rb` / Gemfile.lock bumps). Upgrading from 0.7.2 picks up the expanded guide set, the new runnable showcases, and one extra integration spec.

@@ -54,6 +54,10 @@ end
 
 Every `{key}` in a prompt node is pulled from the input hash at run time. Missing keys raise — making wire-up bugs loud, not silent.
 
+> **Not the same as `RubyLLM::Agent.inputs`.** `Step.input_type` is a *runtime type check* on the positional argument passed to `run(input)` — it raises `TypeError` if the input violates the declared shape. `RubyLLM::Agent.inputs` is a list of *named template locals* injected into ERB instructions. They solve different problems (validation vs templating) and can coexist on the same project.
+
+> **Not the same as `RubyLLM::Agent` ERB templates either.** The `prompt do ... end` DSL above builds a multi-role message list (`system` / `user` / `assistant` / `example` nodes) into a node-AST. `Agent.instructions :name` loads a single-string ERB file from `app/prompts/<agent_path>/<name>.txt.erb` for the system prompt only. Different output shape, different scope. Variable interpolation here uses `{key}` substitution; ERB uses full `<%= ruby %>`.
+
 ## Cross-validating output against input
 
 Validate blocks support 2-arity `|output, input|` so you can check that the model's answer stays faithful to the request:

@@ -52,10 +52,31 @@ module RubyLLM
           CHAT_OPTION_METHODS.each do |key, method_name|
             chat.public_send(method_name, options[key]) if options[key]
           end
+
+          # Resolve thinking config from BOTH sources, with `:reasoning_effort`
+          # taking precedence over `:thinking[:effort]`. This is the per-attempt
+          # override path used by `retry_policy { escalate({model:, reasoning_effort:}) }`
+          # — the attempt-specific effort must win over the class-level default.
+          # Forwarded provider-agnostically via `chat.with_thinking(**)` —
+          # available since RubyLLM 1.12 (gemspec enforces this minimum).
+          thinking_config = resolve_thinking_config(options)
+          chat.with_thinking(**thinking_config) if thinking_config
+
+          # `with_params` carries only raw passthroughs (currently `max_tokens`).
+          # `reasoning_effort` is no longer forwarded here — it goes through
+          # `with_thinking` above, which is the canonical RubyLLM API.
           params = {}
           params[:max_tokens] = options[:max_tokens] if options[:max_tokens]
-          params[:reasoning_effort] = options[:reasoning_effort] if options[:reasoning_effort]
           chat.with_params(**params) if params.any?
+        end
+
+        # Returns merged `{ effort:, budget: }` or nil. `options[:reasoning_effort]`
+        # overrides any inherited `options[:thinking][:effort]`; budget is
+        # taken from `options[:thinking][:budget]` only.
+        def resolve_thinking_config(options)
+          base = options[:thinking].is_a?(Hash) ? options[:thinking].dup : {}
+          base[:effort] = options[:reasoning_effort] if options[:reasoning_effort]
+          base.empty? ? nil : base
         end
 
         def build_response(response)

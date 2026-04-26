@@ -200,6 +200,44 @@ module RubyLLM
           superclass.temperature if superclass.respond_to?(:temperature)
         end
 
+        def thinking(effort: nil, budget: nil)
+          if effort == :default
+            @thinking = nil
+            @thinking_explicitly_unset = true
+            return nil
+          end
+
+          if effort || budget
+            @thinking_explicitly_unset = false
+            return @thinking = { effort: effort, budget: budget }.compact
+          end
+
+          return @thinking if defined?(@thinking) && !@thinking_explicitly_unset
+          return nil if @thinking_explicitly_unset
+
+          superclass.thinking if superclass.respond_to?(:thinking)
+        end
+
+        def reasoning_effort(value = nil)
+          return (thinking && thinking[:effort]) if value.nil?
+
+          # Alias is scoped to the effort dimension only. `:default` on the
+          # alias clears effort but PRESERVES any previously-set budget — the
+          # name does not suggest "wipe the whole thinking config." Use the
+          # full `thinking(effort: :default)` to clear everything.
+          if value == :default
+            current_budget = thinking && thinking[:budget]
+            if current_budget
+              @thinking_explicitly_unset = false
+              @thinking = { budget: current_budget }
+              return nil
+            end
+            return thinking(effort: :default)
+          end
+
+          thinking(effort: value)
+        end
+
         def around_call(&block)
           if block
             return @around_call = block

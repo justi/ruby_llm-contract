@@ -7,10 +7,11 @@ Gem::Specification.new do |spec|
   spec.version = RubyLLM::Contract::VERSION
   spec.authors = ["Justyna"]
 
-  spec.summary = "Know which LLM model to use, what it costs, and when accuracy drops"
-  spec.description = "Compare LLM models by accuracy and cost. Regression-test prompts in CI. " \
-                     "Start on nano, auto-escalate to bigger models when quality drops. " \
-                     "Companion gem for ruby_llm."
+  spec.summary = "Contracts + Evals for ruby_llm"
+  spec.description = "Wraps RubyLLM::Chat with input/output contracts, business-rule validation, " \
+                     "retry with model escalation on validation failure, pre-flight cost ceilings, " \
+                     "and an evaluation framework. Sibling abstraction to RubyLLM::Agent — same " \
+                     "niche (reusable class-based prompts), wider contract."
   spec.homepage = "https://github.com/justi/ruby_llm-contract"
   spec.license = "MIT"
   spec.required_ruby_version = ">= 3.2.0"
@@ -30,6 +31,6 @@ Gem::Specification.new do |spec|
   spec.require_paths = ["lib"]
 
   spec.add_dependency "dry-types", "~> 1.7"
-  spec.add_dependency "ruby_llm", "~> 1.0"
+  spec.add_dependency "ruby_llm", "~> 1.12"
   spec.add_dependency "ruby_llm-schema", "~> 0.3"
 end

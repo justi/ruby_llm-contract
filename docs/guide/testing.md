@@ -224,6 +224,8 @@ result.observations  # => [{ description: "scores should differ", passed: false 
 
 `observe` runs only after validation passes. Failed observations are logged via `RubyLLM::Contract.logger` — useful for "I want to know this happened without blocking the response".
 
+> **Not the same as `Chat#on_end_message` / `on_tool_call`.** RubyLLM exposes anonymous, global callbacks attached to a chat instance — they receive the raw `Message` and have no inherent pass/fail concept. `Step.observe` is per-step, named with a description, runs against `parsed_output` (already JSON-parsed and schema-validated), and the pass/fail outcome is recorded in `result.observations`. The two can coexist: use Chat callbacks for transport/tool tracing, use `observe` for domain assertions you want captured in the step trace.
+
 ## Asserting on `around_call`
 
 `around_call` fires **once per run** with the final result (after retry fallback) and exceptions propagate. That makes it straightforward to test:

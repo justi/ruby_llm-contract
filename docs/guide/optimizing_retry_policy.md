@@ -10,6 +10,8 @@ You defined `SummarizeArticle` in the [README](../../README.md) with `retry_poli
 - **2–3 evals per step.** One eval optimizes for one scenario; with only `smoke`, you get a recommendation that passes smoke but may miss production edge cases. See [eval-first](eval_first.md).
 - **Rake tasks.** The standard `RubyLLM::Contract::RakeTask` includes `ruby_llm_contract:optimize`. Non-Rails projects: set `EVAL_DIRS=...`.
 
+> **Two orthogonal dimensions to a retry chain.** A chain element is `{ model:, reasoning_effort: }` — model identity AND thinking budget. `optimize_retry_policy` explores both. You can also fix the thinking config at class level via `thinking effort: :low` (or alias `reasoning_effort :low`) on the Step — it becomes the default for every chain element unless an override is passed. See the `thinking` DSL note at the bottom of this guide.
+
 For this guide, assume `SummarizeArticle` has three evals:
 
 ```ruby
@@ -112,3 +114,18 @@ Run this before finalizing: a candidate saving 3× on first-attempt but falling 
 ## Programmatic API names
 
 Metrics exposed on `Report` / `AggregatedReport` keep their original names: `single_shot_cost`, `single_shot_latency_ms`, `escalation_rate`. The optimize Result struct also exposes `hardest_eval` as an alias for `constraining_eval`.
+
+## thinking DSL note
+
+Set the default reasoning effort once on the Step class — mirrors `RubyLLM::Agent.thinking` exactly:
+
+```ruby
+class SummarizeArticle < RubyLLM::Contract::Step::Base
+  model "gpt-5-nano"
+  thinking effort: :low          # canonical
+  # or
+  reasoning_effort :low          # alias for thinking(effort: :low)
+end
+```
+
+Forwarded to `Chat#with_thinking(**)` through the adapter — works provider-agnostically (OpenAI `reasoning_effort`, Anthropic extended-thinking budget). A per-call override via `context: { reasoning_effort: :high }` still wins over the class default.
