@@ -74,19 +74,7 @@ Also supports [multi-step pipelines](docs/guide/pipeline.md) with fail-fast and 
 
 ## Relation to `RubyLLM::Agent`
 
-`RubyLLM::Agent` (since RubyLLM 1.12) and `Step::Base` here target the **same niche**: reusable, class-based prompts. They are siblings, not foundation-and-roof.
-
-| What you write | Where it lives |
-|---|---|
-| `model`, `temperature`, `schema`, `instructions`, `tools`, `thinking` | covered by both — same idea, different DSL surface |
-| `validate :rule do ... end` business invariants on output | only here |
-| `retry_policy escalate(...)` model escalation on validation failure | only here (different from RubyLLM's network-level retry) |
-| `max_cost` / `max_input` / `max_output` pre-flight refusal | only here |
-| `define_eval` + baseline regression + `compare_models` + `optimize_retry_policy` | only here (RubyLLM does not ship an eval framework) |
-| Pipeline composition with `step SomeStep, as: :alias` | only here (RubyLLM intentionally leaves workflows as plain Ruby) |
-| `around_call`, named `observe` hooks with pass/fail in trace | only here |
-
-`Step::Base` does NOT use `Agent` internally today — both call into `RubyLLM::Chat` directly. The two abstractions can coexist on the same project: use `Agent` for prompt-only reuse, use `Step` when you need any of the contract-layer features above. The retry-strategy framing here (favouring `escalate(...)` over same-model `attempts: N`) is grounded in an empirical comparison; `attempts: N` stays in the API for niche cases.
+`Step::Base` and `RubyLLM::Agent` (since RubyLLM 1.12) are **siblings** targeting the same niche: reusable, class-based prompts. Both call into `RubyLLM::Chat` directly — Step does not wrap Agent. Step adds the contract layer: `validate` (business invariants), `retry_policy escalate(...)` (model escalation on validation failure), `max_cost` pre-flight refusal, evaluation framework, pipeline composition. **[Full feature mapping →](docs/guide/relation_to_agent.md)**
 
 ## Docs
 
@@ -95,6 +83,7 @@ Also supports [multi-step pipelines](docs/guide/pipeline.md) with fail-fast and 
 | Guide | What it does for your app |
 |-------|---------------------------|
 | [Why contracts?](docs/guide/why.md) | Recognise the four production failures the gem exists for |
+| [Relation to RubyLLM::Agent](docs/guide/relation_to_agent.md) | Sibling abstractions; what each adds; runtime call path; coexistence patterns |
 | [Getting Started](docs/guide/getting_started.md) | Walk the full feature set on one concrete step |
 | [Rails integration](docs/guide/rails_integration.md) | Directory, initializer, jobs, logging, specs, CI gate — 7 FAQs for Rails devs |
 | [Adopt in an existing Rails app](docs/guide/migration.md) | Replace raw `LlmClient.call` with a contract, Before/After |
