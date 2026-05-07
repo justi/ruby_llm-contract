@@ -43,21 +43,27 @@ your code ──► Step.run ──► LLM ──► [schema + validate]
 
 The output **never reaches your code** until the contract passes. A failed validation either fixes itself (the retry policy escalates to a stronger model) or fails closed with `Result(:validation_error)` — your call site sees a deterministic failure status, never schema-invalid data.
 
-### Both together (Contract in prod + Tribunal in CI)
+### Both together (Tribunal in CI → then Contract in prod)
 
 ```
-PROD:  your code ──► Step.run ──► LLM ──► [contract] ──► output ──► your code
-                                              ▲
-                                              │ keeps bad outputs out of prod
-
-CI:    define_eval(frozen dataset) ──► run Step ──► [Tribunal grades each case]
-                                                          │
-                                                          ▼
-                                                   regression gate
-                                              (prevents quality drift over time)
+CI (before merge):
+  define_eval(frozen dataset) ──► run Step ──► [Tribunal grades each case]
+                                                       │
+                                                       ▼
+                                                regression gate
+                                           (prevents quality drift over time)
+                                                       │
+                                                       ▼
+                                              ✅ merge allowed
+                                                       │
+                                                       ▼
+PROD (every request):
+  your code ──► Step.run ──► LLM ──► [contract] ──► output ──► your code
+                                         ▲
+                                         │ keeps bad outputs out of prod
 ```
 
-Contract gates **every production call**. Tribunal grades **a fixed set of cases periodically** to catch silent quality regressions on prompt/model changes. Each gem owns the layer it is best at.
+Tribunal grades **a fixed set of cases on every PR** to catch quality regressions before merge. Once merged, Contract gates **every production call** to keep bad outputs from reaching users. Each gem owns the layer it is best at — and they run in the order developers experience them.
 
 ## When to use which
 
