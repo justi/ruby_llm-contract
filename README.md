@@ -78,9 +78,9 @@ Also supports [multi-step pipelines](docs/guide/pipeline.md) with fail-fast and 
 
 ## Relation to `ruby_llm-tribunal`
 
-Different layers, complementary. [`ruby_llm-tribunal`](https://github.com/Alqemist-labs/ruby_llm-tribunal) is a **test framework** for LLM output — post-hoc grading via `assert_faithful`, `refute_hallucination`, LLM-as-judge, red-team adversarial prompts, RSpec/Minitest matchers. It evaluates or grades outputs after generation. `ruby_llm-contract` is **runtime** — schema + `validate` rules gate the call before it returns, retry/escalate attempts to recover from failed outputs, `max_cost` refuses pre-flight. Our `define_eval` is *regression* (does this prompt/model still pass on a frozen dataset?), not *grading*. Use both: Contract enforces what must reach your code, Tribunal in CI checks it consistently does.
+Different layers, complementary. [`ruby_llm-tribunal`](https://github.com/Alqemist-labs/ruby_llm-tribunal) is a **test framework** for LLM output — post-hoc grading via `assert_faithful`, `refute_hallucination`, LLM-as-judge, red-team adversarial prompts, RSpec/Minitest matchers. It grades outputs **after they've reached your code** — typically in a test. `ruby_llm-contract` is **runtime** — schema + `validate` rules gate the call **before the output reaches your code**, retry/escalate attempts to recover from failed outputs, `max_cost` refuses pre-flight. Our `define_eval` is *regression* (does this prompt/model still pass on a frozen dataset?), not *grading*.
 
-**One-liner:** Tribunal answers *"is this output good?"* (fail → red test in CI). Contract answers *"what do we do when it isn't?"* (fail → retry/escalate, or fail closed). Different question, different moment.
+**One-liner:** Tribunal answers *"is this output good?"* (fail → red test in CI). Contract answers *"what do we do when it isn't?"* (fail → retry/escalate, or fail closed). **[Visual flows + coexistence patterns →](docs/guide/relation_to_tribunal.md)**
 
 ## Docs
 
@@ -90,6 +90,7 @@ Different layers, complementary. [`ruby_llm-tribunal`](https://github.com/Alqemi
 |-------|---------------------------|
 | [Why contracts?](docs/guide/why.md) | Recognise the four production failures the gem exists for |
 | [Relation to RubyLLM::Agent](docs/guide/relation_to_agent.md) | Sibling abstractions; what each adds; runtime call path; coexistence patterns |
+| [Relation to ruby_llm-tribunal](docs/guide/relation_to_tribunal.md) | Different layers (test framework vs runtime contract); visual flows; integration recipes |
 | [Getting Started](docs/guide/getting_started.md) | Walk the full feature set on one concrete step |
 | [Rails integration](docs/guide/rails_integration.md) | Directory, initializer, jobs, logging, specs, CI gate — 7 FAQs for Rails devs |
 | [Adopt in an existing Rails app](docs/guide/migration.md) | Replace raw `LlmClient.call` with a contract, Before/After |
