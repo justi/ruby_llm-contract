@@ -2,9 +2,9 @@
 
 **Contracts + Evals for [ruby_llm](https://github.com/crmne/ruby_llm).**
 
-Your eval passed. Prod broke anyway? This gem wraps `RubyLLM::Chat` with input/output contracts, business-rule validation, retry with model escalation on validation failure, pre-flight cost ceilings, and an evaluation framework — so a flaky cheap-model call escalates to a stronger model instead of shipping garbage to your user.
+Your eval passed. Prod broke anyway? This gem wraps `RubyLLM::Chat` with input/output contracts, business-rule validation, retry with model escalation on validation failure, pre-flight cost ceilings, and a regression-eval framework — so a flaky cheap-model call escalates to a stronger model instead of shipping garbage to your user.
 
-`ruby_llm` handles the HTTP side (rate limits, timeouts, streaming, tool calls, embeddings). This gem handles what the model *returned*: schema validation, business rules, model escalation on failed validation, datasets, regression tests.
+`ruby_llm` handles the HTTP side (rate limits, timeouts, streaming, tool calls, embeddings). This gem handles what the model *returned* at **runtime**: schema validation, business rules, model escalation on failed validation, regression datasets that gate prompt/model changes in CI.
 
 ## Install
 
@@ -74,7 +74,13 @@ Also supports [multi-step pipelines](docs/guide/pipeline.md) with fail-fast and 
 
 ## Relation to `RubyLLM::Agent`
 
-`Step::Base` and `RubyLLM::Agent` (since RubyLLM 1.12) are **siblings** targeting the same niche: reusable, class-based prompts. Both call into `RubyLLM::Chat` directly — Step does not wrap Agent. Step adds the contract layer: `validate` (business invariants), `retry_policy escalate(...)` (model escalation on validation failure), `max_cost` pre-flight refusal, evaluation framework, pipeline composition. **[Full feature mapping →](docs/guide/relation_to_agent.md)**
+`Step::Base` and `RubyLLM::Agent` (since RubyLLM 1.12) are **siblings** targeting the same niche: reusable, class-based prompts. Both call into `RubyLLM::Chat` directly — Step does not wrap Agent. Step adds the contract layer: `validate` (business invariants), `retry_policy escalate(...)` (model escalation on validation failure), `max_cost` pre-flight refusal, regression-eval framework, pipeline composition. **[Full feature mapping →](docs/guide/relation_to_agent.md)**
+
+## Relation to `ruby_llm-tribunal`
+
+Different layers, complementary. [`ruby_llm-tribunal`](https://github.com/Alqemist-labs/ruby_llm-tribunal) is a **test framework** for LLM output — post-hoc grading via `assert_faithful`, `refute_hallucination`, LLM-as-judge, red-team adversarial prompts, RSpec/Minitest matchers. It evaluates or grades outputs after generation. `ruby_llm-contract` is **runtime** — schema + `validate` rules gate the call before it returns, retry/escalate attempts to recover from failed outputs, `max_cost` refuses pre-flight. Our `define_eval` is *regression* (does this prompt/model still pass on a frozen dataset?), not *grading*. Use both: Contract enforces what must reach your code, Tribunal in CI checks it consistently does.
+
+**One-liner:** Tribunal answers *"is this output good?"* (fail → red test in CI). Contract answers *"what do we do when it isn't?"* (fail → retry/escalate, or fail closed). Different question, different moment.
 
 ## Docs
 
