@@ -120,8 +120,10 @@ This is a recipe, not a shipped adapter. Tribunal's `opts[:llm]` API is at v0.x 
 
 ## Summary
 
-Tribunal answers *"is this output good?"* — measured in CI, on outputs you already hold.
+Three questions, three owners:
 
-Contract answers *"what do we do when it isn't?"* — enforced at runtime, before outputs reach your code, with retry/escalate or fail-closed.
+- **"Is this output good?"** — Tribunal, in CI, on outputs you already hold.
+- **"What do we do when it isn't?"** — Contract, at runtime, before outputs reach your code (retry/escalate, or fail-closed with `Result(:validation_failed)`).
+- **"What do we do when it _is_ good?"** — your application code. Once Contract returns `:ok`, you persist, render, hand off downstream. The gem deliberately doesn't touch the happy path; it owns failure semantics, not domain logic.
 
-Both questions are real. Use whichever (or both) the application demands.
+Use Tribunal, Contract, or both — whichever questions your application needs to answer.
