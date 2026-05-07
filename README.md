@@ -23,7 +23,7 @@ Works with any `ruby_llm` provider (OpenAI, Anthropic, Gemini, etc).
 
 Use this if LLM output affects production behaviour, money, user trust, or downstream code. You probably don't need it if you have one low-risk prompt, manually inspect every result, or only generate best-effort prose.
 
-Already using structured outputs from your provider? This gem adds business-rule validation, retry with model fallback, evals, regression gating, and test stubs on top of them — the layer that stops schema-valid-but-wrong output from reaching users. See [Why contracts?](docs/guide/why.md) for the four production failure modes the gem exists for, or run `ruby examples/01_fallback_showcase.rb` to see the fallback loop in 30 seconds (no API key needed).
+Already using structured outputs from your provider? This gem adds business-rule validation, retry with model fallback, evals, regression gating, and test stubs on top of them — the layer that stops schema-valid-but-wrong output from reaching users. See [Why contracts?](docs/guide/why.md) for the four production failure modes the gem exists for.
 
 ## Example
 
@@ -51,26 +51,25 @@ class SummarizeArticle < RubyLLM::Contract::Step::Base
 end
 
 result = SummarizeArticle.run(article_text)
+result.status           # => :ok  (or :validation_error if every model in the chain failed)
 result.parsed_output    # => { tldr: "...", takeaways: [...], tone: "analytical" }
 result.trace[:model]    # => "gpt-4.1-nano"  (first model that passed)
 result.trace[:cost]     # => 0.000032
 ```
 
-The model returns JSON matching the schema. If the response is malformed, the TL;DR overflows the card, or the takeaway count is off, the gem retries — moving to the next model in `models:` only when the cheaper one can't satisfy the rules. In this setup cheaper models are tried first and the expensive ones are used only when cheaper models fail.
-
-You could write this loop yourself once. The gem gives you the loop, a trace of every attempt (model, status, cost, latency), fallback policy, evals, baselines, and CI checks as one contract object — tracked per-step so adding a new LLM feature to your app is one class, not one-off scaffolding.
+The model returns JSON matching the schema. If the response is malformed, the TL;DR overflows the card, or the takeaway count is off, the gem retries — moving to the next model in `models:` only when the cheaper one can't satisfy the rules. Cheaper models are tried first; expensive ones are used only when cheaper ones fail.
 
 ## Most useful next
 
 Everything below is optional — the example above is a complete step. Reach for these when one step isn't enough.
 
-- **[CI regression gates](docs/guide/getting_started.md)** — `define_eval` + `save_baseline!` + `pass_eval(...).without_regressions` blocks CI when accuracy drops on a model update or prompt tweak.
-- **[Find the cheapest viable fallback list](docs/guide/optimizing_retry_policy.md)** — `Step.recommend("regression", candidates: [...], min_score: 0.95)` returns the cheapest list of models that still passes your evals. `production_mode:` measures retry-aware cost.
-- **[A/B test prompts](docs/guide/eval_first.md)** — `SummarizeArticleV2.compare_with(SummarizeArticleV1, eval: "regression")` reports whether the new prompt is safe to ship.
-- **[Budget caps](docs/guide/getting_started.md)** — `max_cost`, `max_input`, `max_output` refuse the request before calling the API when a heuristic estimate (~±30% accuracy) exceeds the limit.
-- **[Reasoning effort / thinking config](docs/guide/optimizing_retry_policy.md)** — `thinking effort: :low` (or alias `reasoning_effort :low`) on the Step class; mirrors `RubyLLM::Agent.thinking` and forwards through `Chat#with_thinking`.
+- **[CI regression gates](docs/guide/getting_started.md)** — block CI when accuracy drops on a model update or prompt tweak.
+- **[Find the cheapest viable fallback list](docs/guide/optimizing_retry_policy.md)** — empirically pick the cheapest model chain that still passes your evals.
+- **[A/B test prompts](docs/guide/eval_first.md)** — measure whether a new prompt is safe to ship before merging.
+- **[Budget caps](docs/guide/getting_started.md)** — refuse the request pre-flight when an estimate exceeds the limit.
+- **[Reasoning effort / thinking config](docs/guide/optimizing_retry_policy.md)** — Anthropic / OpenAI thinking configuration on the Step class.
 
-Also supports [multi-step pipelines](docs/guide/pipeline.md) with fail-fast and `retry_policy attempts: N` for niche cases (we measured this empirically — for `gpt-4.1-nano` / `gpt-5-nano` on tasks with clear correctness criteria, same-model retry rarely helps; `escalate(model_2)` is the strategy that moves the needle, see [optimizing_retry_policy.md](docs/guide/optimizing_retry_policy.md)).
+Also supports [multi-step pipelines](docs/guide/pipeline.md) with fail-fast and per-step models.
 
 ## Relation to `RubyLLM::Agent`
 
@@ -78,7 +77,7 @@ Also supports [multi-step pipelines](docs/guide/pipeline.md) with fail-fast and 
 
 ## Relation to `ruby_llm-tribunal`
 
-Different layers, complementary. [`ruby_llm-tribunal`](https://github.com/Alqemist-labs/ruby_llm-tribunal) is a **test framework** for LLM output — post-hoc grading via `assert_faithful`, `refute_hallucination`, LLM-as-judge, red-team adversarial prompts, RSpec/Minitest matchers. It grades outputs **after they've reached your code** — typically in a test. `ruby_llm-contract` is **runtime** — schema + `validate` rules gate the call **before the output reaches your code**, retry/escalate attempts to recover from failed outputs, `max_cost` refuses pre-flight. Our `define_eval` is *regression* (does this prompt/model still pass on a frozen dataset?), not *grading*.
+Different layers, complementary. [`ruby_llm-tribunal`](https://github.com/Alqemist-labs/ruby_llm-tribunal) is a **test framework** that grades outputs **after they've reached your code**, typically in a spec. `ruby_llm-contract` is **runtime** — schema + `validate` rules gate the call **before the output reaches your code**, retry/escalate attempts to recover from failed outputs, `max_cost` refuses pre-flight. Our `define_eval` is *regression* (does this prompt/model still pass on a frozen dataset?), not *grading*.
 
 **One-liner:** Tribunal answers *"is this output good?"* (fail → red test in CI). Contract answers *"what do we do when it isn't?"* (fail → retry/escalate, or fail closed). **[Visual flows + coexistence patterns →](docs/guide/relation_to_tribunal.md)**
 
@@ -102,9 +101,9 @@ Different layers, complementary. [`ruby_llm-tribunal`](https://github.com/Alqemi
 | [Schema DSL reference](docs/guide/output_schema.md) | Every constraint, nested objects, pattern table |
 | [Prompt DSL reference](docs/guide/prompt_ast.md) | `system` / `rule` / `section` / `example` / `user` nodes |
 
-## Roadmap
+## Status & versioning
 
-Latest: **v0.8.0** — tagline + narrative repositioning around "Contracts + Evals for RubyLLM", `thinking` / `reasoning_effort` class macro, TokenEstimator labelled as heuristic, CostCalculator repositioned. See [CHANGELOG](CHANGELOG.md) for history.
+Pre-1.0 (currently **0.8.0**). Semver tracked; breaking changes flagged in [CHANGELOG](CHANGELOG.md). Pin `~> 0.8.0` until 1.0 ships.
 
 ## License
 
