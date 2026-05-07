@@ -59,8 +59,28 @@ end
 result = SummarizeArticle.run(article_text)
 result.status           # => :ok  (or :validation_failed if all steps fail)
 result.parsed_output    # => { tldr: "...", takeaways: [...], tone: "..." }
-result.trace[:model]    # => "gpt-4.1-nano"  (first step that passed)
-result.trace[:cost]     # => 0.000032
+result.trace[:model]    # => "gpt-4.1-mini"  (winning step)
+result.trace[:cost]     # => 0.000520        (total across all attempts)
+
+result.trace[:attempts]
+# => [
+#      {
+#        attempt: 1,
+#        model: "gpt-4.1-nano",
+#        status: :validation_failed,
+#        usage: { input_tokens: 256, output_tokens: 84 },
+#        latency_ms: 45,
+#        cost: 0.000100
+#      },
+#      {
+#        attempt: 2,
+#        model: "gpt-4.1-mini",
+#        status: :ok,
+#        usage: { input_tokens: 256, output_tokens: 92 },
+#        latency_ms: 92,
+#        cost: 0.000420
+#      }
+#    ]
 ```
 
 If the response is malformed, the TL;DR overflows the card, or the takeaway count is off, the gem moves to the next step. This is model **escalation**, not a fallback list — each step is an independent config (`model`, `reasoning_effort`), so the retry policy spends more compute only when the cheaper one couldn't satisfy the contract.
