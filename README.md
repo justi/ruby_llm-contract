@@ -24,7 +24,7 @@ Works with any `ruby_llm` provider (OpenAI, Anthropic, Gemini, etc). Requires `r
 A Rails app takes article text extracted from a user-submitted URL and wants to show a summary card: a short TL;DR, 3–5 key takeaways, and a tone label. The output has to fit the UI (TL;DR under 200 chars) and the schema has to be strict enough to render without conditionals.
 
 ```ruby
-# app/llm/summarize_article.rb
+# app/contracts/summarize_article.rb
 class SummarizeArticle < RubyLLM::Contract::Step::Base
   prompt <<~PROMPT
     Summarize this article for a UI card. Return a short TL;DR,
@@ -126,6 +126,14 @@ Different layers, complementary. [`ruby_llm-tribunal`](https://github.com/Alqemi
 ## Status & versioning
 
 Pre-1.0 (currently **0.8.0**). Semver tracked; breaking changes flagged in [CHANGELOG](CHANGELOG.md). Pin `~> 0.8.0` until 1.0 ships.
+
+## FAQ
+
+**Thread-safe / Sidekiq?** Yes. Each `Step.run` builds an isolated `RubyLLM::Chat`; class-level state (`output_schema`, `validate`, `retry_policy`) is set up once at class load and read-only afterwards. Safe to run from concurrent jobs/threads.
+
+**How do I stub `Step.run` in specs?** Include `RubyLLM::Contract::RSpec::Helpers` and use `stub_step(MyStep, response: { ... })`. The block form scopes the stub to one `it`. See [testing guide](docs/guide/testing.md).
+
+**Where in a Rails app?** Default `app/contracts/`. The Railtie reloads `app/contracts/eval/` and `app/steps/eval/` in development; any autoloaded directory also works. See [Rails integration](docs/guide/rails_integration.md).
 
 ## License
 
