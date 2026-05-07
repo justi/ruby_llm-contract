@@ -17,11 +17,13 @@ RubyLLM.configure do |c|
   c.openai_api_key = ENV["OPENAI_API_KEY"]
   c.default_model  = "gpt-4.1-mini"   # used when a Step has no explicit model
 end
+
+# Required: boots the gem so `Step.run` knows how to talk to your LLM.
+# Empty block is fine. Pass options here if you need them (e.g. `c.logger`).
+RubyLLM::Contract.configure { }
 ```
 
 Works with any `ruby_llm` provider (OpenAI, Anthropic, Gemini, etc). Requires `ruby_llm ~> 1.12` and Ruby ≥ 3.2.
-
-> Want a different default just for `Step`s? Add `RubyLLM::Contract.configure { |c| c.default_model = "..." }` — otherwise `RubyLLM.config.default_model` is used.
 
 ## Example
 
