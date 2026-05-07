@@ -17,13 +17,14 @@ RubyLLM.configure { |c| c.openai_api_key = ENV["OPENAI_API_KEY"] }
 RubyLLM::Contract.configure { |c| c.default_model = "gpt-4.1-mini" }
 ```
 
-Works with any `ruby_llm` provider (OpenAI, Anthropic, Gemini, etc).
+Works with any `ruby_llm` provider (OpenAI, Anthropic, Gemini, etc). Requires `ruby_llm ~> 1.12` and Ruby ≥ 3.2.
 
 ## Example
 
 A Rails app takes article text extracted from a user-submitted URL and wants to show a summary card: a short TL;DR, 3–5 key takeaways, and a tone label. The output has to fit the UI (TL;DR under 200 chars) and the schema has to be strict enough to render without conditionals.
 
 ```ruby
+# app/llm/summarize_article.rb
 class SummarizeArticle < RubyLLM::Contract::Step::Base
   prompt <<~PROMPT
     Summarize this article for a UI card. Return a short TL;DR,
@@ -63,6 +64,7 @@ The contract above already runs in production. The same `Step` doubles as the un
 
 ```ruby
 SummarizeArticle.define_eval("regression") do
+  # `expected:` is a partial hash match — only the listed keys must match parsed_output.
   add_case "neutral release", input: "Ruby 3.4 shipped frozen string literals...", expected: { tone: "analytical" }
   add_case "outage post",     input: "Service was down for 4 hours...",            expected: { tone: "negative" }
 end
@@ -71,7 +73,7 @@ end
 expect(SummarizeArticle).to pass_eval("regression").without_regressions
 ```
 
-A bad prompt edit or model swap that drops accuracy on the frozen dataset → red CI, blocked merge. Every production miss should become the next `add_case`. See [Prevent silent prompt regressions](docs/guide/eval_first.md) for the full flywheel.
+A bad prompt edit or model swap that drops accuracy on the frozen dataset → red CI, blocked merge. The first CI run records a baseline; subsequent runs compare against it. Every production miss should become the next `add_case`. See [Prevent silent prompt regressions](docs/guide/eval_first.md) for the full flywheel.
 
 ## Do I need this?
 
