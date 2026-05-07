@@ -116,7 +116,7 @@ class SummarizeArticle < RubyLLM::Contract::Step::Base
   end
 
   validate("TL;DR fits the card")  { |o, _| o[:tldr].length <= 200 }
-  validate("takeaways are unique") { |o, _| o[:takeaways].uniq.size == o[:takeaways].size }
+  validate("takeaways are unique") { |o, _| o[:takeaways] == o[:takeaways].uniq }
 
   retry_policy models: %w[gpt-4.1-nano gpt-4.1-mini gpt-4.1]
 end

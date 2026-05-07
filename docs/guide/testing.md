@@ -39,8 +39,10 @@ Multi-step pipeline testing with per-step named responses (using `ArticleCardPip
 result = ArticleCardPipeline.test("article text",
   responses: {
     summarize: { tldr: "...", takeaways: %w[a b c], tone: "analytical" },
-    tag:       { tldr: "...", takeaways: %w[a b c], tone: "analytical", hashtags: %w[#ruby #release] },
-    card:      { headline: "Ruby 3.4 ships", summary: "...", hashtags: %w[#ruby #release], sentiment_icon: "🧠" }
+    tag:       { tldr: "...", takeaways: %w[a b c], tone: "analytical",
+                 hashtags: %w[#ruby #release] },
+    card:      { headline: "Ruby 3.4 ships", summary: "...",
+                 hashtags: %w[#ruby #release], sentiment_icon: "🧠" }
   }
 )
 ```
@@ -72,7 +74,10 @@ You get the `satisfy_contract` matcher, `pass_eval` matcher, and the `stub_step`
 
 ```ruby
 RSpec.describe SummarizeArticle do
-  before { stub_step(described_class, response: { tldr: "...", takeaways: %w[a b c], tone: "neutral" }) }
+  before do
+    stub_step(described_class,
+              response: { tldr: "...", takeaways: %w[a b c], tone: "neutral" })
+  end
 
   it "satisfies its contract" do
     result = described_class.run("article text")
@@ -105,7 +110,9 @@ end
 ```ruby
 stub_steps(
   SummarizeArticle => { response: { tldr: "...", takeaways: %w[a b c], tone: "neutral" } },
-  GenerateHashtags => { response: { tldr: "...", takeaways: %w[a b c], tone: "neutral", hashtags: %w[#ruby #release] } }
+  GenerateHashtags => { response: { tldr: "...", takeaways: %w[a b c],
+                                    tone: "neutral",
+                                    hashtags: %w[#ruby #release] } }
 ) do
   result = ArticleCardPipeline.run("article text")
 end
@@ -127,7 +134,10 @@ Require `ruby_llm/contract/minitest` in your `test_helper.rb`. You get the same 
 
 ```ruby
 RSpec.describe SummarizeArticle do
-  before { stub_step(described_class, response: { tldr: "...", takeaways: %w[a b c], tone: "neutral" }) }
+  before do
+    stub_step(described_class,
+              response: { tldr: "...", takeaways: %w[a b c], tone: "neutral" })
+  end
 
   it "satisfies its contract" do
     result = described_class.run("article text")

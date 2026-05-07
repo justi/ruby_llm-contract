@@ -18,7 +18,8 @@ All examples below extend the `SummarizeArticle` step from the [README](../../RE
 validate("tldr must be a string")          { |o| o[:tldr].is_a?(String) }
 validate("takeaways must be an array")     { |o| o[:takeaways].is_a?(Array) }
 validate("takeaways 3 to 5")               { |o| (3..5).cover?(o[:takeaways].size) }
-validate("tone must be an allowed label")  { |o| %w[neutral positive negative analytical].include?(o[:tone]) }
+ALLOWED_TONES = %w[neutral positive negative analytical].freeze
+validate("tone must be an allowed label") { |o| ALLOWED_TONES.include?(o[:tone]) }
 
 # WITH schema — one declaration:
 output_schema do
@@ -70,7 +71,7 @@ end
 validate("TL;DR fits the card") { |o, _| o[:tldr].length <= 200 }
 
 # Schema enforces 3–5 takeaways — but says nothing about them being distinct.
-validate("takeaways are unique") { |o, _| o[:takeaways].uniq.size == o[:takeaways].size }
+validate("takeaways are unique") { |o, _| o[:takeaways] == o[:takeaways].uniq }
 
 # Schema can't express cross-field rules.
 validate("critical tone requires at least one concrete risk") do |o, _|

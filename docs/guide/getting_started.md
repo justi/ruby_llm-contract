@@ -27,7 +27,7 @@ class SummarizeArticle < RubyLLM::Contract::Step::Base
 
   # 3. Business rules — things JSON Schema cannot express
   validate("TL;DR fits the card")  { |o, _| o[:tldr].length <= 200 }
-  validate("takeaways are unique") { |o, _| o[:takeaways].uniq.size == o[:takeaways].size }
+  validate("takeaways are unique") { |o, _| o[:takeaways] == o[:takeaways].uniq }
 
   # 4. Retry with model fallback on validation_failed / parse_error
   retry_policy models: %w[gpt-4.1-nano gpt-4.1-mini gpt-4.1]
@@ -52,8 +52,10 @@ result.trace[:model]    # => "gpt-4.1-mini"  (first model that passed)
 result.trace[:cost]     # => 0.00052  (sum of all attempts)
 result.trace[:attempts]
 # => [
-#   { attempt: 1, model: "gpt-4.1-nano", status: :validation_failed, cost: 0.00010, latency_ms: 45, ... },
-#   { attempt: 2, model: "gpt-4.1-mini", status: :ok,                cost: 0.00042, latency_ms: 92, ... }
+#   { attempt: 1, model: "gpt-4.1-nano", status: :validation_failed,
+#     cost: 0.00010, latency_ms: 45, ... },
+#   { attempt: 2, model: "gpt-4.1-mini", status: :ok,
+#     cost: 0.00042, latency_ms: 92, ... }
 # ]
 ```
 
@@ -131,7 +133,8 @@ expect(SummarizeArticle).to pass_eval("regression").without_regressions
 ```ruby
 result = SummarizeArticle.run(giant_10mb_document)
 result.status            # => :limit_exceeded
-result.validation_errors # => ["Input token limit exceeded: estimated 32000 tokens (heuristic ±30%), max 2000"]
+result.validation_errors
+# => ["Input token limit exceeded: estimated 32000 tokens (heuristic ±30%), max 2000"]
 ```
 
 `max_cost` fails closed when the model's pricing isn't known — register custom or fine-tuned models explicitly:
@@ -155,7 +158,11 @@ Check what a call is likely to cost before invoking it:
 
 ```ruby
 SummarizeArticle.estimate_cost(input: article_text)
-# => { model: "gpt-4.1-mini", input_tokens: 812, output_tokens_estimate: 4000, estimated_cost: 0.00243 }
+# => {
+#      model: "gpt-4.1-mini",
+#      input_tokens: 812, output_tokens_estimate: 4000,
+#      estimated_cost: 0.00243
+#    }
 
 # Estimate what a full eval would cost across candidate models
 SummarizeArticle.estimate_eval_cost("regression",

@@ -14,7 +14,7 @@ JSON schema enforces **shape**. It cannot enforce *length fits the card*, *takea
 
 ```ruby
 validate("TL;DR fits the card")  { |o, _| o[:tldr].length <= 200 }
-validate("takeaways are unique") { |o, _| o[:takeaways].uniq.size == o[:takeaways].size }
+validate("takeaways are unique") { |o, _| o[:takeaways] == o[:takeaways].uniq }
 validate("negative tone requires concrete risk") do |o, _|
   next true unless o[:tone] == "negative"
   o[:takeaways].any? { |t| t.match?(/fail|break|crash|outage|risk/i) }

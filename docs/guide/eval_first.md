@@ -43,7 +43,11 @@ Only after the eval exists, touch: `system`, `rule`, `example`, `validate`, prom
 ```ruby
 SummarizeArticle.define_eval("smoke") do
   default_input "Ruby 3.4 shipped with frozen string literals..."
-  sample_response({ tldr: "...", takeaways: ["point one", "point two", "point three"], tone: "analytical" })
+  sample_response({
+    tldr: "...",
+    takeaways: ["point one", "point two", "point three"],
+    tone: "analytical"
+  })
 end
 ```
 
@@ -81,7 +85,9 @@ SummarizeArticle.define_eval("regression") do
 end
 
 # Prompt iteration happens afterward
-diff = SummarizeArticleV2.compare_with(SummarizeArticleV1, eval: "regression", model: "gpt-4.1-mini")
+diff = SummarizeArticleV2.compare_with(
+  SummarizeArticleV1, eval: "regression", model: "gpt-4.1-mini"
+)
 ```
 
 **Bad**:

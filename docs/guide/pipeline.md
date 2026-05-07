@@ -82,7 +82,7 @@ end
 result = ArticleCardPipeline.run(article_text, context: { adapter: adapter })
 result.ok?                          # => true
 result.outputs_by_step[:summarize]  # => { tldr: "...", takeaways: [...], tone: "analytical" }
-result.outputs_by_step[:card]       # => { headline: "...", summary: "...", hashtags: [...], sentiment_icon: "🧠" }
+result.outputs_by_step[:card]       # => { headline: "...", summary: "...", ... }
 result.trace.total_cost             # => 0.000128 (all steps combined)
 result.trace.total_latency_ms       # => 2340
 ```
