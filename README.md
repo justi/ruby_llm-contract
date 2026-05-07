@@ -40,18 +40,19 @@ class SummarizeArticle < RubyLLM::Contract::Step::Base
   end
 
   validate("TL;DR fits the card")  { |o, _| o[:tldr].length <= 200 }
-  validate("takeaways are unique") { |o, _| o[:takeaways].uniq.size == o[:takeaways].size }
+  validate("takeaways are unique") { |o, _| o[:takeaways] == o[:takeaways].uniq }
 
+  # Cheapest first; last step adds a reasoning model with more thinking.
   retry_policy do
-    escalate "gpt-4.1-nano",                                     # cheapest first
+    escalate "gpt-4.1-nano",
              "gpt-4.1-mini",
-             { model: "gpt-5", reasoning_effort: "high" }        # last resort: reasoning model + more thinking
+             { model: "gpt-5", reasoning_effort: "high" }
   end
 end
 
 result = SummarizeArticle.run(article_text)
-result.status           # => :ok  (or :validation_failed if every step failed)
-result.parsed_output    # => { tldr: "...", takeaways: [...], tone: "analytical" }
+result.status           # => :ok  (or :validation_failed if all steps fail)
+result.parsed_output    # => { tldr: "...", takeaways: [...], tone: "..." }
 result.trace[:model]    # => "gpt-4.1-nano"  (first step that passed)
 result.trace[:cost]     # => 0.000032
 ```
@@ -64,9 +65,13 @@ The contract above already runs in production. The same `Step` doubles as the un
 
 ```ruby
 SummarizeArticle.define_eval("regression") do
-  # `expected:` is a partial hash match — only the listed keys must match parsed_output.
-  add_case "neutral release", input: "Ruby 3.4 shipped frozen string literals...", expected: { tone: "analytical" }
-  add_case "outage post",     input: "Service was down for 4 hours...",            expected: { tone: "negative" }
+  # `expected:` is a partial hash match — only listed keys check parsed_output.
+  add_case "neutral release",
+           input: "Ruby 3.4 shipped frozen string literals...",
+           expected: { tone: "analytical" }
+  add_case "outage post",
+           input: "Service was down for 4 hours...",
+           expected: { tone: "negative" }
 end
 
 # in CI (RSpec):
