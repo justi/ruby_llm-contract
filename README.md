@@ -19,12 +19,6 @@ RubyLLM::Contract.configure { |c| c.default_model = "gpt-4.1-mini" }
 
 Works with any `ruby_llm` provider (OpenAI, Anthropic, Gemini, etc).
 
-## Do I need this?
-
-Use this if LLM output affects production behaviour, money, user trust, or downstream code. You probably don't need it if you have one low-risk prompt, manually inspect every result, or only generate best-effort prose.
-
-Already using structured outputs from your provider? This gem adds business-rule validation, retry with model fallback, evals, regression gating, and test stubs on top of them — the layer that stops schema-valid-but-wrong output from reaching users. See [Why contracts?](docs/guide/why.md) for the four production failure modes the gem exists for.
-
 ## Example
 
 A Rails app takes article text extracted from a user-submitted URL and wants to show a summary card: a short TL;DR, 3–5 key takeaways, and a tone label. The output has to fit the UI (TL;DR under 200 chars) and the schema has to be strict enough to render without conditionals.
@@ -47,17 +41,43 @@ class SummarizeArticle < RubyLLM::Contract::Step::Base
   validate("TL;DR fits the card")  { |o, _| o[:tldr].length <= 200 }
   validate("takeaways are unique") { |o, _| o[:takeaways].uniq.size == o[:takeaways].size }
 
-  retry_policy models: %w[gpt-4.1-nano gpt-4.1-mini gpt-4.1]
+  retry_policy do
+    escalate "gpt-4.1-nano",                                     # cheapest first
+             "gpt-4.1-mini",
+             { model: "gpt-5", reasoning_effort: "high" }        # last resort: reasoning model + more thinking
+  end
 end
 
 result = SummarizeArticle.run(article_text)
-result.status           # => :ok  (or :validation_error if every model in the chain failed)
+result.status           # => :ok  (or :validation_failed if every step failed)
 result.parsed_output    # => { tldr: "...", takeaways: [...], tone: "analytical" }
-result.trace[:model]    # => "gpt-4.1-nano"  (first model that passed)
+result.trace[:model]    # => "gpt-4.1-nano"  (first step that passed)
 result.trace[:cost]     # => 0.000032
 ```
 
-The model returns JSON matching the schema. If the response is malformed, the TL;DR overflows the card, or the takeaway count is off, the gem retries — moving to the next model in `models:` only when the cheaper one can't satisfy the rules. Cheaper models are tried first; expensive ones are used only when cheaper ones fail.
+If the response is malformed, the TL;DR overflows the card, or the takeaway count is off, the gem moves to the next step. This is model **escalation**, not a fallback list — each step is an independent config (`model`, `reasoning_effort`), so the retry policy spends more compute only when the cheaper one couldn't satisfy the contract.
+
+### Add a CI gate in 6 lines
+
+The contract above already runs in production. The same `Step` doubles as the unit your regression eval runs against:
+
+```ruby
+SummarizeArticle.define_eval("regression") do
+  add_case "neutral release", input: "Ruby 3.4 shipped frozen string literals...", expected: { tone: "analytical" }
+  add_case "outage post",     input: "Service was down for 4 hours...",            expected: { tone: "negative" }
+end
+
+# in CI (RSpec):
+expect(SummarizeArticle).to pass_eval("regression").without_regressions
+```
+
+A bad prompt edit or model swap that drops accuracy on the frozen dataset → red CI, blocked merge. Every production miss should become the next `add_case`. See [Prevent silent prompt regressions](docs/guide/eval_first.md) for the full flywheel.
+
+## Do I need this?
+
+Use this if LLM output affects production behaviour, money, user trust, or downstream code. You probably don't need it if you have one low-risk prompt, manually inspect every result, or only generate best-effort prose.
+
+Already using structured outputs from your provider? This gem adds business-rule validation, retry with model escalation, evals, regression gating, and test stubs on top of them — the layer that stops schema-valid-but-wrong output from reaching users. See [Why contracts?](docs/guide/why.md) for the four production failure modes the gem exists for.
 
 ## Most useful next
 
