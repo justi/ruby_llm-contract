@@ -4,7 +4,9 @@ module RubyLLM
   module Contract
     module Eval
       class Recommender
-        def initialize(comparison:, min_score:, min_first_try_pass_rate: 0.8, current_config: nil)
+        def initialize(comparison:, min_score:,
+                       min_first_try_pass_rate: DEFAULT_MIN_FIRST_TRY_PASS_RATE,
+                       current_config: nil)
           @comparison = comparison
           @min_score = min_score
           @min_first_try_pass_rate = min_first_try_pass_rate

@@ -60,7 +60,9 @@ module RubyLLM
             end
           end
 
-          def recommend(eval_name, candidates:, min_score: 0.95, min_first_try_pass_rate: 0.8, context: {})
+          def recommend(eval_name, candidates:, context: {},
+                        min_score: Eval::DEFAULT_MIN_SCORE,
+                        min_first_try_pass_rate: Eval::DEFAULT_MIN_FIRST_TRY_PASS_RATE)
             comparison = compare_models(eval_name, candidates: candidates, context: context)
             Eval::Recommender.new(
               comparison: comparison,
@@ -70,7 +72,9 @@ module RubyLLM
             ).recommend
           end
 
-          def optimize_retry_policy(candidates:, context: {}, min_score: 0.95, runs: 1, production_mode: nil)
+          def optimize_retry_policy(candidates:, context: {},
+                                    min_score: Eval::DEFAULT_MIN_SCORE,
+                                    runs: 1, production_mode: nil)
             Eval::RetryOptimizer.new(
               step: self,
               candidates: candidates,

@@ -108,7 +108,7 @@ module RubyLLM
           trace = step_result.trace
           status = step_status(step_result)
           trace_str = trace.respond_to?(:to_s) ? trace.to_s : ""
-          "  #{step_record[:alias].to_s.ljust(14)} #{status.ljust(10)} #{trace_str}"
+          "  #{step_record[:alias].to_s.ljust(COL1)} #{status.ljust(COL2)} #{trace_str}"
         end
 
         def step_status(step_result)

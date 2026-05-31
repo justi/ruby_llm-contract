@@ -98,7 +98,9 @@ module RubyLLM
           end
         end
 
-        def initialize(step:, candidates:, context: {}, min_score: 0.95, runs: 1, production_mode: nil)
+        def initialize(step:, candidates:, context: {},
+                       min_score: DEFAULT_MIN_SCORE,
+                       runs: 1, production_mode: nil)
           @step = step
           @candidates = candidates
           @context = context

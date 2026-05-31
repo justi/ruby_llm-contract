@@ -89,8 +89,13 @@ module RubyLLM
         (input_cost + output_cost).round(6)
       end
 
+      # Provider pricing is denominated per 1M tokens; divide here to get
+      # the dollar cost for the actual usage count. Named constant for
+      # consistency with how RubyLLM and provider docs express prices.
+      TOKENS_PER_MILLION = 1_000_000.0
+
       def self.token_cost(tokens, price_per_million)
-        (tokens || 0) * (price_per_million || 0) / 1_000_000.0
+        (tokens || 0) * (price_per_million || 0) / TOKENS_PER_MILLION
       end
 
       def self.find_model(model_name)

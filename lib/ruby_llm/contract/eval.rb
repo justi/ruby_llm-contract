@@ -33,3 +33,16 @@ require_relative "eval/eval_history"
 require_relative "eval/recommendation"
 require_relative "eval/recommender"
 require_relative "eval/retry_optimizer"
+
+module RubyLLM
+  module Contract
+    module Eval
+      # Default thresholds shared across `recommend`, `optimize_retry_policy`,
+      # `Recommender`, and `RetryOptimizer`. Centralised so a single change in
+      # what "viable" means (e.g. tightening from 0.95 to 0.97) propagates
+      # everywhere instead of needing the same edit in 4 places.
+      DEFAULT_MIN_SCORE = 0.95
+      DEFAULT_MIN_FIRST_TRY_PASS_RATE = 0.8
+    end
+  end
+end
