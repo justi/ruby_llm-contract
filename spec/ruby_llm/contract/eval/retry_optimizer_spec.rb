@@ -337,10 +337,24 @@ RSpec.describe RubyLLM::Contract::Eval::RetryOptimizer do
       expect(step_with_retry.retry_policy).to equal(original)
     end
 
-    it "the obsolete with_retry_disabled private method is removed" do
+    it "the obsolete with_retry_disabled private method is removed AND #call works via the new path" do
       opt = described_class.new(step: step_with_retry,
                                 candidates: [{ model: "gpt-4.1-nano" }])
+
+      # Negation: the obsolete singleton-mutation helper is gone.
       expect(opt.private_methods).not_to include(:with_retry_disabled)
+
+      # Positive proof of execution: the optimiser remains functional on
+      # the replacement path (context-based override). Without this, a
+      # broken `#call` that no-ops would also pass the negation vacuously.
+      allow(step_with_retry).to receive(:compare_models)
+        .and_return(RubyLLM::Contract::Eval::ModelComparison.new(
+                      eval_name: "smoke", reports: {}, configs: {}
+                    ))
+      result = opt.call
+
+      expect(result).to be_a(described_class::Result)
+      expect(step_with_retry).to have_received(:compare_models)
     end
   end
 end

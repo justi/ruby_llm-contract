@@ -97,7 +97,18 @@ RSpec.describe "F1: stub_step block form — RSpec helpers" do
 
       it "(2/2) the previous example's stub is NOT active here" do
         overrides = RubyLLM::Contract.step_adapter_overrides
+
+        # Negation: the override map is empty for this step at example start.
         expect(overrides[F1StepAlpha]).to be_nil
+
+        # Positive proof of clean slate: a FRESH stub installed here yields
+        # the FRESH response, not the previous example's "installed: true".
+        # Without this, a broken `around(:each)` that left the previous map
+        # untouched would still pass `be_nil` if the hash was wiped by a
+        # different mechanism — this assertion forces end-to-end clean state.
+        stub_step(F1StepAlpha, response: '{"fresh":true}')
+        result = F1StepAlpha.run("y")
+        expect(result.parsed_output).to eq({ fresh: true })
       end
     end
 
