@@ -190,16 +190,13 @@ module RubyLLM
           context.merge(adapter: sample_adapter)
         end
 
+        # `Class#subclasses` is available from Ruby 3.1; the gemspec requires
+        # `>= 3.2.0` so the legacy `ObjectSpace.each_object` fallback would be
+        # dead code on every supported runtime.
         def register_subclasses(klass)
-          if klass.respond_to?(:subclasses)
-            klass.subclasses.each do |sub|
-              Contract.register_eval_host(sub)
-              register_subclasses(sub)
-            end
-          else
-            ObjectSpace.each_object(Class) do |sub|
-              Contract.register_eval_host(sub) if sub < klass
-            end
+          klass.subclasses.each do |sub|
+            Contract.register_eval_host(sub)
+            register_subclasses(sub)
           end
         end
 
