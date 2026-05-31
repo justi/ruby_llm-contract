@@ -320,9 +320,31 @@ RSpec.describe "Adversarial QA round 7 -- security and stress" do
       expect(result.trace.step_traces.length).to eq(2),
                                                  "Trace should include step_traces from both steps (completed + failed)"
 
-      # Total usage should include tokens from both steps
-      total_usage = result.trace.total_usage
-      expect(total_usage).to be_a(Hash)
+      # Anti-facade F13: previously `total_usage` only asserted
+      # `be_a(Hash)`. Setting it to `{}` in the SUT would have passed
+      # while the spec narrative claims it includes failed-step usage.
+      # Use a tracking adapter so we know what tokens each step
+      # consumed and assert their inclusion in the aggregate.
+      tracker = Class.new(RubyLLM::Contract::Adapters::Base) do
+        define_method(:call) do |messages:, **_opts|
+          RubyLLM::Contract::Adapters::Response.new(
+            content: '{"data": "x"}',
+            usage: { input_tokens: 11, output_tokens: 7 }
+          )
+        end
+      end.new
+
+      pipeline_b = Class.new(RubyLLM::Contract::Pipeline::Base) do
+        step step1, as: :first
+        step step2, as: :second
+      end
+
+      result2 = pipeline_b.run("hello", context: { adapter: tracker })
+
+      expect(result2.trace.step_traces.length).to eq(2)
+      total_usage = result2.trace.total_usage
+      expect(total_usage[:input_tokens]).to eq(22) # 11 * 2 steps
+      expect(total_usage[:output_tokens]).to eq(14) # 7 * 2 steps
     end
   end
 

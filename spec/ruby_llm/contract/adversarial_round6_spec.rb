@@ -179,12 +179,27 @@ RSpec.describe "Adversarial QA round 6 -- behavioral correctness bugs" do
                                 third: '{"from": "step3"}'
                               })
 
-      # Step :second should NOT receive step :third's response
-      second_output = result2.outputs_by_step[:second]
-      if result2.ok? && second_output
-        expect(second_output).not_to eq({ from: "step3" }),
-                                     "Step :second received step :third's response due to compact shifting. " \
-                                     "Missing middle step responses cause silent data corruption."
+      # Anti-facade F8: the previous `if result2.ok? && second_output`
+      # guard let a silent fallback (e.g. SUT returning an empty string
+      # "{}" for missing step which then becomes `{}` instead of step3's
+      # response) pass undetected. The guarded `not_to eq({from:"step3"})`
+      # never fires if the SUT short-circuits.
+      #
+      # Force the actual contract: when a step has no response mapping,
+      # the pipeline MUST NOT silently succeed with bogus data. Either
+      # it halts before step 2 or step 2 fails - either way, step 2
+      # must NOT report ok with step 3's payload.
+      if result2.ok?
+        # Pipeline reached completion - step 2 MUST have received its
+        # own (or a clearly distinguishable) response.
+        expect(result2.outputs_by_step[:second]).not_to eq({ from: "step3" }),
+                                                       "Compact shift bug: step :second received step :third's response."
+        expect(result2.outputs_by_step[:second]).to be_a(Hash)
+      else
+        # Pipeline halted - step 2 must NOT have completed with bogus
+        # data; either it never ran or it failed with a clear status.
+        expect(result2.outputs_by_step.keys).not_to include(:third),
+                                                    "Halted pipeline must not produce later step outputs."
       end
     end
   end

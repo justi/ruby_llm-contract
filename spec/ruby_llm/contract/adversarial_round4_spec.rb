@@ -199,6 +199,54 @@ RSpec.describe "Adversarial QA round 4 -- bug regressions" do
       expect(call_count).to eq(2)
       expect(result.parsed_output[:score]).to eq(85)
     end
+
+    # Anti-facade F1 companion: the parent test above proves the
+    # invariant runs but does NOT prove output_schema and `validate`
+    # both run independently. Deleting either guard would leave a
+    # response that satisfies the remaining checks. These two tests
+    # close that gap by making EACH guard the sole gatekeeper.
+    it "rejects response that satisfies validate but violates output_schema" do
+      step = Class.new(RubyLLM::Contract::Step::Base) do
+        input_type String
+        output_type RubyLLM::Contract::Types::Hash
+        prompt { |input| user "Analyze: #{input}" }
+
+        # Schema requires :summary to be a String.
+        output_schema { string :summary, required: true }
+
+        # `validate` block only checks presence, not type.
+        validate("has summary key") { |o| o.key?(:summary) }
+      end
+
+      # `summary` is an integer - violates schema but the validate
+      # block (presence check) passes. If output_schema validation
+      # were deleted from the SUT, this would incorrectly succeed.
+      adapter = RubyLLM::Contract::Adapters::Test.new(response: '{"summary": 42}')
+      result = step.run("data", context: { adapter: adapter })
+
+      expect(result.status).to eq(:validation_failed),
+                               "Schema must reject non-string summary; got #{result.status}"
+    end
+
+    it "rejects response that satisfies output_schema but violates validate" do
+      step = Class.new(RubyLLM::Contract::Step::Base) do
+        input_type String
+        output_type RubyLLM::Contract::Types::Hash
+        prompt { |input| user "Analyze: #{input}" }
+
+        output_schema { string :summary, required: true }
+
+        # `validate` requires non-empty content - stricter than schema.
+        validate("summary non-empty") { |o| o[:summary].to_s.size.positive? }
+      end
+
+      # Empty string satisfies schema (type=String) but fails validate.
+      adapter = RubyLLM::Contract::Adapters::Test.new(response: '{"summary": ""}')
+      result = step.run("data", context: { adapter: adapter })
+
+      expect(result.status).to eq(:validation_failed),
+                               "validate must reject empty summary; got #{result.status}"
+    end
   end
 
   # ---------------------------------------------------------------------------

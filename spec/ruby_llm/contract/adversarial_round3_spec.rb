@@ -260,15 +260,17 @@ RSpec.describe "Adversarial QA round 3 -- bug regressions" do
       adapter = RubyLLM::Contract::Adapters::Test.new(responses: [nil, "result"])
       result = pipeline.run("start", context: { adapter: adapter })
 
-      # nil.is_a?(String) is false, so step B should fail with input_error
-      # This confirms the data threading behavior -- nil flows through
-      if result.step_results.length > 1
-        step_b_result = result.step_results[1][:result]
-        # Step B should fail because nil is not a String
-        expect(step_b_result.status).to eq(:input_error),
-                                        "Step B should fail with input_error when receiving nil input, " \
-                                        "got #{step_b_result.status}"
-      end
+      # Anti-facade F11b: the previous `if result.step_results.length > 1`
+      # guard let the assertion vanish silently if the pipeline halted
+      # at step A. In practice the pipeline DOES halt at step A with
+      # :parse_error (nil adapter response -> empty content -> parse
+      # fails). The actual contract is "pipeline halts safely, step B
+      # never runs with corrupt input" - assert THAT directly so the
+      # short-circuit behavior is itself verified.
+      expect(result.status).to eq(:parse_error)
+      expect(result.step_results.length).to eq(1)
+      expect(result.outputs_by_step.keys).not_to include(:step_b),
+                                                  "Pipeline must not run step B with nil input"
     end
   end
 end
