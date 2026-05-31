@@ -215,4 +215,66 @@ RSpec.describe "Step thinking DSL" do
     end
 
   end
+
+  # Anti-facade F3 (integration gap): every test above either calls
+  # `runtime_settings` in isolation OR drives the adapter directly with
+  # hand-built `thinking:` kwargs. None proves end-to-end that
+  # `Step.run("input")` -> RunnerConfig.build -> adapter actually carries
+  # the class-level `thinking` DSL through to the wire. Mutation
+  # smoking-gun: passing `extra_options: {}` into RunnerConfig.build in
+  # `Step::Base#run_once` would leave every existing test green while
+  # silently dropping the DSL.
+  describe "end-to-end Step.run forwards thinking DSL to adapter" do
+    let(:received_options) { [] }
+
+    let(:spy_adapter) do
+      tracker = received_options
+      Class.new(RubyLLM::Contract::Adapters::Base) do
+        define_method(:call) do |messages:, **opts|
+          tracker << opts
+          RubyLLM::Contract::Adapters::Response.new(
+            content: '{"v": 1}', usage: { input_tokens: 0, output_tokens: 0 }
+          )
+        end
+      end.new
+    end
+
+    it "forwards class-level effort-only thinking through Step.run" do
+      step = Class.new(RubyLLM::Contract::Step::Base) do
+        prompt { user "{input}" }
+        thinking effort: :high
+      end
+
+      step.run("hello", context: { adapter: spy_adapter })
+
+      expect(received_options.length).to eq(1)
+      forwarded = received_options.first
+      expect(forwarded[:thinking]).to eq(effort: :high)
+      expect(forwarded[:reasoning_effort]).to eq(:high)
+    end
+
+    it "forwards class-level thinking with budget through Step.run" do
+      step = Class.new(RubyLLM::Contract::Step::Base) do
+        prompt { user "{input}" }
+        thinking effort: :low, budget: 2048
+      end
+
+      step.run("hello", context: { adapter: spy_adapter })
+
+      forwarded = received_options.first
+      expect(forwarded[:thinking]).to eq(effort: :low, budget: 2048)
+    end
+
+    it "does NOT forward thinking when class has no DSL setting" do
+      step = Class.new(RubyLLM::Contract::Step::Base) do
+        prompt { user "{input}" }
+      end
+
+      step.run("hello", context: { adapter: spy_adapter })
+
+      forwarded = received_options.first
+      expect(forwarded).not_to have_key(:thinking)
+      expect(forwarded).not_to have_key(:reasoning_effort)
+    end
+  end
 end
