@@ -25,8 +25,16 @@ RSpec.describe "output_schema forwarding to adapter" do
 
     step.run("test", context: { adapter: spy_adapter })
 
-    expect(received_options).to have_key(:schema)
-    expect(received_options[:schema]).not_to be_nil
+    # Previously asserted only `have_key(:schema)` + `not_to be_nil` (A2 / A4):
+    # any truthy value would pass, including `true` or a stub. Now check the
+    # schema is the structural shape the DSL ought to produce — a JSON Schema
+    # carrying the declared `intent` property with the declared enum values.
+    schema_class = received_options[:schema]
+    expect(schema_class).to be < RubyLLM::Schema
+    json = schema_class.new.to_json
+    expect(json).to include("intent").and include("sales").and include("billing")
+    # Drop sneaky placeholder so the test reflects the strengthening intent
+    # documented above. (Block prompt test below mirrors this shape.)
   end
 
   it "forwards schema to adapter when using block prompt" do
@@ -54,8 +62,11 @@ RSpec.describe "output_schema forwarding to adapter" do
 
     step.run("test", context: { adapter: spy_adapter })
 
-    expect(received_options).to have_key(:schema)
-    expect(received_options[:schema]).not_to be_nil
+    # Same strengthening as the string-prompt test above.
+    schema_class = received_options[:schema]
+    expect(schema_class).to be < RubyLLM::Schema
+    json = schema_class.new.to_json
+    expect(json).to include("intent").and include("sales").and include("billing")
   end
 
   it "both prompt styles forward the same schema object" do
@@ -90,8 +101,13 @@ RSpec.describe "output_schema forwarding to adapter" do
     string_step.run("test", context: { adapter: spy_adapter })
     block_step.run("test", context: { adapter: spy_adapter })
 
-    # Both should forward a schema (not nil)
-    expect(schemas[0]).not_to be_nil
-    expect(schemas[1]).not_to be_nil
+    # Previously asserted only `not_to be_nil` × 2 — the test title PROMISED
+    # equivalence between styles but a divergence bug (different schema
+    # objects per prompt style) would have passed silently. Compare their
+    # JSON serialisations; structural equality is what matters, not object
+    # identity (each step builds its own).
+    expect(schemas[0]).to be < RubyLLM::Schema
+    expect(schemas[1]).to be < RubyLLM::Schema
+    expect(schemas[0].new.to_json).to eq(schemas[1].new.to_json)
   end
 end
