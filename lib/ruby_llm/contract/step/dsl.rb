@@ -101,6 +101,11 @@ module RubyLLM
         end
 
         def validate(description, &block)
+          # `nil.to_s.empty?` is already true - the explicit nil branch was
+          # redundant. `caller` pushes the backtrace to user code instead
+          # of DSL internals (per Codex review of 0.10.0).
+          raise ArgumentError, "validate description must be a non-empty string", caller if description.to_s.empty?
+
           (@class_validates ||= []) << Invariant.new(description, block)
         end
 

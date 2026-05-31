@@ -18,6 +18,8 @@ module RubyLLM
       end
 
       def invariant(description, &block)
+        raise ArgumentError, "invariant description must be a non-empty string", caller if description.to_s.empty?
+
         @invariants << Invariant.new(description, block)
       end
       alias validate invariant

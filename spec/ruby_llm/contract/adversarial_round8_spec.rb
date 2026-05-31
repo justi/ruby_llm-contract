@@ -66,7 +66,7 @@ RSpec.describe "Adversarial QA round 8 -- API contract violations" do
       expect(report).to respond_to(:score)
     end
 
-    it "run_eval with no args returns a Hash, not a Report" do
+    it "run_eval with no args returns Hash<String, Report> keyed by eval name" do
       step = Class.new(RubyLLM::Contract::Step::Base) do
         prompt { user "{input}" }
         define_eval(:smoke) do
@@ -80,15 +80,18 @@ RSpec.describe "Adversarial QA round 8 -- API contract violations" do
       end
 
       result = step.run_eval
-      # This documents the inconsistency: no-arg run_eval returns a Hash
-      expect(result).to be_a(Hash),
-                        "run_eval (no args) returns a Hash, not a Report"
-      expect(result).not_to respond_to(:passed?),
-                            "The Hash returned by run_eval does not have passed? -- " \
-                            "callers expecting a Report will get NoMethodError"
-      result.each_value do |report|
-        expect(report).to be_a(RubyLLM::Contract::Eval::Report)
-      end
+
+      # Anti-facade F14: previously the test certified inconsistency via
+      # weak `be_a(Hash)` + `not_to respond_to(:passed?)`. The Hash form
+      # is the documented and used contract (RakeTask#collect_host_reports
+      # depends on it; see lib/ruby_llm/contract.rb:36, rake_task.rb:72).
+      # Lock the EXACT shape: keys map eval names, values are Report
+      # instances. Mutating the SUT to return [Report, Report] (Array)
+      # or to flatten into an AggregatedReport would now fail.
+      expect(result).to match(
+        "smoke" => be_a(RubyLLM::Contract::Eval::Report),
+        "regression" => be_a(RubyLLM::Contract::Eval::Report)
+      )
     end
   end
 
@@ -158,45 +161,54 @@ RSpec.describe "Adversarial QA round 8 -- API contract violations" do
   end
 
   # ---------------------------------------------------------------------------
-  # BUG 43: validate("") with empty description -- silent, unhelpful errors.
+  # BUG 43 (FIXED in 0.10.0): validate("") / invariant("") with empty
+  # description now raises ArgumentError at definition time (was silently
+  # accepted and produced unhelpful `""` errors at runtime).
   #
-  # When a class-level validate is given an empty string description, and the
-  # invariant fails, the error message is just "". This makes debugging
-  # impossible.
+  # The pre-0.10.0 behavior certified the bug via assert-as-is. Anti-facade
+  # audit (F14) flagged this as a contract-bug. Codex consult concluded:
+  # raise at definition time, mirror the existing `validate_positive!`
+  # guard pattern. Zero production use sites, so breaking-change scope is
+  # nil in practice.
   # ---------------------------------------------------------------------------
-  describe "BUG 43: validate with empty description produces unhelpful errors" do
-    it "produces empty string in validation_errors when empty-description invariant fails" do
-      step = Class.new(RubyLLM::Contract::Step::Base) do
-        prompt { user "{input}" }
-        output_type RubyLLM::Contract::Types::Hash
-        contract { parse :json }
-        validate("") { |_o| false }
-      end
-
-      adapter = RubyLLM::Contract::Adapters::Test.new(response: '{"x": 1}')
-      result = step.run("test", context: { adapter: adapter })
-
-      expect(result.status).to eq(:validation_failed)
-      # The error message is just "" -- completely unhelpful
-      expect(result.validation_errors).to include(""),
-                                          "Empty-description validate produces empty error string"
+  describe "BUG 43 (FIXED): validate/invariant with empty description raises at definition" do
+    it "Step.validate raises ArgumentError when description is empty string" do
+      expect do
+        Class.new(RubyLLM::Contract::Step::Base) do
+          prompt { user "{input}" }
+          validate("") { |_o| false }
+        end
+      end.to raise_error(ArgumentError, /description must be a non-empty string/)
     end
 
-    it "contract invariant with empty description also produces empty error" do
-      step = Class.new(RubyLLM::Contract::Step::Base) do
-        prompt { user "{input}" }
-        output_type RubyLLM::Contract::Types::Hash
-        contract do
-          parse :json
-          invariant("") { |_o| false }
+    it "Step.validate raises ArgumentError when description is nil" do
+      expect do
+        Class.new(RubyLLM::Contract::Step::Base) do
+          prompt { user "{input}" }
+          validate(nil) { |_o| false }
         end
-      end
+      end.to raise_error(ArgumentError, /description must be a non-empty string/)
+    end
 
-      adapter = RubyLLM::Contract::Adapters::Test.new(response: '{"x": 1}')
-      result = step.run("test", context: { adapter: adapter })
+    it "Definition#invariant raises ArgumentError when description is empty string" do
+      expect do
+        Class.new(RubyLLM::Contract::Step::Base) do
+          prompt { user "{input}" }
+          contract do
+            parse :json
+            invariant("") { |_o| false }
+          end
+        end
+      end.to raise_error(ArgumentError, /description must be a non-empty string/)
+    end
 
-      expect(result.status).to eq(:validation_failed)
-      expect(result.validation_errors).to include("")
+    it "still accepts non-empty descriptions (regression baseline)" do
+      expect do
+        Class.new(RubyLLM::Contract::Step::Base) do
+          prompt { user "{input}" }
+          validate("non-empty") { |_o| true }
+        end
+      end.not_to raise_error
     end
   end
 

@@ -1,5 +1,30 @@
 # Changelog
 
+## 0.10.0 (2026-06-01)
+
+Suite-wide anti-facade audit (Phase A: 26 specs + Phase C: 63 specs via
+parallel Codex fan-out) closed 20 STOP-level facade tests and 10
+FIX-FIRST gaps. Net +30 strengthened tests, +3 codex recommendations
+applied (one breaking).
+
+### Breaking changes
+
+- **`validate(description, &block)` and `Definition#invariant(description, &block)` now raise `ArgumentError` when `description` is `nil` or an empty string.** Pre-0.10.0 the empty descriptor was silently accepted and produced `""` entries in `result.validation_errors`, making debugging impossible. Codex audit found zero production use sites of `validate("")` / `invariant("")` across lib/, examples/, README — only the regression-marker test certifying the bug. Migration: ensure every `validate` and `invariant` call has a non-empty descriptor (this is also how every README example already writes them).
+
+### Anti-facade test strengthening (no public API impact)
+
+- **Cost/retry cluster (commit `b75ded0`)** — `cost_tracking_spec` exact value assertions instead of `> 0`; circular `st1.cost + st2.cost` replaced with absolute expected total; `retry_executor_spec` gained aggregate usage/cost/latency tests; `retry_integration_spec:9` asserts retry loop stops after first `:ok`; `step_limits_spec` completion-cost-only refusal test; `cost_of_quality_spec:365` constructs over-budget report instead of zero-cost adapter shortcut.
+- **Eval/report cluster (commit `81503a5`)** — `report_stats_spec` "including skipped" now has a skipped fixture; `eval_api_spec` per-case input override spied at the prompt-render boundary; `cost_of_quality_real_spec` dedup test counts real adapter calls; `v02_findings_spec` exercises the empty-registry abort branch; `compare_with_spec` confirms `model:` reaches both legs; aggregated_report production-metrics delegates covered; `model_comparison` `best_for`/`cost_per_point`/`table` tested.
+- **Pipeline/adapter/integration (commit `6da0c9c`)** — `pipeline/base_spec` token_budget enforcement test (was getter-only); `adapters/ruby_llm_spec` `add_message` calls now ordered before `chat.ask`; `examples_00_basics_spec` adapter messages payload verified at the wire; `audit_findings_spec` timeout no longer comment-read — real run with slow adapter.
+- **Adversarial rounds (commit `2226f58`)** — round3:242 explicit short-circuit assertion (was vacuous if-guard); round4:156 schema and validate gates exercised independently; round6:136 missing-middle-response branch checked both ok and halted paths; round7:294 total_usage asserts actual token sums.
+- **thinking_dsl integration (commit `e689530`)** — three end-to-end `Step.run` tests with spy adapter proving the class-level `thinking` DSL travels through `RunnerConfig.build` to the wire.
+- **F14 contract decisions** — `run_eval` no-args Hash return strict-matched (this commit); `extract_json` first-bracket-wins boundary clarified with two companion tests.
+
+### Tests
+
+- Suite: 1401 examples / 0 failures / 7 pending (was 1371/0/8 at 0.9.1 release).
+- 89/89 spec files now under full per-test anti-facade walk.
+
 ## 0.9.1 (2026-05-31)
 
 Internal quality refactor batch — zero public API change. Pulls a Codex

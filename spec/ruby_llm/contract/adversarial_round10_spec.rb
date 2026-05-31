@@ -1352,8 +1352,40 @@ RSpec.describe "Adversarial QA round 10 -- production certification audit" do
   # is a best-effort fallback.
   # ---------------------------------------------------------------------------
   describe "CERTIFIED: extract_json starts from first bracket (documented limitation)" do
+    # Boundary: extraction begins at the first `{` or `[`; any valid JSON
+    # appearing AFTER a non-JSON brace pair is intentionally ignored
+    # under this contract. The parser explicitly documents "first JSON
+    # object or array" - see lib/ruby_llm/contract/contract/parser.rb:75.
+    #
+    # This is NOT a hidden facade per anti-facade audit (F14): the
+    # describe block names the limitation, the comments name the
+    # contract, and the tests below pin both sides of the boundary.
+
     it "fails when first bracket is not JSON start" do
       text = "Use {braces} carefully: {\"real\": \"json\"}"
+      expect do
+        RubyLLM::Contract::Parser.parse(text, strategy: :json)
+      end.to raise_error(RubyLLM::Contract::ParseError)
+    end
+
+    it "stops at the first valid JSON-bracket structure even if later JSON exists" do
+      # Boundary clarification (post-Phase-C): an empty `{}` followed by
+      # real JSON is parsed as the empty Hash - the parser commits to
+      # the first balanced bracket pair and does NOT look for later
+      # candidates. This pins "first bracket wins" semantics: the
+      # parser is fast and predictable, not best-effort.
+      text = "{} {\"real\": \"json\"}"
+      result = RubyLLM::Contract::Parser.parse(text, strategy: :json)
+      expect(result).to eq({}) # empty Hash, NOT { real: "json" }
+    end
+
+    it "fails when first bracket opens but contains non-JSON content" do
+      # Companion to the {braces} case: even a single non-JSON-key token
+      # inside the first bracket pair triggers ParseError. This pins
+      # the failure mode as "first-bracket commitment" rather than
+      # "any-bracket retry" - the parser does not try the LATER valid
+      # JSON in the same string.
+      text = "[invalid, tokens] [\"valid\", \"json\"]"
       expect do
         RubyLLM::Contract::Parser.parse(text, strategy: :json)
       end.to raise_error(RubyLLM::Contract::ParseError)
