@@ -31,6 +31,10 @@ module RubyLLM
             return nil if attachment_error
 
             input_tokens = text_tokens + attachment_tokens
+            # NOTE: attachment tokens add to input only, not output. Vision-
+            # heavy outputs (long image descriptions) may exceed
+            # `output_tokens_estimate` — this method is a floor for budget
+            # planning, not a precise predictor. See multimodal_input.md.
             output_tokens = max_output || DEFAULT_OUTPUT_TOKENS
 
             {

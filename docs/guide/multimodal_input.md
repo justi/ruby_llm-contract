@@ -111,6 +111,8 @@ ExtractInvoiceData.estimate_cost(
 
 The `input_tokens` figure includes both the text estimate (chars/4 heuristic) AND the declared `attachment_token_estimate`. Pre-flight refusal mirrors runtime: if `attachment` is passed and `attachment_token_estimate` is not declared, `estimate_cost` returns nil and emits the same fail-closed reason.
 
+**Note on output tokens.** `attachment_token_estimate` adds to `input_tokens` only — not to `output_tokens_estimate`. Vision-heavy responses (long image descriptions, transcribed paragraphs) may exceed the conservative `output_tokens_estimate` default. Treat `estimated_cost` as a floor for budget planning, not a precise predictor; inflate `max_output` or `max_cost` accordingly if your prompt routinely produces verbose descriptions.
+
 ## Calibrating `attachment_token_estimate`
 
 The number depends on provider, model, and content shape. Some baselines:

@@ -13,6 +13,11 @@ module RubyLLM
           chat = build_chat(options, system_contents)
           add_history(chat, conversation[0..-2])
 
+          # `with: nil` is a documented no-op in RubyLLM (verified against
+          # 1.15.0: chat.rb:36-37 `build_content(message, nil)` -> content.rb:8-14
+          # `Content.new(text, nil)` keeps text-only path when attachments
+          # are empty; raise only fires when BOTH text and attachments are nil,
+          # and we always pass a non-nil string thanks to `&.fetch(:content, "")`).
           response = chat.ask(
             conversation.last&.fetch(:content, ""),
             with: options[:attachment]

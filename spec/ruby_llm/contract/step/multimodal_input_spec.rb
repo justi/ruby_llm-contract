@@ -95,6 +95,50 @@ RSpec.describe "Multimodal input" do
       expect(mock_chat).to have_received(:ask).with("hi", with: nil)
     end
 
+    # F1 follow-up: verify `chat.ask("text", with: nil)` works against a
+    # real-ish RubyLLM::Chat double whose `ask` honours the documented
+    # 1.15.0 contract (chat.rb:36-37 + content.rb:8-14): non-nil text +
+    # nil attachments → Content with empty attachments → text-only path.
+    # If RubyLLM ever regresses by raising on `with: nil`, this test
+    # catches it before adopters do.
+    it "real-ish chat.ask honours with: nil per RubyLLM 1.15 contract" do
+      realistic_chat = Class.new do
+        attr_reader :asked_with
+
+        def initialize(response)
+          @response = response
+          @asked_with = nil
+        end
+
+        def with_instructions(*); self; end
+        def with_schema(*); self; end
+        def with_temperature(*); self; end
+        def with_params(*); self; end
+        def with_thinking(*); self; end
+        def add_message(**); end
+
+        # Mimics RubyLLM::Chat#ask signature precisely; raise only when
+        # BOTH text and attachments are nil (matches Content.new's
+        # ArgumentError in content.rb:13).
+        def ask(content, with: nil)
+          raise ArgumentError, "Text and attachments cannot be both nil" if content.nil? && with.nil?
+
+          @asked_with = with
+          @response
+        end
+      end
+
+      response = instance_double(RubyLLM::Message, content: '{"ok":true}',
+                                                   input_tokens: 5, output_tokens: 3)
+      fake = realistic_chat.new(response)
+      allow(RubyLLM).to receive(:chat).and_return(fake)
+
+      result = adapter.call(messages: [{ role: :user, content: "hi" }], model: "gpt-4.1-mini")
+
+      expect(fake.asked_with).to be_nil
+      expect(result.usage[:input_tokens]).to eq(5)
+    end
+
     it "passes with: <attachment> when context attachment present" do
       adapter.call(
         messages: [{ role: :user, content: "describe" }],
@@ -103,6 +147,28 @@ RSpec.describe "Multimodal input" do
       )
 
       expect(mock_chat).to have_received(:ask).with("describe", with: "tmp/picture.png")
+    end
+
+    it "passes array attachment through unchanged (multi-attachment)" do
+      pages = ["tmp/page1.pdf", "tmp/page2.pdf", "tmp/page3.pdf"]
+      adapter.call(
+        messages: [{ role: :user, content: "summarize" }],
+        model: "gpt-4.1-mini",
+        attachment: pages
+      )
+
+      expect(mock_chat).to have_received(:ask).with("summarize", with: pages)
+    end
+
+    it "passes hash-shaped attachment through unchanged (typed multi-attachment)" do
+      shaped = { images: ["tmp/a.png"], pdfs: ["tmp/b.pdf"] }
+      adapter.call(
+        messages: [{ role: :user, content: "extract" }],
+        model: "gpt-4.1-mini",
+        attachment: shaped
+      )
+
+      expect(mock_chat).to have_received(:ask).with("extract", with: shaped)
     end
   end
 
