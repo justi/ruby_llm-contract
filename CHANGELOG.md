@@ -1,5 +1,30 @@
 # Changelog
 
+## 0.9.1 (2026-05-31)
+
+Internal quality refactor batch — zero public API change. Pulls a Codex
+code-quality audit forward to the closest patch boundary so adopters bumping
+to `~> 0.9.0` immediately get the safer code path on the next install.
+
+### Fixed
+
+- **`with_retry_disabled` no longer mutates the step class's singleton method.** The optimizer now passes `retry_policy_override: nil` through `context:` to `compare_models`, which `Step::Base#runtime_settings` already honours. Removes a concurrency hazard where two parallel `optimize_retry_policy` calls on the same step would race on the singleton restore in `ensure`.
+- **`CostCalculator.find_model` exposed as a public class method.** Removes two `CostCalculator.send(:find_model, ...)` workarounds in `Step::Base#estimate_cost`. The `estimated_cost_for` helper is gone — `estimate_cost` now routes through the existing public `CostCalculator.calculate(model_name:, usage:)`.
+- **`stub_step` unified on a single storage path.** Both block and non-block forms now write to `RubyLLM::Contract.step_adapter_overrides` (thread-local). The `around(:each)` hook in `rspec.rb` handles cleanup between examples. Removes the prior `allow(step).to receive(:run)` branch.
+
+### Internal
+
+- **Dead `ObjectSpace.each_object(Class)` fallback removed** in `concerns/eval_host.rb#register_subclasses`. The gemspec requires Ruby `>= 3.2.0`, so `Class#subclasses` (Ruby ≥ 3.1) is always available; the legacy fallback was unreachable code that would have iterated all loaded classes O(n) and was not thread-safe.
+
+### Tests
+
+- +12 net new tests across `cost_calculator_spec.rb`, `eval_host_spec.rb`, `retry_optimizer_spec.rb`, `f1_stub_step_block_spec.rb` — each batch added characterization tests BEFORE refactor, then replaced with new contract tests post-refactor.
+- Suite: 1346 examples / 0 failures / 8 pending.
+
+### Refactor backlog (deferred to 0.10.0+)
+
+Documented in `TODO.md`. Remaining Codex findings: `Runner.new` 17 kwargs → `RunnerConfig` factory; DSL inheritance walk DRY + `UNSET` sentinel; `RakeTask#define_task` god method → `SuiteGate` extraction.
+
 ## 0.9.0 (2026-05-31)
 
 Multimodal input. Adopter-driven feature (pdf_to_quiz Faza 2). See [ADR-0022](doc/decisions/ADR-0022-v09-multimodal-input.md) for the full design record.
