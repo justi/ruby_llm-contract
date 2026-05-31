@@ -6,6 +6,37 @@ module RubyLLM
       # Extracted from Base to reduce class length.
       # DSL accessor methods for step definition (input_type, output_type, prompt, etc.).
       module Dsl # rubocop:disable Metrics/ModuleLength
+        # Sentinel signalling "explicitly reset" (`some_attr(:default)`).
+        # Distinguishes reset (lookup stops at this class, returns nil) from
+        # "never set" (lookup falls through to superclass).
+        UNSET = Object.new
+        def UNSET.inspect = "Step::Dsl::UNSET"
+        UNSET.freeze
+
+        # Walks the inheritance chain for a class-level DSL attribute.
+        # Returns the first explicitly-set value found, or nil.
+        def inherited_value(name)
+          ivar = :"@#{name}"
+          return instance_variable_get(ivar) if instance_variable_defined?(ivar)
+
+          superclass.public_send(name) if superclass.respond_to?(name)
+        end
+
+        # Like `inherited_value`, but honours the `UNSET` sentinel — when this
+        # class has been reset via `some_attr(:default)`, returns nil without
+        # falling through to the superclass.
+        def inherited_value_with_reset(name)
+          ivar = :"@#{name}"
+          if instance_variable_defined?(ivar)
+            value = instance_variable_get(ivar)
+            return value unless value.equal?(UNSET)
+
+            return nil
+          end
+
+          superclass.public_send(name) if superclass.respond_to?(name)
+        end
+
         def input_type(type = nil)
           return @input_type = type if type
 
@@ -98,11 +129,7 @@ module RubyLLM
             return @max_output = tokens
           end
 
-          if defined?(@max_output)
-            @max_output
-          elsif superclass.respond_to?(:max_output)
-            superclass.max_output
-          end
+          inherited_value(:max_output)
         end
 
         def max_input(tokens = nil)
@@ -114,17 +141,12 @@ module RubyLLM
             return @max_input = tokens
           end
 
-          if defined?(@max_input)
-            @max_input
-          elsif superclass.respond_to?(:max_input)
-            superclass.max_input
-          end
+          inherited_value(:max_input)
         end
 
         def max_cost(amount = nil, on_unknown_pricing: nil)
           if amount == :default
-            @max_cost = nil
-            @max_cost_explicitly_unset = true
+            @max_cost = UNSET
             @on_unknown_pricing = nil
             return nil
           end
@@ -138,32 +160,21 @@ module RubyLLM
               raise ArgumentError, "on_unknown_pricing must be :refuse or :warn, got #{on_unknown_pricing.inspect}"
             end
 
-            @max_cost_explicitly_unset = false
             @max_cost = amount
             @on_unknown_pricing = on_unknown_pricing || :refuse
             return @max_cost
           end
 
-          return @max_cost if defined?(@max_cost) && !@max_cost_explicitly_unset
-          return nil if @max_cost_explicitly_unset
-
-          superclass.max_cost if superclass.respond_to?(:max_cost)
+          inherited_value_with_reset(:max_cost)
         end
 
         def on_unknown_pricing
-          if defined?(@on_unknown_pricing)
-            @on_unknown_pricing
-          elsif superclass.respond_to?(:on_unknown_pricing)
-            superclass.on_unknown_pricing
-          else
-            :refuse
-          end
+          inherited_value(:on_unknown_pricing) || :refuse
         end
 
         def attachment_token_estimate(n = nil)
           if n == :default
-            @attachment_token_estimate = nil
-            @attachment_token_estimate_explicitly_unset = true
+            @attachment_token_estimate = UNSET
             return nil
           end
 
@@ -172,16 +183,10 @@ module RubyLLM
               raise ArgumentError, "attachment_token_estimate must be positive, got #{n}"
             end
 
-            @attachment_token_estimate_explicitly_unset = false
             return @attachment_token_estimate = n
           end
 
-          if defined?(@attachment_token_estimate) && !@attachment_token_estimate_explicitly_unset
-            return @attachment_token_estimate
-          end
-          return nil if @attachment_token_estimate_explicitly_unset
-
-          superclass.attachment_token_estimate if superclass.respond_to?(:attachment_token_estimate)
+          inherited_value_with_reset(:attachment_token_estimate)
         end
 
         def on_unknown_attachment_size(mode = nil)
@@ -194,71 +199,48 @@ module RubyLLM
             return @on_unknown_attachment_size = mode
           end
 
-          if defined?(@on_unknown_attachment_size)
-            @on_unknown_attachment_size
-          elsif superclass.respond_to?(:on_unknown_attachment_size)
-            superclass.on_unknown_attachment_size
-          else
-            :refuse
-          end
+          inherited_value(:on_unknown_attachment_size) || :refuse
         end
 
         def model(name = nil)
           if name == :default
-            @model = nil
-            @model_explicitly_unset = true
+            @model = UNSET
             return nil
           end
 
-          if name
-            @model_explicitly_unset = false
-            return @model = name
-          end
+          return @model = name if name
 
-          return @model if defined?(@model) && !@model_explicitly_unset
-          return nil if @model_explicitly_unset
-
-          superclass.model if superclass.respond_to?(:model)
+          inherited_value_with_reset(:model)
         end
 
         def temperature(value = nil)
           if value == :default
-            @temperature = nil
-            @temperature_explicitly_unset = true
+            @temperature = UNSET
             return nil
           end
 
-          if value
+          # NOTE: `value` may be 0 (a legitimate setting); use `nil?` rather
+          # than truthiness to distinguish "no arg passed" from "explicit 0".
+          unless value.nil?
             unless value.is_a?(Numeric) && value >= 0 && value <= 2
               raise ArgumentError, "temperature must be 0.0-2.0, got #{value}"
             end
 
-            @temperature_explicitly_unset = false
             return @temperature = value
           end
 
-          return @temperature if defined?(@temperature) && !@temperature_explicitly_unset
-          return nil if @temperature_explicitly_unset
-
-          superclass.temperature if superclass.respond_to?(:temperature)
+          inherited_value_with_reset(:temperature)
         end
 
         def thinking(effort: nil, budget: nil)
           if effort == :default
-            @thinking = nil
-            @thinking_explicitly_unset = true
+            @thinking = UNSET
             return nil
           end
 
-          if effort || budget
-            @thinking_explicitly_unset = false
-            return @thinking = { effort: effort, budget: budget }.compact
-          end
+          return @thinking = { effort: effort, budget: budget }.compact if effort || budget
 
-          return @thinking if defined?(@thinking) && !@thinking_explicitly_unset
-          return nil if @thinking_explicitly_unset
-
-          superclass.thinking if superclass.respond_to?(:thinking)
+          inherited_value_with_reset(:thinking)
         end
 
         def reasoning_effort(value = nil)
@@ -271,7 +253,6 @@ module RubyLLM
           if value == :default
             current_budget = thinking && thinking[:budget]
             if current_budget
-              @thinking_explicitly_unset = false
               @thinking = { budget: current_budget }
               return nil
             end

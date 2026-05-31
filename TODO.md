@@ -53,31 +53,13 @@ Verdict: shipped. Suite: 1336 / 0 failures.
 
 ---
 
-## Batch 3 — DSL surgery (#1 + #4 razem — ten sam plik)
+## Batch 3 — DSL surgery (#1 + #4 razem — ten sam plik) ✅ DONE
 
-⚠️ **MUSZĄ iść w jednym commicie/PR.** Split = half-refactored `dsl.rb` z mieszanką
-patternów. Diff staje się nieczytelny.
+- [x] B3-T1: 16 characterization tests w `spec/ruby_llm/contract/step/dsl_inheritance_spec.rb`
+- [x] B3-T2: Extracted `inherited_value(name)` + `inherited_value_with_reset(name)` helpers w `step/dsl.rb`
+- [x] B3-T3: Frozen `UNSET` sentinel object replaces all 5 `_explicitly_unset` shadow ivars
 
-### B3-T1: Characterization tests dla DSL inheritance
-
-- [ ] Stwórz `spec/ruby_llm/contract/step/dsl_inheritance_spec.rb` z 3 testami:
-  1. 3-level chain: grandparent.model = "x", parent nic, child nic → child.model == "x"
-  2. `model(nil)` explicit vs `:default` — różne semantyki (nil vs unset)
-  3. Falsy edge case: `temperature 0` → child.temperature == 0 (nie `nil`)
-
-### B3-T2: Extract `inherited_attr` / `inherited_resettable_attr` macros
-
-- [ ] Wprowadź macros prywatnie na górze `step/dsl.rb`
-- [ ] Refactor każdy attribute (model, temperature, max_input, max_output,
-      max_cost, on_unknown_pricing, thinking, attachment_token_estimate,
-      on_unknown_attachment_size, around_call, observe, validate)
-- [ ] Jeden commit per attribute (atomowość)
-
-### B3-T3: Replace `_explicitly_unset` shadow vars z sentinel `UNSET`
-
-- [ ] Frozen sentinel object jako stała w `Dsl` module
-- [ ] Reader returns `nil` (nie `UNSET`) gdy zresetowane
-- [ ] Usuń wszystkie 21 wystąpień `@foo_explicitly_unset`
+Refactor stats: dsl.rb -71 / +52 LOC net (-19). All 5 resettable attributes (`model`, `temperature`, `max_cost`, `attachment_token_estimate`, `thinking`) collapsed to use `UNSET` sentinel. Bonus: 4 simple-inheritance attributes (`max_input`, `max_output`, `on_unknown_pricing`, `on_unknown_attachment_size`) also routed through `inherited_value` for DRY. Suite: 1362 / 0 failures.
 
 ---
 
