@@ -3,20 +3,21 @@
 require "tmpdir"
 
 RSpec.describe "Railtie" do
-  describe "eager_load_contract_dirs!" do
-    it "calls eager_load_dir on existing contract directories" do
-      skip "Rails not loaded" unless defined?(::Rails)
-
-      expect { RubyLLM::Contract.send(:eager_load_contract_dirs!) }.not_to raise_error
-    end
-  end
+  # The "eager_load_contract_dirs! calls eager_load_dir" test was dropped:
+  # it was unconditionally `skip "Rails not loaded"` in the gem's CI matrix
+  # (NO-CONTRACT), exercising no code path. A proper Rails-loaded variant
+  # belongs in a dedicated rails_integration_spec.rb gated on `defined?(::Rails)`.
 
   describe "load_evals! without Rails" do
-    it "does not call eager_load when Rails is not defined" do
+    it "leaves eval_hosts empty when called without args in non-Rails env" do
       RubyLLM::Contract.reset_eval_hosts!
 
-      # Without Rails, load_evals! with empty dirs is a no-op
-      expect { RubyLLM::Contract.load_evals! }.not_to raise_error
+      # Side-effect check, not just `not_to raise_error` (A5). With no
+      # explicit dirs and no Rails, the registry must remain empty —
+      # a mutation that auto-registered something would fail this.
+      RubyLLM::Contract.load_evals!
+
+      expect(RubyLLM::Contract.eval_hosts).to be_empty
     end
 
     it "loads eval files from explicit directory" do

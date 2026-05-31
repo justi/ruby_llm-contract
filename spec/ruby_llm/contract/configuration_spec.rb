@@ -4,16 +4,21 @@ RSpec.describe RubyLLM::Contract::Configuration do
   before { RubyLLM::Contract.reset_configuration! }
 
   describe "RubyLLM::Contract.configuration" do
-    it "returns a Configuration instance" do
-      expect(RubyLLM::Contract.configuration).to be_a(described_class)
+    it "returns the same Configuration singleton across calls" do
+      # `be_a(described_class)` alone (A4) would pass even if every call
+      # returned a fresh instance; the singleton contract is what callers
+      # rely on. Identity check pins it.
+      expect(RubyLLM::Contract.configuration)
+        .to be(RubyLLM::Contract.configuration)
     end
   end
 
   describe "RubyLLM::Contract.configure" do
-    it "yields the configuration" do
-      RubyLLM::Contract.configure do |config|
-        expect(config).to be_a(described_class)
-      end
+    it "yields the same configuration instance that .configuration returns" do
+      # The block-yielded object must BE the singleton (not just A4 type).
+      yielded = nil
+      RubyLLM::Contract.configure { |config| yielded = config }
+      expect(yielded).to be(RubyLLM::Contract.configuration)
     end
 
     it "allows setting default_adapter" do
