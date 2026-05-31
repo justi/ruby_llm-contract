@@ -28,14 +28,11 @@ Verdict: shipped. Suite: 1336 / 0 failures.
 - [x] Refactored: `context.merge(retry_policy_override: nil)` instead of singleton mutation
 - [x] Replaced characterization tests with 3 new tests pinning context-propagation contract + ensured `with_retry_disabled` private method is dropped
 
-### B2-T2: `stub_step` unification (CHARACTERIZATION coverage)
+### B2-T2: `stub_step` unification (CHARACTERIZATION coverage) ✅ DONE
 
-- [ ] Add test w `spec/ruby_llm/contract/f1_stub_step_block_spec.rb`:
-      "non-block `stub_step`: stub NOT active w subsequent `it` block"
-      (pinuje auto-cleanup contract)
-- [ ] Unify on thread-local path (drop `allow`/`receive` branch from
-      `rspec/helpers.rb:28-55`)
-- [ ] Hook into RSpec `after(:each)` to clean thread-local state
+- [x] Added pair of sequential tests pinning auto-cleanup contract
+- [x] Unified non-block form on thread-local path (dropped `allow`/`receive` branch)
+- [x] No extra hook needed — existing `around(:each)` in `rspec.rb:14-28` already restores `step_adapter_overrides` between examples
 
 ### B2-T3: `CostCalculator.send(:find_model)` → public expose ✅ DONE
 

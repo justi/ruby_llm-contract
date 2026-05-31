@@ -23,30 +23,22 @@ module RubyLLM
         #
         def stub_step(step_class, response: nil, responses: nil, &block)
           adapter = build_test_adapter(response: response, responses: responses)
+          overrides = RubyLLM::Contract.step_adapter_overrides
 
           if block
-            # Block form: use thread-local overrides with save/restore for real scoping
-            overrides = RubyLLM::Contract.step_adapter_overrides
             previous = overrides[step_class]
             overrides[step_class] = adapter
             begin
               yield
             ensure
-              if previous
-                overrides[step_class] = previous
-              else
-                overrides.delete(step_class)
-              end
+              previous ? (overrides[step_class] = previous) : overrides.delete(step_class)
             end
           else
-            # Non-block: use RSpec allow (auto-cleaned after example)
-            allow(step_class).to receive(:run).and_wrap_original do |original, input, **kwargs|
-              context = kwargs[:context] || {}
-              unless context.key?(:adapter) || context.key?("adapter")
-                context = context.merge(adapter: adapter)
-              end
-              original.call(input, context: context)
-            end
+            # Non-block: install thread-local override. The `around(:each)`
+            # hook in `lib/ruby_llm/contract/rspec.rb` restores
+            # `step_adapter_overrides` between examples, so cleanup is
+            # automatic — same single storage path as the block form.
+            overrides[step_class] = adapter
           end
         end
 

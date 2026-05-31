@@ -82,6 +82,25 @@ RSpec.describe "F1: stub_step block form — RSpec helpers" do
       expect(result.parsed_output).to eq({ compat: true })
     end
 
+    # Characterization for Batch 2 / B2-T2: pin the auto-cleanup contract for
+    # the non-block form. Two sequential `it` blocks: first sets a stub, second
+    # asserts the stub is GONE. The `around(:each)` hook in
+    # `lib/ruby_llm/contract/rspec.rb:14-28` restores `step_adapter_overrides`
+    # between examples; this test guards against future regressions of that
+    # cleanup path.
+    context "non-block auto-cleanup between examples" do
+      it "(1/2) installs the stub for this example only" do
+        stub_step(F1StepAlpha, response: '{"installed":true}')
+        result = F1StepAlpha.run("x")
+        expect(result.parsed_output).to eq({ installed: true })
+      end
+
+      it "(2/2) the previous example's stub is NOT active here" do
+        overrides = RubyLLM::Contract.step_adapter_overrides
+        expect(overrides[F1StepAlpha]).to be_nil
+      end
+    end
+
     it "routes per-step — different responses per step class" do
       stub_step(F1StepAlpha, response: '{"step":"alpha"}')
       stub_step(F1StepBeta, response: '{"step":"beta"}')
