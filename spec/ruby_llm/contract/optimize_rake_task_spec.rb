@@ -47,20 +47,33 @@ RSpec.describe RubyLLM::Contract::OptimizeRakeTask do
   end
 
   describe "EVAL_DIRS support" do
-    it "passes EVAL_DIRS to load_evals!" do
-      with_env("EVAL_DIRS" => "lib/evals,extra/evals") do
-        expect(RubyLLM::Contract).to receive(:load_evals!).with("lib/evals", "extra/evals")
-        # Simulate the task's eval_dirs parsing + load_evals! call
-        eval_dirs = ENV["EVAL_DIRS"].to_s.split(",").map(&:strip).reject(&:empty?)
-        RubyLLM::Contract.load_evals!(*eval_dirs)
+    # Both tests now invoke the REAL rake task body (previously they
+    # re-implemented the EVAL_DIRS parsing inline in the spec, which made
+    # the `expect.to receive(:load_evals!)` matcher trivially pass — a
+    # FACADE: the production task body could be deleted entirely and the
+    # tests would still go green).
+    #
+    # The task aborts with SystemExit on missing STEP, but `load_evals!`
+    # is called BEFORE that abort, so we can verify the call shape and
+    # let the abort raise.
+
+    it "passes EVAL_DIRS to load_evals! when env is set" do
+      with_env("EVAL_DIRS" => "lib/evals,extra/evals", "STEP" => "", "CANDIDATES" => "") do
+        expect(RubyLLM::Contract).to receive(:load_evals!).with("lib/evals", "extra/evals").and_return(nil)
+
+        # Task aborts on missing STEP after load_evals!, so swallow the
+        # SystemExit to keep this test focused on the EVAL_DIRS contract.
+        expect { Rake::Task["ruby_llm_contract:optimize"].reenable; Rake::Task["ruby_llm_contract:optimize"].invoke }
+          .to raise_error(SystemExit)
       end
     end
 
-    it "calls load_evals! without args when EVAL_DIRS not set" do
-      with_env("EVAL_DIRS" => nil) do
-        expect(RubyLLM::Contract).to receive(:load_evals!).with(no_args)
-        eval_dirs = ENV["EVAL_DIRS"].to_s.split(",").map(&:strip).reject(&:empty?)
-        RubyLLM::Contract.load_evals!(*eval_dirs)
+    it "calls load_evals! without args when EVAL_DIRS is unset" do
+      with_env("EVAL_DIRS" => nil, "STEP" => "", "CANDIDATES" => "") do
+        expect(RubyLLM::Contract).to receive(:load_evals!).with(no_args).and_return(nil)
+
+        expect { Rake::Task["ruby_llm_contract:optimize"].reenable; Rake::Task["ruby_llm_contract:optimize"].invoke }
+          .to raise_error(SystemExit)
       end
     end
   end
