@@ -122,10 +122,7 @@ module RubyLLM
 
         def max_output(tokens = nil)
           if tokens
-            unless tokens.is_a?(Numeric) && tokens.positive?
-              raise ArgumentError, "max_output must be positive, got #{tokens}"
-            end
-
+            validate_positive!("max_output", tokens)
             return @max_output = tokens
           end
 
@@ -134,10 +131,7 @@ module RubyLLM
 
         def max_input(tokens = nil)
           if tokens
-            unless tokens.is_a?(Numeric) && tokens.positive?
-              raise ArgumentError, "max_input must be positive, got #{tokens}"
-            end
-
+            validate_positive!("max_input", tokens)
             return @max_input = tokens
           end
 
@@ -152,9 +146,7 @@ module RubyLLM
           end
 
           if amount
-            unless amount.is_a?(Numeric) && amount.positive?
-              raise ArgumentError, "max_cost must be positive, got #{amount}"
-            end
+            validate_positive!("max_cost", amount)
 
             if on_unknown_pricing && !%i[refuse warn].include?(on_unknown_pricing)
               raise ArgumentError, "on_unknown_pricing must be :refuse or :warn, got #{on_unknown_pricing.inspect}"
@@ -179,10 +171,7 @@ module RubyLLM
           end
 
           if n
-            unless n.is_a?(Numeric) && n.positive?
-              raise ArgumentError, "attachment_token_estimate must be positive, got #{n}"
-            end
-
+            validate_positive!("attachment_token_estimate", n)
             return @attachment_token_estimate = n
           end
 
@@ -284,6 +273,16 @@ module RubyLLM
           elsif superclass.respond_to?(:retry_policy)
             superclass.retry_policy
           end
+        end
+
+        private
+
+        # Shared positivity guard for `max_input`, `max_output`, `max_cost`,
+        # `attachment_token_estimate`. Mirrors `CostCalculator.validate_price!`.
+        def validate_positive!(name, value)
+          return if value.is_a?(Numeric) && value.positive?
+
+          raise ArgumentError, "#{name} must be positive, got #{value}"
         end
       end
     end

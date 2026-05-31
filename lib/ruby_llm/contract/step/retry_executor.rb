@@ -6,6 +6,8 @@ module RubyLLM
       # Extracted from Base to reduce class length.
       # Handles retry logic: run_with_retry, build_retry_result, aggregate usage, build attempt entries.
       module RetryExecutor
+        include Concerns::UsageAggregator
+
         private
 
         def run_with_retry(input, adapter:, default_model:, policy:, context_temperature: nil, extra_options: {})
@@ -29,7 +31,7 @@ module RubyLLM
         def build_retry_result(all_attempts)
           last = all_attempts.last[:result]
           attempt_log = all_attempts.map { |attempt| build_attempt_entry(attempt) }
-          aggregated_usage = aggregate_retry_usage(all_attempts)
+          aggregated_usage = aggregate_usage(all_attempts.map { |a| a[:result].trace })
           total_cost = sum_attempt_costs(all_attempts)
           total_latency = sum_attempt_latency(all_attempts)
 
@@ -80,18 +82,9 @@ module RubyLLM
           end
         end
 
-        def aggregate_retry_usage(all_attempts)
-          totals = { input_tokens: 0, output_tokens: 0 }
-          all_attempts.each do |attempt|
-            usage = attempt[:result].trace
-            usage = usage.respond_to?(:usage) ? usage.usage : nil
-            next unless usage.is_a?(Hash)
-
-            totals[:input_tokens] += usage[:input_tokens] || 0
-            totals[:output_tokens] += usage[:output_tokens] || 0
-          end
-          totals
-        end
+        # `aggregate_usage(traces)` provided by Concerns::UsageAggregator —
+        # replaces the prior `aggregate_retry_usage` private helper which
+        # duplicated the same per-trace input/output token sum.
       end
     end
   end

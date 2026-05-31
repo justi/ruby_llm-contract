@@ -5,6 +5,8 @@ require "ruby_llm/contract"
 module RubyLLM
   module Contract
     module MinitestHelpers
+      include Concerns::StubHelpers
+
       # Snapshot adapter before each test so teardown can restore it.
       def setup
         super if defined?(super)
@@ -47,114 +49,10 @@ module RubyLLM
         report
       end
 
-      # Stub a specific step to return a canned response without API calls.
-      # Routes per-step — other steps are not affected.
-      #
-      #   stub_step(ClassifyTicket, response: { priority: "high" })
-      #
-      # Supports an optional block form — the override is removed after the
-      # block returns (even if it raises):
-      #
-      #   stub_step(ClassifyTicket, response: data) do
-      #     result = ClassifyTicket.run("test")
-      #   end
-      #   # ClassifyTicket.run no longer stubbed
-      #
-      def stub_step(step_class, response: nil, responses: nil, &block)
-        adapter = if responses
-                    Adapters::Test.new(responses: responses)
-                  else
-                    Adapters::Test.new(response: response)
-                  end
-
-        overrides = RubyLLM::Contract.step_adapter_overrides
-        previous = overrides[step_class]
-        overrides[step_class] = adapter
-
-        if block
-          begin
-            yield
-          ensure
-            if previous
-              overrides[step_class] = previous
-            else
-              overrides.delete(step_class)
-            end
-          end
-        end
-      end
-
-      # Stub multiple steps at once with different responses.
-      # Takes a hash of step_class => options. Requires a block.
-      #
-      #   stub_steps(
-      #     ClassifyTicket => { response: { priority: "high" } },
-      #     RouteToTeam => { response: { team: "billing" } }
-      #   ) do
-      #     result = TicketPipeline.run("test")
-      #   end
-      #
-      def stub_steps(stubs, &block)
-        raise ArgumentError, "stub_steps requires a block" unless block
-
-        overrides = RubyLLM::Contract.step_adapter_overrides
-        previous = {}
-
-        stubs.each do |step_class, opts|
-          opts = opts.transform_keys(&:to_sym)
-          adapter = if opts[:responses]
-                      Adapters::Test.new(responses: opts[:responses])
-                    else
-                      Adapters::Test.new(response: opts[:response])
-                    end
-          previous[step_class] = overrides[step_class]
-          overrides[step_class] = adapter
-        end
-
-        begin
-          yield
-        ensure
-          stubs.each_key do |step_class|
-            if previous[step_class]
-              overrides[step_class] = previous[step_class]
-            else
-              overrides.delete(step_class)
-            end
-          end
-        end
-      end
-
-      # Set a global test adapter for ALL steps.
-      #
-      #   stub_all_steps(response: { default: true })
-      #
-      # Supports an optional block form — the previous adapter is restored
-      # after the block returns (even if it raises):
-      #
-      #   stub_all_steps(response: { default: true }) do
-      #     # all steps use test adapter
-      #   end
-      #   # original adapter restored
-      #
-      def stub_all_steps(response: nil, responses: nil, &block)
-        adapter = if responses
-                    Adapters::Test.new(responses: responses)
-                  else
-                    Adapters::Test.new(response: response)
-                  end
-
-        if block
-          previous = RubyLLM::Contract.configuration.default_adapter
-          begin
-            RubyLLM::Contract.configuration.default_adapter = adapter
-            yield
-          ensure
-            RubyLLM::Contract.configuration.default_adapter = previous
-          end
-        else
-          RubyLLM::Contract.configure { |c| c.default_adapter = adapter }
-        end
-      end
+      # `stub_step`, `stub_steps`, `stub_all_steps` — provided by
+      # `Concerns::StubHelpers` (included above). Shared implementation
+      # used by both Minitest and RSpec hosts; documentation and method
+      # signatures live in `concerns/stub_helpers.rb`.
     end
   end
 end
