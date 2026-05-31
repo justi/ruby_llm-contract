@@ -6,29 +6,15 @@ module RubyLLM
       class Runner
         include LimitChecker
 
-        def initialize(input_type:, output_type:, prompt_block:, contract_definition:,
-                       adapter:, model:, output_schema: nil, max_output: nil,
-                       max_input: nil, max_cost: nil, on_unknown_pricing: :refuse,
-                       attachment_token_estimate: nil, on_unknown_attachment_size: :refuse,
-                       temperature: nil, extra_options: {}, observers: [])
-          @config = RunnerConfig.new(
-            input_type: input_type,
-            output_type: output_type,
-            prompt_block: prompt_block,
-            contract_definition: contract_definition,
-            adapter: adapter,
-            model: model,
-            output_schema: output_schema,
-            max_output: max_output,
-            max_input: max_input,
-            max_cost: max_cost,
-            on_unknown_pricing: on_unknown_pricing,
-            attachment_token_estimate: attachment_token_estimate,
-            on_unknown_attachment_size: on_unknown_attachment_size,
-            temperature: temperature,
-            extra_options: extra_options,
-            observers: observers
-          )
+        # Two construction forms:
+        #   Runner.new(config: a_runner_config)          # preferred — value-object
+        #   Runner.new(input_type:, output_type:, ...)   # legacy kwarg form (still supported)
+        #
+        # The legacy form delegates to `RunnerConfig.build(**kwargs)`, so the
+        # defaults live in one place (`RunnerConfig.build`) and the kwarg
+        # surface is no longer duplicated here.
+        def initialize(config: nil, **kwargs)
+          @config = config || RunnerConfig.build(**kwargs)
         end
 
         def call(input)

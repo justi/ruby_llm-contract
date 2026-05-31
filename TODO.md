@@ -41,15 +41,13 @@ Verdict: shipped. Suite: 1336 / 0 failures.
 - [x] Replaced both `CostCalculator.send(:find_model)` calls
 - [x] Bonus: dropped `estimated_cost_for` helper, routed through public `CostCalculator.calculate` (removes second `send(:compute_cost)`)
 
-### B2-T4: `Runner.new` 17 kwargs → `RunnerConfig` factory
+### B2-T4: `Runner.new` 17 kwargs → `RunnerConfig` factory ✅ DONE
 
-- [ ] Add test w `spec/ruby_llm/contract/step/runner_spec.rb`:
-      "`Runner.new(bogus_kwarg: 1)` raises ArgumentError"
-      (rescue w `base.rb:261` obecnie tłumi taki błąd na `:input_error`)
-- [ ] Refactor: `RunnerConfig` built in factory method (np.
-      `Base.build_runner_config(context)`)
-- [ ] `Runner#initialize(config)` zamiast 17 kwargs
-- [ ] `run_once(input, config:)` zamiast 11 kwargs
+- [x] Added `RunnerConfig.build(...)` factory class method (single home for defaults; was duplicated in `Runner#initialize`)
+- [x] `Runner#initialize(config: nil, **kwargs)` — value-object form preferred, legacy kwargs forwarded to `RunnerConfig.build` (backward-compat)
+- [x] `Step::Base#run_once` extracts `build_runner_config(...)` helper, calls `Runner.new(config: ...)`
+- [x] Added 2 specs pinning new construction path + unknown-kwarg rejection
+- Net effect: kwarg-set defaults in one place; existing 8 runner_specs (legacy kwargs) keep working unchanged
 
 ---
 

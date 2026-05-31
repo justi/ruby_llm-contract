@@ -197,5 +197,50 @@ RSpec.describe RubyLLM::Contract::Step::Runner do
         expect(result.trace[:usage]).to eq({ input_tokens: 0, output_tokens: 0 })
       end
     end
+
+    # Batch 2 / B2-T4: pin the new `Runner.new(config:)` construction path
+    # that delegates to `RunnerConfig.build`. The legacy kwargs form remains
+    # supported (covered by every other test in this file).
+    context "with the value-object construction form" do
+      it "accepts a pre-built RunnerConfig via `config:` and produces the same Result" do
+        adapter = RubyLLM::Contract::Adapters::Test.new(response: '{"intent":"support"}')
+        definition = RubyLLM::Contract::Definition.new do
+          parse :json
+          invariant("must include intent") { |o| o[:intent].to_s != "" }
+        end
+
+        config = RubyLLM::Contract::Step::RunnerConfig.build(
+          input_type: input_type,
+          output_type: output_type,
+          prompt_block: prompt_block,
+          contract_definition: definition,
+          adapter: adapter,
+          model: "gpt-4.1-mini"
+        )
+
+        result = described_class.new(config: config).call("I need help")
+
+        expect(result.status).to eq(:ok)
+        expect(result.parsed_output).to eq({ intent: "support" })
+      end
+
+      it "rejects unknown kwargs (no silent absorption)" do
+        # Without `config:`, kwargs are forwarded to RunnerConfig.build —
+        # which raises ArgumentError on unknown kwargs. Pins this guard so
+        # a future refactor of Runner#initialize cannot accidentally
+        # swallow typos.
+        expect do
+          described_class.new(
+            input_type: input_type,
+            output_type: output_type,
+            prompt_block: prompt_block,
+            contract_definition: RubyLLM::Contract::Definition.new,
+            adapter: RubyLLM::Contract::Adapters::Test.new(response: "x"),
+            model: "gpt-4.1-mini",
+            bogus_kwarg: 1
+          )
+        end.to raise_error(ArgumentError, /unknown keyword.*bogus_kwarg/)
+      end
+    end
   end
 end
