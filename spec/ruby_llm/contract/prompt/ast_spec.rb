@@ -34,9 +34,14 @@ RSpec.describe RubyLLM::Contract::Prompt::AST do
   end
 
   describe "Enumerable" do
-    it "supports map" do
-      types = ast.map(&:type)
-      expect(types).to eq(%i[system rule user])
+    # Verify the Enumerable contract via methods that `#each` ALONE does NOT
+    # provide — `count`, `first(n)`, `select`. The earlier "#each iterates in
+    # insertion order" test already covered map, so duplicating it via
+    # `supports map` (the prior FACADE) added no diagnostic surface.
+    it "exposes Enumerable methods built on top of #each" do
+      expect(ast.count).to eq(3)
+      expect(ast.first(2).map(&:type)).to eq(%i[system rule])
+      expect(ast.select { |n| n.type == :rule }.size).to eq(1)
     end
   end
 

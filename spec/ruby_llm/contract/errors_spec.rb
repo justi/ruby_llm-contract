@@ -1,8 +1,12 @@
 # frozen_string_literal: true
 
 RSpec.describe RubyLLM::Contract::Error do
-  it "is a subclass of StandardError" do
-    expect(described_class).to be < StandardError
+  it "is a direct subclass of StandardError" do
+    # `be <` (A4) passes for any descendant of StandardError; a mutation
+    # that re-parented this under RuntimeError would still pass. Direct
+    # superclass equality pins the actual contract: this is the gem's
+    # root error class right at the StandardError boundary.
+    expect(described_class.superclass).to eq(StandardError)
   end
 
   it "can be instantiated with a message" do
@@ -23,8 +27,11 @@ RSpec.describe RubyLLM::Contract::Error do
 end
 
 RSpec.describe RubyLLM::Contract::InputError do
-  it "is a subclass of RubyLLM::Contract::Error" do
-    expect(described_class).to be < RubyLLM::Contract::Error
+  it "has RubyLLM::Contract::Error as its direct superclass" do
+    # `be <` (A4) accepted any ancestor; `superclass` pins the direct parent
+    # so a future contributor cannot accidentally re-parent under
+    # StandardError or another sibling.
+    expect(described_class.superclass).to eq(RubyLLM::Contract::Error)
   end
 
   it "can be instantiated with a message and details" do
@@ -35,8 +42,11 @@ RSpec.describe RubyLLM::Contract::InputError do
 end
 
 RSpec.describe RubyLLM::Contract::ParseError do
-  it "is a subclass of RubyLLM::Contract::Error" do
-    expect(described_class).to be < RubyLLM::Contract::Error
+  it "has RubyLLM::Contract::Error as its direct superclass" do
+    # `be <` (A4) accepted any ancestor; `superclass` pins the direct parent
+    # so a future contributor cannot accidentally re-parent under
+    # StandardError or another sibling.
+    expect(described_class.superclass).to eq(RubyLLM::Contract::Error)
   end
 
   it "can be instantiated with a message and details" do
@@ -47,8 +57,11 @@ RSpec.describe RubyLLM::Contract::ParseError do
 end
 
 RSpec.describe RubyLLM::Contract::ContractError do
-  it "is a subclass of RubyLLM::Contract::Error" do
-    expect(described_class).to be < RubyLLM::Contract::Error
+  it "has RubyLLM::Contract::Error as its direct superclass" do
+    # `be <` (A4) accepted any ancestor; `superclass` pins the direct parent
+    # so a future contributor cannot accidentally re-parent under
+    # StandardError or another sibling.
+    expect(described_class.superclass).to eq(RubyLLM::Contract::Error)
   end
 
   it "can be instantiated with a message and details" do
@@ -59,8 +72,11 @@ RSpec.describe RubyLLM::Contract::ContractError do
 end
 
 RSpec.describe RubyLLM::Contract::AdapterError do
-  it "is a subclass of RubyLLM::Contract::Error" do
-    expect(described_class).to be < RubyLLM::Contract::Error
+  it "has RubyLLM::Contract::Error as its direct superclass" do
+    # `be <` (A4) accepted any ancestor; `superclass` pins the direct parent
+    # so a future contributor cannot accidentally re-parent under
+    # StandardError or another sibling.
+    expect(described_class.superclass).to eq(RubyLLM::Contract::Error)
   end
 
   it "can be instantiated with a message and details" do
