@@ -41,9 +41,15 @@ RSpec.describe "RakeTask gate logic (pre-SuiteGate extraction)" do
         t.context = { adapter: passing_adapter }
       end
 
+      # Multi-line match: requires BOTH the per-eval result line
+      # (`smoke:.*1/1 checks passed`) AND the suite verdict
+      # (`All evals passed`). The first proves the eval was loaded +
+      # the step was invoked; the second proves the gate decided.
+      # A no-op task that printed the verdict without running anything
+      # would fail the first half.
       expect do
         expect { Rake::Task[task.name].invoke }.not_to raise_error
-      end.to output(/All evals passed/).to_stdout
+      end.to output(%r{smoke:.*1/1 checks passed.*All evals passed}m).to_stdout
     end
   end
 

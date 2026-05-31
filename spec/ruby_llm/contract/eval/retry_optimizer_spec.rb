@@ -309,10 +309,15 @@ RSpec.describe RubyLLM::Contract::Eval::RetryOptimizer do
       klass
     end
 
-    it "passes retry_policy_override: nil to compare_models context" do
-      received_context = nil
+    it "passes retry_policy_override: nil in EVERY compare_models call's context" do
+      # Capture all calls — the prior `received_context = kwargs[:context]`
+      # form only retained the LAST call's context, so a regression where
+      # one of multiple compare_models calls dropped the override would
+      # have gone undetected. Multi-call capture + per-call assertion
+      # closes that hole.
+      received_contexts = []
       allow(step_with_retry).to receive(:compare_models) do |_name, **kwargs|
-        received_context = kwargs[:context]
+        received_contexts << kwargs[:context]
         RubyLLM::Contract::Eval::ModelComparison.new(
           eval_name: "smoke", reports: {}, configs: {}
         )
@@ -321,7 +326,14 @@ RSpec.describe RubyLLM::Contract::Eval::RetryOptimizer do
       described_class.new(step: step_with_retry,
                           candidates: [{ model: "gpt-4.1-nano" }]).call
 
-      expect(received_context).to include(retry_policy_override: nil)
+      # Positive: at least one call happened (proves the optimizer reached
+      # the comparison stage, not an early bailout).
+      expect(received_contexts).not_to be_empty
+
+      # Diagnostic: every captured context carries the override.
+      received_contexts.each do |ctx|
+        expect(ctx).to include(retry_policy_override: nil)
+      end
     end
 
     it "leaves the step's class-level retry_policy untouched after optimisation" do

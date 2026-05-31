@@ -74,39 +74,22 @@ RSpec.describe "Multimodal input" do
   end
 
   describe "Adapter pass-through to chat.ask" do
-    let(:mock_chat) { instance_double(RubyLLM::Chat) }
-    let(:adapter) { RubyLLM::Contract::Adapters::RubyLLM.new }
-    let(:mock_response) { instance_double(RubyLLM::Message, content: '{"ok":true}', input_tokens: 5, output_tokens: 3) }
-
-    before do
-      allow(RubyLLM).to receive(:chat).and_return(mock_chat)
-      allow(mock_chat).to receive(:ask).and_return(mock_response)
-      allow(mock_chat).to receive(:with_instructions).and_return(mock_chat)
-      allow(mock_chat).to receive(:with_schema).and_return(mock_chat)
-      allow(mock_chat).to receive(:with_temperature).and_return(mock_chat)
-      allow(mock_chat).to receive(:with_params).and_return(mock_chat)
-      allow(mock_chat).to receive(:with_thinking).and_return(mock_chat)
-      allow(mock_chat).to receive(:add_message)
-    end
-
-    it "passes with: nil when no attachment in options (regression)" do
-      adapter.call(messages: [{ role: :user, content: "hi" }], model: "gpt-4.1-mini")
-
-      expect(mock_chat).to have_received(:ask).with("hi", with: nil)
-    end
-
-    # F1 follow-up: verify `chat.ask("text", with: nil)` works against a
-    # real-ish RubyLLM::Chat double whose `ask` honours the documented
-    # 1.15.0 contract (chat.rb:36-37 + content.rb:8-14): non-nil text +
-    # nil attachments → Content with empty attachments → text-only path.
-    # If RubyLLM ever regresses by raising on `with: nil`, this test
-    # catches it before adopters do.
-    it "real-ish chat.ask honours with: nil per RubyLLM 1.15 contract" do
-      realistic_chat = Class.new do
-        attr_reader :asked_with
+    # Hand-rolled fake — replaces RSpec `mock_chat = instance_double` +
+    # `allow(...).to receive(:ask)` because the latter form gives a false
+    # green if the adapter is refactored to call a different method (e.g.
+    # `ask!` or `send_message`): `have_received(:ask)` silently never
+    # fires, but the stubbed mock still returns the canned response.
+    #
+    # With a hand-rolled class, ANY method name change in the adapter
+    # raises NoMethodError immediately — making this test diagnostic for
+    # both "right argument value" AND "right method called".
+    let(:fake_chat_class) do
+      Class.new do
+        attr_reader :asked_content, :asked_with
 
         def initialize(response)
           @response = response
+          @asked_content = nil
           @asked_with = nil
         end
 
@@ -117,58 +100,91 @@ RSpec.describe "Multimodal input" do
         def with_thinking(*); self; end
         def add_message(**); end
 
-        # Mimics RubyLLM::Chat#ask signature precisely; raise only when
-        # BOTH text and attachments are nil (matches Content.new's
-        # ArgumentError in content.rb:13).
         def ask(content, with: nil)
-          raise ArgumentError, "Text and attachments cannot be both nil" if content.nil? && with.nil?
-
+          @asked_content = content
           @asked_with = with
           @response
         end
       end
+    end
 
-      response = instance_double(RubyLLM::Message, content: '{"ok":true}',
-                                                   input_tokens: 5, output_tokens: 3)
-      fake = realistic_chat.new(response)
-      allow(RubyLLM).to receive(:chat).and_return(fake)
+    let(:fake_response) do
+      instance_double(RubyLLM::Message, content: '{"ok":true}',
+                                        input_tokens: 5, output_tokens: 3)
+    end
+    let(:fake_chat) { fake_chat_class.new(fake_response) }
+    let(:adapter) { RubyLLM::Contract::Adapters::RubyLLM.new }
 
+    before { allow(RubyLLM).to receive(:chat).and_return(fake_chat) }
+
+    it "passes content + with: nil when no attachment in options (regression)" do
       result = adapter.call(messages: [{ role: :user, content: "hi" }], model: "gpt-4.1-mini")
 
-      expect(fake.asked_with).to be_nil
+      expect(fake_chat.asked_content).to eq("hi")
+      expect(fake_chat.asked_with).to be_nil
       expect(result.usage[:input_tokens]).to eq(5)
     end
 
-    it "passes with: <attachment> when context attachment present" do
-      adapter.call(
+    # F1 follow-up: verify `chat.ask("text", with: nil)` works against a
+    # RubyLLM::Chat double whose `ask` honours the documented 1.15.0
+    # contract (chat.rb:36-37 + content.rb:8-14): non-nil text + nil
+    # attachments → Content with empty attachments → text-only path.
+    # If RubyLLM ever regresses by raising on `with: nil`, this test
+    # catches it before adopters do.
+    it "real-ish chat.ask honours with: nil per RubyLLM 1.15 contract" do
+      strict_chat_class = Class.new(fake_chat_class) do
+        def ask(content, with: nil)
+          raise ArgumentError, "Text and attachments cannot be both nil" if content.nil? && with.nil?
+
+          super
+        end
+      end
+
+      strict = strict_chat_class.new(fake_response)
+      allow(RubyLLM).to receive(:chat).and_return(strict)
+
+      result = adapter.call(messages: [{ role: :user, content: "hi" }], model: "gpt-4.1-mini")
+
+      expect(strict.asked_with).to be_nil
+      expect(result.usage[:input_tokens]).to eq(5)
+    end
+
+    it "passes content + with: <attachment> when context attachment present" do
+      result = adapter.call(
         messages: [{ role: :user, content: "describe" }],
         model: "gpt-4.1-mini",
         attachment: "tmp/picture.png"
       )
 
-      expect(mock_chat).to have_received(:ask).with("describe", with: "tmp/picture.png")
+      expect(fake_chat.asked_content).to eq("describe")
+      expect(fake_chat.asked_with).to eq("tmp/picture.png")
+      expect(result.usage[:input_tokens]).to eq(5)
     end
 
     it "passes array attachment through unchanged (multi-attachment)" do
       pages = ["tmp/page1.pdf", "tmp/page2.pdf", "tmp/page3.pdf"]
-      adapter.call(
+      result = adapter.call(
         messages: [{ role: :user, content: "summarize" }],
         model: "gpt-4.1-mini",
         attachment: pages
       )
 
-      expect(mock_chat).to have_received(:ask).with("summarize", with: pages)
+      expect(fake_chat.asked_content).to eq("summarize")
+      expect(fake_chat.asked_with).to eq(pages)
+      expect(result.usage[:input_tokens]).to eq(5)
     end
 
     it "passes hash-shaped attachment through unchanged (typed multi-attachment)" do
       shaped = { images: ["tmp/a.png"], pdfs: ["tmp/b.pdf"] }
-      adapter.call(
+      result = adapter.call(
         messages: [{ role: :user, content: "extract" }],
         model: "gpt-4.1-mini",
         attachment: shaped
       )
 
-      expect(mock_chat).to have_received(:ask).with("extract", with: shaped)
+      expect(fake_chat.asked_content).to eq("extract")
+      expect(fake_chat.asked_with).to eq(shaped)
+      expect(result.usage[:input_tokens]).to eq(5)
     end
   end
 
@@ -274,8 +290,9 @@ RSpec.describe "Multimodal input" do
       with_pdf = step.estimate_cost(input: "describe", attachment: "doc.pdf")
       without = step.estimate_cost(input: "describe")
 
-      expect(with_pdf).not_to be_nil
-      expect(without).not_to be_nil
+      # Drop `not_to be_nil` — A4 existence-only and redundant: the bracket
+      # accesses below would raise NoMethodError on nil. The diagnostic
+      # comparison and inequality assertions imply non-nil.
       expect(with_pdf[:input_tokens]).to eq(without[:input_tokens] + 5_000)
       expect(with_pdf[:estimated_cost]).to be > without[:estimated_cost]
     end
@@ -293,8 +310,8 @@ RSpec.describe "Multimodal input" do
       without  = step.estimate_cost(input: "describe")
 
       # In :warn mode the attachment portion is treated as 0 tokens
-      # (matching runtime check_limits semantics).
-      expect(with_pdf).not_to be_nil
+      # (matching runtime check_limits semantics). The eq comparison
+      # implies non-nil — a `not_to be_nil` precursor is A4 redundancy.
       expect(with_pdf[:input_tokens]).to eq(without[:input_tokens])
     end
   end
