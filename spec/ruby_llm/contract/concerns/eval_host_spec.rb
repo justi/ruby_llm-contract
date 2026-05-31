@@ -28,10 +28,15 @@ RSpec.describe RubyLLM::Contract::Concerns::EvalHost do
 
   it "does not invoke ObjectSpace.each_object (Ruby >= 3.1 path only)" do
     parent = Class.new(RubyLLM::Contract::Step::Base) { prompt "p" }
-    Class.new(parent)
+    child  = Class.new(parent)
 
     expect(ObjectSpace).not_to receive(:each_object)
 
     parent.define_eval("smoke") { default_input("x"); sample_response({}) }
+
+    # Positive proof that the registration path actually ran — paired
+    # with the negation above so a no-op `define_eval` would still fail
+    # the positive assertion. Without this, a vacuous green is possible.
+    expect(RubyLLM::Contract.eval_hosts).to include(child)
   end
 end

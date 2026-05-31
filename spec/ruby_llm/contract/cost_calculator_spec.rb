@@ -22,9 +22,12 @@ RSpec.describe RubyLLM::Contract::CostCalculator do
 
       info = described_class.find_model("custom-test-model")
 
-      expect(info).not_to be_nil
-      expect(info).to respond_to(:input_price_per_million)
-      expect(info).to respond_to(:output_price_per_million)
+      # Independently specified literals: pin the actual pricing values rather
+      # than just verifying that price-reading methods *exist* (the prior
+      # `respond_to(...)` form passed for any object with those method names —
+      # e.g. a struct holding nil/0 would have satisfied it).
+      expect(info.input_price_per_million).to eq(0.5)
+      expect(info.output_price_per_million).to eq(1.5)
     end
 
     it "prefers custom-registered model over RubyLLM registry on name collision" do

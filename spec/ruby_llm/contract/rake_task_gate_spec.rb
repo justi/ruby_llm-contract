@@ -100,9 +100,16 @@ RSpec.describe "RakeTask gate logic (pre-SuiteGate extraction)" do
             t.save_baseline = true
           end
 
+          # Positive proof the task actually ran the eval (the report's
+          # FAIL case_1 line proves the dataset was loaded, the step was
+          # invoked, and validation produced a failed case). Without this,
+          # an early-bailout regression (empty results, never-loaded evals)
+          # could leave no baselines on disk and pass the negation
+          # vacuously. NOTE: the "Eval suite FAILED" message goes to stderr
+          # via `abort`, so we match the stdout-bound report dump instead.
           expect do
             expect { Rake::Task[task.name].invoke }.to raise_error(SystemExit)
-          end.to output.to_stdout
+          end.to output(%r{FAIL\s+case_1}).to_stdout
 
           baselines = Dir.glob(File.join(dir, ".eval_baselines", "*"))
           expect(baselines).to be_empty
