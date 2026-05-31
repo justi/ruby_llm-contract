@@ -42,6 +42,44 @@ RSpec.describe RubyLLM::Contract::Pipeline::Base do
       pipeline = Class.new(described_class)
       expect(pipeline.token_budget).to be_nil
     end
+
+    # Anti-facade F10: previously only the getter was tested. Deleting
+    # the `sum_tokens(...) > @token_budget` branch in Pipeline::Runner
+    # would not have failed any test in this file (cross-file coverage
+    # exists in cost_tracking_spec.rb but locality matters for grep).
+    it "halts pipeline with :budget_exceeded when cumulative usage exceeds budget" do
+      counting_adapter = Class.new(RubyLLM::Contract::Adapters::Base) do
+        define_method(:call) do |messages:, **_opts|
+          RubyLLM::Contract::Adapters::Response.new(
+            content: '{"v": 1}',
+            usage: { input_tokens: 400, output_tokens: 200 }
+          )
+        end
+      end.new
+
+      s1 = Class.new(RubyLLM::Contract::Step::Base) { prompt "test {input}" }
+      s2 = Class.new(RubyLLM::Contract::Step::Base) do
+        input_type Hash
+        prompt "test {input}"
+      end
+      s3 = Class.new(RubyLLM::Contract::Step::Base) do
+        input_type Hash
+        prompt "test {input}"
+      end
+
+      pipeline = Class.new(described_class)
+      pipeline.step s1, as: :first
+      pipeline.step s2, as: :second
+      pipeline.step s3, as: :third
+      pipeline.token_budget 1000 # 600 per step -> exceeded after step 2
+
+      result = pipeline.run("test", context: { adapter: counting_adapter })
+
+      expect(result.status).to eq(:budget_exceeded)
+      # Check is post-step: step 2 completes (cum 1200 > 1000) then halts.
+      # Step 3 must NOT execute.
+      expect(result.outputs_by_step.keys).not_to include(:third)
+    end
   end
 
   describe "define_eval duplicate name" do

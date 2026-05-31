@@ -77,6 +77,11 @@ RSpec.describe "Pretty print (to_s)" do
       str = r.to_s
       expect(str).to include("Pipeline: ok")
       expect(str).to include("analyze")
+      # Anti-facade F4: previously only "Pipeline: ok" + "analyze" -
+      # replacing trace_str with empty string would still pass.
+      # Assert the trace details (latency, usage, model) are rendered.
+      expect(str).to match(/50\s*ms/)
+      expect(str).to include("gpt-4")
     end
   end
 

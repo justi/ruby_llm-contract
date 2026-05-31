@@ -61,13 +61,32 @@ RSpec.describe "examples/00_basics.rb scenarios" do
     end
 
     it "renders system and user as separate messages" do
-      adapter = RubyLLM::Contract::Adapters::Test.new(response: '{"sentiment": "positive"}')
-      result = step2.run("I love this product!", context: { adapter: adapter })
+      # Anti-facade F9: previously this test read `result.trace[:messages]`
+      # only. The trace is populated from the renderer, NOT from what
+      # the adapter received - so an SUT mutation passing `messages: []`
+      # to the adapter would still leave the trace intact and this
+      # test would pass. Spy adapter now records the actual payload.
+      adapter_messages = nil
+      spy_adapter = Class.new(RubyLLM::Contract::Adapters::Base) do
+        define_method(:call) do |messages:, **_opts|
+          adapter_messages = messages
+          RubyLLM::Contract::Adapters::Response.new(
+            content: '{"sentiment": "positive"}',
+            usage: { input_tokens: 0, output_tokens: 0 }
+          )
+        end
+      end.new
+
+      result = step2.run("I love this product!", context: { adapter: spy_adapter })
 
       messages = result.trace[:messages]
       expect(messages[0]).to eq({ role: :system,
                                   content: "Classify the sentiment of the user's text. Return JSON with a 'sentiment' key." })
       expect(messages[1]).to eq({ role: :user, content: "I love this product!" })
+
+      # The wire payload must match the trace - not just the renderer's
+      # internal record.
+      expect(adapter_messages).to eq(messages)
     end
   end
 

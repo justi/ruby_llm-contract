@@ -98,7 +98,13 @@ RSpec.describe RubyLLM::Contract::Validator do
         )
 
         expect(result[:status]).to eq(:validation_failed)
-        expect(result[:errors]).not_to be_empty
+        # Anti-facade F12: previously only `not_to be_empty` - any string
+        # like "type error" or even unrelated text would pass. Assert the
+        # error message actually describes the type mismatch.
+        joined = result[:errors].join(" ")
+        expect(joined).to match(/Hash/i)
+        expect(joined).to include("[1, 2, 3]") # the offending value
+        expect(joined).to match(/violates|fail/i)
       end
     end
 

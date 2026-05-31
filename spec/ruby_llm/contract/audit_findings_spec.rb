@@ -139,6 +139,40 @@ RSpec.describe "Technical audit findings" do
       source = File.read(File.join(gem_root, "lib/ruby_llm/contract/pipeline/runner.rb"))
       expect(source).to include("cooperative timeout")
     end
+
+    # Anti-facade F17: the comment-read above is happy as long as the
+    # string lives in the file - it does NOT prove timeout enforcement.
+    # Deleting the `if @timeout_ms && elapsed_ms(...) >= @timeout_ms`
+    # branch in detect_limit_violation would keep the comment intact
+    # and pass. This test executes a real run with a tiny timeout and
+    # a deliberately slow step to assert :timeout status.
+    it "halts the pipeline with :timeout when elapsed time exceeds timeout_ms" do
+      slow_adapter = Class.new(RubyLLM::Contract::Adapters::Base) do
+        define_method(:call) do |messages:, **_opts|
+          sleep 0.2 # 200ms
+          RubyLLM::Contract::Adapters::Response.new(
+            content: '{"v": 1}', usage: { input_tokens: 0, output_tokens: 0 }
+          )
+        end
+      end.new
+
+      s1 = Class.new(RubyLLM::Contract::Step::Base) { prompt "test {input}" }
+      s2 = Class.new(RubyLLM::Contract::Step::Base) do
+        input_type Hash
+        prompt "test {input}"
+      end
+
+      pipeline = Class.new(RubyLLM::Contract::Pipeline::Base)
+      pipeline.step s1, as: :first
+      pipeline.step s2, as: :second
+
+      # timeout_ms is a per-run option, not a class-level DSL.
+      result = pipeline.run("test", context: { adapter: slow_adapter }, timeout_ms: 50)
+
+      expect(result.status).to eq(:timeout)
+      # Second step is never reached because timeout fires after step 1.
+      expect(result.outputs_by_step.keys).not_to include(:second)
+    end
   end
 
   # -------------------------------------------------------------------------

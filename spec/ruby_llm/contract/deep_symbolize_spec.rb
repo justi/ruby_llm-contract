@@ -92,6 +92,15 @@ RSpec.describe "Parser.symbolize_keys (deep)" do
       expect(result[:groups][0][:who]).to eq("I'm a freelancer struggling with invoicing")
       expect(result[:groups][0][:use_cases]).to eq(["I lose track of who paid", "Clients forget to pay"])
       expect(result[:groups][0][:not_covered].first).to eq("Enterprise billing")
+      # Anti-facade F3: previously only 4 fields sampled. Skipping
+      # "description", "good_fit_threads", "bad_fit_threads" in
+      # symbolize_hash would have passed undetected. Assert every key
+      # round-trips so dropped keys are caught.
+      expect(result[:description]).to eq("Invoicing tool for freelancers")
+      expect(result[:groups][0][:good_fit_threads]).to eq(["anyone else hate chasing invoices?"])
+      expect(result[:groups][0][:bad_fit_threads]).to eq(["best POS system for my restaurant?"])
+      expect(result[:groups][0].keys.sort)
+        .to eq(%i[bad_fit_threads good_fit_threads not_covered use_cases who])
     end
   end
 

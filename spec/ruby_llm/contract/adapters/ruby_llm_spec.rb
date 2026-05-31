@@ -89,6 +89,22 @@ RSpec.describe RubyLLM::Contract::Adapters::RubyLLM do
       end
 
       it "adds assistant messages to chat history before the final ask" do
+        # Anti-facade F9: previously `have_received` matchers were not
+        # ordered. Moving `add_history(chat, ...)` AFTER `chat.ask` in
+        # the SUT would still let the three checks pass while the actual
+        # behavior contract ("history BEFORE ask") was broken.
+        # Re-stub with side-effect tracking to capture call order
+        # (and_wrap_original is unavailable on pure instance_doubles).
+        call_order = []
+        allow(mock_chat).to receive(:add_message) do |**_kw|
+          call_order << :add_message
+          nil
+        end
+        allow(mock_chat).to receive(:ask) do |*_args, **_kw|
+          call_order << :ask
+          mock_response
+        end
+
         adapter.call(messages: messages, model: "gpt-4.1-mini")
 
         expect(mock_chat).to have_received(:add_message)
@@ -96,6 +112,12 @@ RSpec.describe RubyLLM::Contract::Adapters::RubyLLM do
         expect(mock_chat).to have_received(:add_message)
           .with(role: :assistant, content: '{"intent":"sales"}')
         expect(mock_chat).to have_received(:ask).with("Help with my bill", with: nil)
+
+        # All add_message calls must precede the single :ask call.
+        ask_index = call_order.index(:ask)
+        expect(ask_index).not_to be_nil
+        expect(call_order[0...ask_index]).to all(eq(:add_message))
+        expect(call_order.count(:add_message)).to eq(2)
       end
     end
 
