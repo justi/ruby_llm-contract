@@ -30,12 +30,28 @@ RSpec.describe RubyLLM::Contract::Step::Base do
       expect(TestClassifyIntent.output_type).to eq(RubyLLM::Contract::Types::Hash)
     end
 
-    it "has prompt accessor returning a Proc" do
-      expect(TestClassifyIntent.prompt).to be_a(Proc)
+    it "prompt block renders the configured system instructions and rules" do
+      # Previously asserted only `be_a(Proc)` — a mutation that replaced the
+      # prompt block with `-> {}` (empty Proc) would have passed. Now the
+      # block is exercised end-to-end through `build_messages` so the
+      # assertion catches both: (a) prompt not being a Proc, and (b) the
+      # Proc being empty / not capturing the DSL contents.
+      messages = TestClassifyIntent.build_messages("hello")
+      system_contents = messages.select { |m| m[:role] == :system }.map { |m| m[:content] }
+
+      expect(system_contents).to include(a_string_including("Classify the user's intent."))
+      expect(system_contents).to include(a_string_including("Allowed intents: sales, support, billing."))
     end
 
-    it "has contract accessor returning a Definition" do
-      expect(TestClassifyIntent.contract).to be_a(RubyLLM::Contract::Definition)
+    it "contract accessor exposes the declared invariants" do
+      # Previously asserted only `be_a(Definition)` — a mutation that
+      # replaced the macro with `Definition.new` (empty) would have passed.
+      # Now we pin the two invariants the test class actually declared.
+      definition = TestClassifyIntent.contract
+
+      expect(definition.invariants.map(&:description)).to eq(
+        ["must include intent", "intent must be allowed"]
+      )
     end
   end
 
@@ -163,6 +179,12 @@ RSpec.describe RubyLLM::Contract::Step::Base do
         default_input "test"
       end
 
+      # The `warn` here is a side-effect channel, not a SUT internal — A3
+      # (stub-receipt) brittleness, paired with the unconditional
+      # `eval_names == ["smoke"]` behavioural check below that proves dedup
+      # actually replaced rather than appended. The pair turns A3 into a
+      # legitimate diagnostic surface: a mutation that drops the warn AND
+      # the dedup would fail the behavioural check.
       expect(step).to receive(:warn).with(/Redefining eval 'smoke'/i)
 
       step.define_eval("smoke") do
@@ -189,8 +211,13 @@ RSpec.describe RubyLLM::Contract::Step::Base do
   end
 
   describe ".recommend" do
-    it "returns a Recommendation with best model and retry_chain" do
-      step = Class.new(described_class) do
+    # The two scenarios split because `recommend`'s output branches on
+    # whether pricing is known — keeping them as one `if rec.best ... else`
+    # test silently skipped half the assertions on any given run (A7).
+    # Now each path is deterministically forced and unconditionally asserted.
+
+    let(:recommend_step) do
+      Class.new(described_class) do
         input_type String
         output_type Hash
         prompt { user "{input}" }
@@ -201,37 +228,70 @@ RSpec.describe RubyLLM::Contract::Step::Base do
           verify "has intent", { intent: /billing/ }
         end
       end
+    end
 
-      # Use a non-zero usage so CostCalculator can produce a positive cost
-      adapter = RubyLLM::Contract::Adapters::Test.new(
+    let(:recommend_adapter) do
+      RubyLLM::Contract::Adapters::Test.new(
         response: '{"intent": "billing", "confidence": 0.9}',
         usage: { input_tokens: 100, output_tokens: 50 }
       )
+    end
 
-      rec = step.recommend(
+    it "returns a Recommendation with rationale for each candidate" do
+      rec = recommend_step.recommend(
         "smoke",
-        candidates: [
-          { model: "gpt-4.1-nano" },
-          { model: "gpt-4.1-mini" }
-        ],
+        candidates: [{ model: "gpt-4.1-nano" }, { model: "gpt-4.1-mini" }],
         min_score: 0.5,
-        context: { adapter: adapter }
+        context: { adapter: recommend_adapter }
       )
 
       expect(rec).to be_a(RubyLLM::Contract::Eval::Recommendation)
       expect(rec).to be_frozen
       expect(rec.score).to eq(1.0)
       expect(rec.rationale.length).to eq(2)
-      # Both candidates score equally — test adapter returns same response.
-      # Without real pricing, both have zero cost → both excluded from best.
-      # That's correct behavior with test adapter.
-      if rec.best
-        expect(rec.best).to have_key(:model)
-        expect(rec.retry_chain).not_to be_empty
-        expect(rec.to_dsl).to be_a(String)
-      else
-        expect(rec.warnings).to include(match(/unknown pricing/))
-      end
+    end
+
+    it "emits an unknown-pricing warning when candidate models have no registered pricing" do
+      # Unknown-pricing path: candidate model names must NOT be in
+      # CostCalculator's registry (RubyLLM ships pricing for `gpt-4.1-*`,
+      # so those would resolve and break the assertion). Made-up names
+      # guarantee `find_model` returns nil → `best` is nil and `warnings`
+      # carries the diagnosis. Pinned deterministically.
+      rec = recommend_step.recommend(
+        "smoke",
+        candidates: [{ model: "totally-fake-model-AAA" }, { model: "totally-fake-model-BBB" }],
+        min_score: 0.5,
+        context: { adapter: recommend_adapter }
+      )
+
+      expect(rec.best).to be_nil
+      expect(rec.warnings).to include(match(/unknown pricing/i))
+    end
+
+    it "selects a best candidate when pricing is registered for all candidates" do
+      # Known-pricing path: register custom pricing for both candidates so
+      # `best` resolves to a non-nil winner with a retry_chain and DSL
+      # output. Tears down custom registry afterwards.
+      RubyLLM::Contract::CostCalculator.register_model("test-cheap",  input_per_1m: 0.10, output_per_1m: 0.40)
+      RubyLLM::Contract::CostCalculator.register_model("test-pricey", input_per_1m: 1.00, output_per_1m: 4.00)
+
+      rec = recommend_step.recommend(
+        "smoke",
+        candidates: [{ model: "test-cheap" }, { model: "test-pricey" }],
+        min_score: 0.5,
+        context: { adapter: recommend_adapter }
+      )
+
+      expect(rec.best).to be_a(Hash)
+      expect(rec.best).to have_key(:model)
+      expect(rec.retry_chain).not_to be_empty
+      # `to_dsl` emits `model "X"` when retry_chain collapses to a single
+      # winner, or `retry_policy do escalate(...) end` when it chains.
+      # Either way the chosen model name must appear — that's the
+      # content contract.
+      expect(rec.to_dsl).to include(rec.best[:model])
+    ensure
+      RubyLLM::Contract::CostCalculator.reset_custom_models!
     end
   end
 
