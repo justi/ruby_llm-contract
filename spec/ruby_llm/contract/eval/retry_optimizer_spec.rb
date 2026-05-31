@@ -289,4 +289,58 @@ RSpec.describe RubyLLM::Contract::Eval::RetryOptimizer do
       expect(text).to include("DSL:")
     end
   end
+
+  # Refactored from "with_retry_disabled" (Batch 2 / B2-T1 / TODO):
+  # the optimizer no longer mutates the step's singleton :retry_policy method;
+  # instead it passes `retry_policy_override: nil` through `context:` to
+  # `compare_models`. Step::Base#runtime_settings honours the key. These tests
+  # pin the new contract (context propagation) and confirm the old mutation
+  # path is gone.
+  describe "retry-disabled behaviour during #call" do
+    let(:step_with_retry) do
+      klass = Class.new(RubyLLM::Contract::Step::Base) do
+        prompt "test"
+        retry_policy { escalate "gpt-4.1-nano", "gpt-4.1-mini" }
+        define_eval("smoke") do
+          default_input "x"; sample_response({ label: "A" })
+          verify("pass", expect: ->(_) { true })
+        end
+      end
+      klass
+    end
+
+    it "passes retry_policy_override: nil to compare_models context" do
+      received_context = nil
+      allow(step_with_retry).to receive(:compare_models) do |_name, **kwargs|
+        received_context = kwargs[:context]
+        RubyLLM::Contract::Eval::ModelComparison.new(
+          eval_name: "smoke", reports: {}, configs: {}
+        )
+      end
+
+      described_class.new(step: step_with_retry,
+                          candidates: [{ model: "gpt-4.1-nano" }]).call
+
+      expect(received_context).to include(retry_policy_override: nil)
+    end
+
+    it "leaves the step's class-level retry_policy untouched after optimisation" do
+      original = step_with_retry.retry_policy
+      allow(step_with_retry).to receive(:compare_models)
+        .and_return(RubyLLM::Contract::Eval::ModelComparison.new(
+          eval_name: "smoke", reports: {}, configs: {}
+        ))
+
+      described_class.new(step: step_with_retry,
+                          candidates: [{ model: "gpt-4.1-nano" }]).call
+
+      expect(step_with_retry.retry_policy).to equal(original)
+    end
+
+    it "the obsolete with_retry_disabled private method is removed" do
+      opt = described_class.new(step: step_with_retry,
+                                candidates: [{ model: "gpt-4.1-nano" }])
+      expect(opt.private_methods).not_to include(:with_retry_disabled)
+    end
+  end
 end

@@ -23,7 +23,7 @@ module RubyLLM
 
           def estimate_cost(input:, model: nil, attachment: nil)
             model_name = estimated_model_name(model)
-            model_info = CostCalculator.send(:find_model, model_name)
+            model_info = CostCalculator.find_model(model_name)
             return nil unless model_info
 
             text_tokens = TokenEstimator.estimate(build_messages(input))
@@ -41,7 +41,10 @@ module RubyLLM
               model: model_name,
               input_tokens: input_tokens,
               output_tokens_estimate: output_tokens,
-              estimated_cost: estimated_cost_for(model_info, input_tokens, output_tokens)
+              estimated_cost: CostCalculator.calculate(
+                model_name: model_name,
+                usage: { input_tokens: input_tokens, output_tokens: output_tokens }
+              )
             }
           end
 
@@ -110,14 +113,6 @@ module RubyLLM
 
           def estimated_model_name(model = nil)
             model || (self.model if respond_to?(:model)) || RubyLLM::Contract.configuration.default_model
-          end
-
-          def estimated_cost_for(model_info, input_tokens, output_tokens)
-            CostCalculator.send(
-              :compute_cost,
-              model_info,
-              { input_tokens: input_tokens, output_tokens: output_tokens }
-            )
           end
 
           # Returns [tokens, error?] where error is true when fail-closed should

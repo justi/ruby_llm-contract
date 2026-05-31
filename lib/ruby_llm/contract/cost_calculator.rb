@@ -111,7 +111,11 @@ module RubyLLM
         end
       end
 
-      private_class_method :compute_cost, :token_cost, :find_model, :validate_price!
+      # `find_model` is intentionally public: `Step::Base#estimate_cost` needs
+      # to inspect model pricing before invoking `calculate` (e.g., to short-
+      # circuit estimate when the model is unknown). Exposing it removes
+      # `CostCalculator.send(:find_model)` workarounds at call sites.
+      private_class_method :compute_cost, :token_cost, :validate_price!
     end
   end
 end

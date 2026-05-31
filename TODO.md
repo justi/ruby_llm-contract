@@ -22,18 +22,11 @@ Verdict: shipped. Suite: 1336 / 0 failures.
 
 ## Batch 2 — characterization tests, potem refactor (5 ticketów)
 
-### B2-T1: `with_retry_disabled` (GAP coverage — NAJWYŻSZE ryzyko)
+### B2-T1: `with_retry_disabled` (GAP coverage — NAJWYŻSZE ryzyko) ✅ DONE
 
-Codex flagged: zero specs touch `with_retry_disabled` (line 205-213
-`eval/retry_optimizer.rb`). Refactor na ślepo = gwarantowana regresja.
-
-- [ ] Add 4 characterization tests w `spec/ruby_llm/contract/eval/retry_optimizer_spec.rb`:
-  1. `with_retry_disabled { step.retry_policy }` → nil inside block
-  2. Original `retry_policy` restored po normal block completion
-  3. Original `retry_policy` restored when block raises (ensure path)
-  4. Step bez `retry_policy` defined → no raise (`respond_to?` guard at line 206)
-- [ ] Refactor: zamień `define_singleton_method` na `context.merge(retry_policy_override: nil)`
-- [ ] Verify suite green; existing `step/base.rb:161` (`context.key?(:retry_policy_override)`) already handles this path.
+- [x] Added 4 characterization tests pinning original behaviour
+- [x] Refactored: `context.merge(retry_policy_override: nil)` instead of singleton mutation
+- [x] Replaced characterization tests with 3 new tests pinning context-propagation contract + ensured `with_retry_disabled` private method is dropped
 
 ### B2-T2: `stub_step` unification (CHARACTERIZATION coverage)
 
@@ -44,14 +37,12 @@ Codex flagged: zero specs touch `with_retry_disabled` (line 205-213
       `rspec/helpers.rb:28-55`)
 - [ ] Hook into RSpec `after(:each)` to clean thread-local state
 
-### B2-T3: `CostCalculator.send(:find_model)` → public expose
+### B2-T3: `CostCalculator.send(:find_model)` → public expose ✅ DONE
 
-- [ ] Add 2 tests w `spec/ruby_llm/contract/cost_calculator_spec.rb`:
-  1. `CostCalculator.find_model('gpt-4.1')` → hash z `:input_cost_per_token`
-  2. `CostCalculator.find_model('nonexistent-xyz')` → nil
-- [ ] Remove `find_model` z `private_class_method` w `cost_calculator.rb`
-- [ ] Replace `CostCalculator.send(:find_model)` w `step/base.rb:26,116`
-      na bezpośredni call
+- [x] Added 5 characterization tests pinning `find_model` contract
+- [x] Removed `find_model` from `private_class_method`
+- [x] Replaced both `CostCalculator.send(:find_model)` calls
+- [x] Bonus: dropped `estimated_cost_for` helper, routed through public `CostCalculator.calculate` (removes second `send(:compute_cost)`)
 
 ### B2-T4: `Runner.new` 17 kwargs → `RunnerConfig` factory
 

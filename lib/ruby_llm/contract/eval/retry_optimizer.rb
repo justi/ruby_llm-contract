@@ -113,10 +113,19 @@ module RubyLLM
 
           score_matrix = {}
           evals.each do |eval_name|
-            comparison = with_retry_disabled do
-              @step.compare_models(eval_name, candidates: @candidates, context: @context,
-                                              runs: @runs, production_mode: @production_mode)
-            end
+            # `retry_policy_override: nil` in context disables the step's
+            # class-level retry policy for this comparison run — see
+            # step/base.rb#runtime_settings, which honours the key when
+            # present (even when value is nil). Replaces the prior
+            # `define_singleton_method(:retry_policy)` mutation, which was
+            # not thread-safe across concurrent optimizer calls.
+            comparison = @step.compare_models(
+              eval_name,
+              candidates: @candidates,
+              context: @context.merge(retry_policy_override: nil),
+              runs: @runs,
+              production_mode: @production_mode
+            )
             score_matrix[eval_name] = extract_scores(comparison)
           end
 
@@ -201,14 +210,6 @@ module RubyLLM
           else
             { model: label }
           end
-        end
-
-        def with_retry_disabled(&block)
-          original = @step.retry_policy if @step.respond_to?(:retry_policy)
-          @step.define_singleton_method(:retry_policy) { nil }
-          block.call
-        ensure
-          @step.define_singleton_method(:retry_policy) { original }
         end
 
         def empty_result(evals)
