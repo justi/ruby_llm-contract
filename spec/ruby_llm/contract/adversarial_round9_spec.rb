@@ -853,6 +853,42 @@ RSpec.describe "Adversarial QA round 9 -- multi-component interaction bugs" do
       expect(result.trace.attempts.map { |a| a[:model] }).to eq(%w[gpt-4o-mini gpt-4o gpt-4]),
                                                              "Per-attempt models should be tracked for correct cost attribution"
     end
+
+    # Anti-facade F5/F13: the parent test documents a known bug but does
+    # not assert the actual aggregated cost - deleting `cost:` from
+    # `RetryExecutor#build_retry_result` would not fail it. This test
+    # closes that gap with priced models from the registry.
+    it "sums per-attempt costs into trace.cost (not just the last attempt)" do
+      step = Class.new(RubyLLM::Contract::Step::Base) do
+        prompt { |input| user "Process: #{input}" }
+        input_type String
+        output_type RubyLLM::Contract::Types::Hash
+        contract { parse :json }
+        retry_policy { escalate "gpt-4.1-mini", "gpt-4.1-mini", "gpt-4.1-mini" }
+      end
+
+      call_count = 0
+      adapter = Class.new(RubyLLM::Contract::Adapters::Base) do
+        define_method(:call) do |messages:, **_opts|
+          call_count += 1
+          content = call_count < 3 ? "not json" : '{"result": "ok"}'
+          RubyLLM::Contract::Adapters::Response.new(
+            content: content,
+            usage: { input_tokens: 1000, output_tokens: 500 }
+          )
+        end
+      end.new
+
+      result = step.run("test", context: { adapter: adapter })
+
+      expect(result.status).to eq(:ok)
+      per_attempt_costs = result.trace.attempts.map { |a| a[:cost] }
+      expect(per_attempt_costs.compact.length).to eq(3)
+      # Sum of 3 attempts, not last-only.
+      expect(result.trace.cost).to be_within(1e-9).of(per_attempt_costs.sum)
+      # Strictly greater than the last-only mutation.
+      expect(result.trace.cost).to be > per_attempt_costs.last
+    end
   end
 
   # ---------------------------------------------------------------------------

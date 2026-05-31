@@ -11,8 +11,10 @@ RSpec.describe "Token cost tracking (GH-15)" do
       )
       # gpt-4.1-mini: $0.40/M input, $1.60/M output
       # 1000 * 0.4 / 1M + 500 * 1.6 / 1M = 0.0004 + 0.0008 = 0.0012
-      expect(t.cost).to be_a(Numeric)
-      expect(t.cost).to be > 0
+      # Anti-facade F4: assert the exact value, not just `> 0`.
+      # `> 0` is satisfied by any positive constant (e.g. `0.000001`) -
+      # the cost calculator could return a fabricated number and pass.
+      expect(t.cost).to be_within(1e-9).of(0.0012)
     end
 
     it "returns nil for unknown model" do
@@ -33,7 +35,10 @@ RSpec.describe "Token cost tracking (GH-15)" do
         model: "gpt-4.1-mini", latency_ms: 100,
         usage: { input_tokens: 1000, output_tokens: 500 }
       )
-      expect(t.to_s).to include("$")
+      # Anti-facade F14: `include("$")` passes for any `$X` string,
+      # including `"$0.000000"`. Require the actual cost formatted with
+      # 4+ significant digits, not just the dollar sign.
+      expect(t.to_s).to match(/\$0\.0012/)
     end
 
     it "does not show cost in to_s when nil" do
@@ -48,8 +53,13 @@ RSpec.describe "Token cost tracking (GH-15)" do
       st2 = RubyLLM::Contract::Step::Trace.new(model: "gpt-4.1-mini", usage: { input_tokens: 500, output_tokens: 200 })
 
       pt = RubyLLM::Contract::Pipeline::Trace.new(step_traces: [st1, st2])
-      expect(pt.total_cost).to be_a(Numeric)
-      expect(pt.total_cost).to eq(st1.cost + st2.cost)
+      # Anti-facade F10: assert the absolute total, not `st1.cost + st2.cost`.
+      # That comparison is circular - both sides flow through the same
+      # CostCalculator, so dividing pricing by 100_000 in the SUT would
+      # still make both sides equal (just both wrong). Per-step cost for
+      # 500/200 tokens against gpt-4.1-mini ($0.40/M in, $1.60/M out) is
+      # 500*0.4/1M + 200*1.6/1M = 0.00052; two steps -> 0.00104.
+      expect(pt.total_cost).to be_within(1e-9).of(0.00104)
     end
 
     it "returns nil when no costs available" do
@@ -61,7 +71,9 @@ RSpec.describe "Token cost tracking (GH-15)" do
     it "includes cost in to_s" do
       st1 = RubyLLM::Contract::Step::Trace.new(model: "gpt-4.1-mini", usage: { input_tokens: 500, output_tokens: 200 })
       pt = RubyLLM::Contract::Pipeline::Trace.new(trace_id: "abc", step_traces: [st1])
-      expect(pt.to_s).to include("$")
+      # Anti-facade F14: same as Step::Trace#to_s above - assert the
+      # formatted number, not just the dollar sign.
+      expect(pt.to_s).to match(/\$0\.000?5/)
     end
   end
 

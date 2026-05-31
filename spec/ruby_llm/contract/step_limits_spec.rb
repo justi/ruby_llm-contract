@@ -91,6 +91,37 @@ RSpec.describe "Step-level execution limits (GH-17)" do
       expect(result.status).to eq(:ok)
     end
 
+    it "counts completion cost (output tokens) in preflight estimation" do
+      # Anti-facade F11/F7: original L58 test used input long enough that
+      # input cost alone exceeded max_cost - setting DEFAULT_OUTPUT_RATIO
+      # to 0 in the SUT would still trip the gate. This case has SHORT
+      # input whose input cost is below budget; only counting completion
+      # cost (via max_output * pricing) trips it.
+      adapter_called = false
+      spy_adapter = Class.new(RubyLLM::Contract::Adapters::Base) do
+        define_method(:call) do |messages:, **_opts|
+          adapter_called = true
+          RubyLLM::Contract::Adapters::Response.new(content: '{"v":1}', usage: {})
+        end
+      end.new
+
+      step = Class.new(RubyLLM::Contract::Step::Base) do
+        prompt "Hi {input}"
+        # max_output forces SUT to factor completion cost. Short input
+        # (~few tokens) at $0.40/M ≈ $0.000004. Budget below the
+        # max_output * output_price cost forces refusal via output.
+        max_output 10_000     # 10k tokens output * $1.60/M = $0.016
+        max_cost 0.001        # below output cost, above input cost
+      end
+
+      result = step.run("hello", context: { adapter: spy_adapter, model: "gpt-4.1-mini" })
+
+      expect(result.status).to eq(:limit_exceeded)
+      expect(adapter_called).to be false
+      # Mutating DEFAULT_OUTPUT_RATIO to 0 (or ignoring max_output in
+      # the SUT) would let this pass through; the assertion above fails.
+    end
+
     it "refuses when model pricing unavailable (fail closed)" do
       adapter = RubyLLM::Contract::Adapters::Test.new(response: '{"v": 1}')
 

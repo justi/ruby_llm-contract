@@ -615,8 +615,11 @@ RSpec.describe "Edge cases" do
     end
 
     it "returns 0.0 for known model with empty usage hash (zero tokens)" do
+      # Anti-facade F7: dropping the `if result` guard ensures the model
+      # lookup MUST succeed - otherwise a registry deletion of
+      # `gpt-4.1-mini` would silently make this test vacuous.
       result = described_class.calculate(model_name: "gpt-4.1-mini", usage: {})
-      expect(result).to eq(0.0) if result # guard for model lookup failure
+      expect(result).to eq(0.0)
     end
   end
 

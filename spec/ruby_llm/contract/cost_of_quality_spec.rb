@@ -363,12 +363,38 @@ RSpec.describe "ADR-0008: Cost of Quality" do
     end
 
     it "failure message mentions cost when over budget" do
-      # Test adapter gives 0 cost, so this always passes on cost
-      # Test the message format with a constructed report
-      matcher = pass_eval("costed").with_maximum_cost(1.0)
-      matcher.matches?(step)
-      # Verify it doesn't fail (cost is 0 with test adapter)
-      expect(matcher.failure_message_when_negated).to include("NOT to pass")
+      # Anti-facade F12/F13 (was: budget never exceeded). Previously the
+      # test used `with_maximum_cost(1.0)` against a zero-cost adapter,
+      # so the OVER-BUDGET branch in `build_header` was never executed -
+      # deleting that branch entirely would have left the test green.
+      #
+      # Force the over-budget path by constructing a report whose
+      # total_cost exceeds maximum_cost, then assert the failure message
+      # contains the actual cost AND the budget threshold.
+      case_result = RubyLLM::Contract::Eval::CaseResult.new(
+        name: "case_1",
+        input: "x",
+        output: { priority: "high" },
+        expected: { priority: "high" },
+        step_status: :ok,
+        score: 1.0,
+        passed: true,
+        cost: 0.50
+      )
+      report = RubyLLM::Contract::Eval::Report.new(dataset_name: "over_budget", results: [case_result])
+
+      matcher = pass_eval("over_budget").with_maximum_cost(0.10)
+      matcher.instance_variable_set(:@report, report)
+      matcher.instance_variable_set(:@error, nil)
+
+      msg = matcher.send(
+        :format_failure_message,
+        "over_budget", nil, report, nil, 0.10
+      )
+      # Cost over threshold -> message must call out both numbers.
+      expect(msg).to include("$0.5000")
+      expect(msg).to include("$0.1000")
+      expect(msg).to match(/cost <= \$0\.1000/)
     end
   end
 

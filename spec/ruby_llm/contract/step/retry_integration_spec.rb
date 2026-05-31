@@ -7,6 +7,13 @@ RSpec.describe "retry_policy integration" do
 
   describe "step with retry_policy" do
     it "returns :ok on first attempt if step succeeds" do
+      call_count = 0
+      tracking_adapter = Object.new
+      tracking_adapter.define_singleton_method(:call) do |**_opts|
+        call_count += 1
+        RubyLLM::Contract::Adapters::Response.new(content: '{"key": "value"}', usage: {})
+      end
+
       step = Class.new(RubyLLM::Contract::Step::Base) do
         input_type RubyLLM::Contract::Types::String
         output_type RubyLLM::Contract::Types::Hash
@@ -18,13 +25,24 @@ RSpec.describe "retry_policy integration" do
         retry_policy { attempts 3 }
       end
 
-      adapter = RubyLLM::Contract::Adapters::Test.new(response: '{"key": "value"}')
-      result = step.run("test", context: { adapter: adapter })
+      result = step.run("test", context: { adapter: tracking_adapter })
 
       expect(result.status).to eq(:ok)
+      # Anti-facade F11: assert the retry loop STOPS after first success.
+      # Without this, removing `break unless policy.retryable?(result)`
+      # makes the loop spin 3 times unnoticed.
+      expect(call_count).to eq(1)
+      expect(result.trace[:attempts]&.length || 1).to eq(1)
     end
 
     it "does not retry on :input_error (bad input won't improve)" do
+      call_count = 0
+      tracking_adapter = Object.new
+      tracking_adapter.define_singleton_method(:call) do |**_opts|
+        call_count += 1
+        RubyLLM::Contract::Adapters::Response.new(content: '{"k": "v"}', usage: {})
+      end
+
       step = Class.new(RubyLLM::Contract::Step::Base) do
         input_type RubyLLM::Contract::Types::String
         output_type RubyLLM::Contract::Types::Hash
@@ -33,10 +51,13 @@ RSpec.describe "retry_policy integration" do
         retry_policy { attempts 3 }
       end
 
-      adapter = RubyLLM::Contract::Adapters::Test.new(response: '{"k": "v"}')
-      result = step.run(42, context: { adapter: adapter })
+      result = step.run(42, context: { adapter: tracking_adapter })
 
       expect(result.status).to eq(:input_error)
+      # Anti-facade F11: prove no retry happened. Without this assertion,
+      # adding :input_error to DEFAULT_RETRY_ON would loop 3 times and
+      # the test would still pass on the final status.
+      expect(call_count).to eq(0) # input_error fails BEFORE adapter call
     end
 
     it "retries on :validation_failed and returns last result if all fail" do
