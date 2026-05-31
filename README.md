@@ -151,12 +151,13 @@ Different layers, complementary. [`ruby_llm-tribunal`](https://github.com/Alqemi
 | [Write validate rules that catch real bugs](docs/guide/best_practices.md) | Patterns for cross-input checks and content-quality rules |
 | [Stub LLM calls in tests](docs/guide/testing.md) | Deterministic specs, RSpec + Minitest matchers |
 | [Chain LLM calls into a pipeline](docs/guide/pipeline.md) | Multi-step with fail-fast and per-step models |
+| [Multimodal input (PDF / image / audio)](docs/guide/multimodal_input.md) | Route attachments through the contract; `attachment_token_estimate`, fail-closed cost, calibration table |
 | [Schema DSL reference](docs/guide/output_schema.md) | Every constraint, nested objects, pattern table |
 | [Prompt DSL reference](docs/guide/prompt_ast.md) | `system` / `rule` / `section` / `example` / `user` nodes |
 
 ## Status & versioning
 
-Pre-1.0 (currently **0.8.0**). Semver tracked; breaking changes flagged in [CHANGELOG](CHANGELOG.md). Pin `~> 0.8.0` until 1.0 ships.
+Pre-1.0 (currently **0.9.0**). Semver tracked; breaking changes flagged in [CHANGELOG](CHANGELOG.md). Pin `~> 0.9.0` until 1.0 ships.
 
 ## FAQ
 

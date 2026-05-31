@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased — 0.9.0 (in progress)
+## 0.9.0 (2026-05-31)
 
 Multimodal input. Adopter-driven feature (pdf_to_quiz Faza 2). See [ADR-0022](doc/decisions/ADR-0022-v09-multimodal-input.md) for the full design record.
 
