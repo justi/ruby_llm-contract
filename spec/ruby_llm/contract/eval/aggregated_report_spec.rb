@@ -123,4 +123,46 @@ RSpec.describe RubyLLM::Contract::Eval::AggregatedReport do
       expect(agg.results.count { |r| r.step_status != :skipped }).to eq(1)
     end
   end
+
+  # Anti-facade F13: previously these delegates were untested. Making
+  # `production_mode?` always false or `escalation_rate`/`single_shot_cost`
+  # always nil would have gone undetected. These cover the production-
+  # metrics surface that Recommender / Comparison consumers rely on.
+  describe "production metrics delegates" do
+    def production_report(score:, escalation_rate: 0.2, single_shot_cost: 0.005,
+                          latency_percentiles: { p50: 100.0, p95: 200.0 })
+      instance_double(
+        RubyLLM::Contract::Eval::Report,
+        dataset_name: "ds", step_name: "Step",
+        score: score, total_cost: 0.001, avg_latency_ms: 100.0,
+        pass_rate_ratio: score, passed?: score == 1.0, failures: [], results: [],
+        summary: "s", print_summary: nil, to_s: "t",
+        production_mode?: true,
+        escalation_rate: escalation_rate,
+        single_shot_cost: single_shot_cost,
+        latency_percentiles: latency_percentiles
+      )
+    end
+
+    it "production_mode? is true when ANY run is in production mode" do
+      agg = described_class.new([production_report(score: 1.0), fake_report(score: 0.5)])
+      expect(agg.production_mode?).to be true
+    end
+
+    it "escalation_rate averages real values from production runs" do
+      agg = described_class.new([
+                                  production_report(score: 1.0, escalation_rate: 0.2),
+                                  production_report(score: 1.0, escalation_rate: 0.4)
+                                ])
+      expect(agg.escalation_rate).to be_within(1e-9).of(0.3)
+    end
+
+    it "single_shot_cost averages real values from production runs" do
+      agg = described_class.new([
+                                  production_report(score: 1.0, single_shot_cost: 0.004),
+                                  production_report(score: 1.0, single_shot_cost: 0.006)
+                                ])
+      expect(agg.single_shot_cost).to be_within(1e-9).of(0.005)
+    end
+  end
 end

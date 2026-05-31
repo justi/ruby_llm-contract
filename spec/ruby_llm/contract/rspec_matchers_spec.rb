@@ -138,5 +138,56 @@ RSpec.describe "RSpec matchers (GH-16)" do
       expect(matcher.failure_message).to include("raised an error")
       expect(matcher.failure_message).to include("No eval 'nonexistent'")
     end
+
+    # Anti-facade F11: previously `with_minimum_score` chain was untested
+    # at this level - the matcher could ignore the threshold entirely.
+    describe ".with_minimum_score" do
+      before do
+        step.define_eval("partial") do
+          default_input "test"
+          sample_response({ intent: "billing", confidence: 0.3 })
+          verify "high confidence (fails)", ->(o) { o[:confidence] > 0.5 }
+          verify "has intent (passes)", { intent: /billing/ }
+        end
+      end
+
+      it "passes when score >= threshold" do
+        expect(step).to pass_eval("partial").with_minimum_score(0.5)
+      end
+
+      it "fails when score < threshold" do
+        expect(step).not_to pass_eval("partial").with_minimum_score(0.9)
+      end
+
+      it "failure message names the actual score and the threshold" do
+        matcher = pass_eval("partial").with_minimum_score(0.9)
+        matcher.matches?(step)
+        msg = matcher.failure_message
+        expect(msg).to include("0.5") # actual score
+        expect(msg).to include("0.9") # threshold
+      end
+    end
+
+    describe ".with_maximum_cost" do
+      before do
+        step.define_eval("cheap") do
+          default_input "test"
+          sample_response({ intent: "billing", confidence: 0.9 })
+          verify "has intent", { intent: /billing/ }
+        end
+      end
+
+      it "passes when total_cost is within budget" do
+        expect(step).to pass_eval("cheap").with_maximum_cost(1.0)
+      end
+
+      # The over-budget path is exercised in cost_of_quality_spec.rb:365
+      # with a constructed report. Here we verify the chain attribute
+      # round-trips so that swapping `@maximum_cost = nil` would fail.
+      it "stores the maximum_cost threshold on the matcher" do
+        matcher = pass_eval("cheap").with_maximum_cost(0.05)
+        expect(matcher.instance_variable_get(:@maximum_cost)).to eq(0.05)
+      end
+    end
   end
 end

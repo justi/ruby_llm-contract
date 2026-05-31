@@ -154,11 +154,27 @@ RSpec.describe "Cost of Quality — real LLM", :online do
                  expected: { answer: "ok" }
       end
 
+      # Anti-facade F2: previously only asserted on `comparison.reports.keys`
+      # which is a Hash whose duplicate-keyed writes overwrite each other.
+      # Removing `.uniq` from EvalHost#compare_with would make THREE real
+      # API calls (paying twice for the duplicated first model) while the
+      # reports hash would still end up with TWO keys. Assert the actual
+      # adapter call count to catch that bypass.
+      call_count = 0
+      RubyLLM::Contract::Adapters::RubyLLM.prepend(Module.new do
+        define_method(:call) do |**args|
+          call_count += 1
+          super(**args)
+        end
+      end)
+
       models = [@models.first, @models.first, @models.last]
       comparison = exact_json_step.compare_models("dedup", models: models)
 
       expect(comparison.models).to eq(@models)
       expect(comparison.reports.keys).to eq(@models)
+      # Two unique models, one case each -> exactly two real adapter calls.
+      expect(call_count).to eq(@models.uniq.length)
       @models.each do |model|
         expect(comparison.cost_for(model)).to be > 0
       end

@@ -71,13 +71,34 @@ RSpec.describe "define_eval / run_eval API (GH-13)" do
     end
 
     it "per-case input overrides default" do
+      # Anti-facade F2/F15: previously asserted only `report.passed?`,
+      # and the canned adapter returns billing regardless of input - so
+      # if `verify` were rewritten to ignore the per-case `input:` and
+      # always use `@default_input`, the test would still pass.
+      # Spy adapter records the rendered message to prove the override
+      # actually reached the prompt pipeline.
+      seen_messages = []
+      spy_adapter = Class.new(RubyLLM::Contract::Adapters::Base) do
+        define_method(:call) do |messages:, **_opts|
+          seen_messages << messages.map { |m| m[:content] }.join
+          RubyLLM::Contract::Adapters::Response.new(
+            content: '{"intent": "billing", "confidence": 0.9}',
+            usage: { input_tokens: 0, output_tokens: 0 }
+          )
+        end
+      end.new
+
       step.define_eval("override") do
         default_input "default"
         verify "with override", input: "custom input", expect: { intent: /billing/ }
       end
 
-      report = step.run_eval("override", context: { adapter: adapter })
+      report = step.run_eval("override", context: { adapter: spy_adapter })
+
       expect(report.passed?).to be true
+      expect(seen_messages.length).to eq(1)
+      expect(seen_messages.first).to include("custom input")
+      expect(seen_messages.first).not_to include("default")
     end
 
     it "run_eval without name runs all evals" do

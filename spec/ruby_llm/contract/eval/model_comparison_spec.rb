@@ -124,4 +124,64 @@ RSpec.describe RubyLLM::Contract::Eval::ModelComparison do
       expect(comparison.configs).to be_frozen
     end
   end
+
+  # Anti-facade F11: previously `best_for`, `cost_per_point`, `table`, and
+  # `production_mode_table` paths had zero direct tests. Forcing
+  # `best_for` to return nil (eligible = empty) would have left the suite
+  # green. These tests cover those exit lines.
+  describe "#best_for / #cost_per_point / #table" do
+    let(:nano_report) { build_report("eval", [{ passed: true, cost: 0.001 }]) }
+    let(:mini_report) { build_report("eval", [{ passed: true, cost: 0.005 }]) }
+    let(:fail_report) { build_report("eval", [{ passed: false, cost: 0.002 }]) }
+
+    let(:comparison) do
+      described_class.new(
+        eval_name: "best_for_test",
+        reports: {
+          "gpt-4.1-nano" => nano_report,
+          "gpt-4.1-mini" => mini_report,
+          "gpt-4.1-fail" => fail_report
+        }
+      )
+    end
+
+    it "best_for selects the cheapest candidate meeting the score threshold" do
+      # nano + mini both score 1.0; nano is cheaper.
+      expect(comparison.best_for(min_score: 1.0)).to eq("gpt-4.1-nano")
+    end
+
+    it "best_for excludes candidates below the score threshold" do
+      # fail_report scores 0.0 -> excluded entirely from min_score: 0.5+.
+      eligible_only_pass = described_class.new(
+        eval_name: "eligibility",
+        reports: { "passing" => nano_report, "failing" => fail_report }
+      )
+      expect(eligible_only_pass.best_for(min_score: 0.5)).to eq("passing")
+    end
+
+    it "best_for returns nil when no candidate meets the threshold" do
+      no_pass = described_class.new(
+        eval_name: "no_eligible",
+        reports: { "only" => fail_report }
+      )
+      expect(no_pass.best_for(min_score: 0.5)).to be_nil
+    end
+
+    it "cost_per_point divides total_cost by score for each candidate" do
+      cpp = comparison.cost_per_point
+      expect(cpp["gpt-4.1-nano"]).to be_within(1e-9).of(0.001 / 1.0)
+      expect(cpp["gpt-4.1-mini"]).to be_within(1e-9).of(0.005 / 1.0)
+      # fail_report score = 0 -> cost_per_point returns Infinity / nil.
+      expect([Float::INFINITY, nil]).to include(cpp["gpt-4.1-fail"])
+    end
+
+    it "table includes every model and renders cost + score columns" do
+      out = comparison.table
+      %w[gpt-4.1-nano gpt-4.1-mini gpt-4.1-fail].each do |m|
+        expect(out).to include(m)
+      end
+      # Real numbers (cost shown), not just headers.
+      expect(out).to match(/0\.00[0-9]/)
+    end
+  end
 end

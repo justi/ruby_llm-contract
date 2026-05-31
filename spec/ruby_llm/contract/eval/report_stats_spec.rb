@@ -43,8 +43,17 @@ RSpec.describe RubyLLM::Contract::Eval::ReportStats do
 
   describe "#total_cost" do
     it "sums costs across all results including skipped" do
-      results = [build_case(passed: true, cost: 0.01), build_case(passed: true, cost: 0.02)]
-      expect(described_class.new(results: results).total_cost).to eq(0.03)
+      # Anti-facade F17: previously only two passing results, so the
+      # "including skipped" label was a lie - swapping `@results.sum` to
+      # `evaluated_results.sum` (skipped filtered out) would not have
+      # failed. Add a skipped result with nonzero cost to actually
+      # exercise the documented contract.
+      results = [
+        build_case(passed: true, cost: 0.01),
+        build_case(passed: true, cost: 0.02),
+        build_case(passed: false, cost: 0.04, step_status: :skipped)
+      ]
+      expect(described_class.new(results: results).total_cost).to eq(0.07)
     end
 
     it "treats nil cost as 0.0" do

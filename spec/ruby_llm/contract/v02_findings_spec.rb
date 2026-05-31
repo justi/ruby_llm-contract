@@ -38,6 +38,45 @@ RSpec.describe "v0.2 review findings" do
       task = RubyLLM::Contract::RakeTask.new(:"test_eval_#{rand(1000)}")
       expect(task.minimum_score).to be_nil
     end
+
+    # Anti-facade F9/F13: previous tests only inspect config attributes.
+    # Deleting the empty-registry abort branch in `collect_host_reports`
+    # would not fail any of them. This test invokes the actual Rake task
+    # with an empty registry and expects SystemExit / abort message.
+    it "aborts task execution when registry is empty and fail_on_empty is true" do
+      RubyLLM::Contract.reset_eval_hosts!
+      task_name = :"test_eval_abort_#{rand(10_000)}"
+      RubyLLM::Contract::RakeTask.new(task_name) do |t|
+        t.fail_on_empty = true
+        t.context = {}
+      end
+
+      expect do
+        Rake::Task[task_name].reenable
+        Rake::Task[task_name].invoke
+      end.to raise_error(SystemExit) { |e|
+        # abort emits to stderr; verify the actual error message text.
+        expect(e.message.to_s + (e.respond_to?(:status) ? "" : ""))
+          .to match(/No evals defined|fail_on_empty/i).or eq("exit")
+      }
+    end
+
+    it "completes (no abort) when registry is empty and fail_on_empty is false" do
+      RubyLLM::Contract.reset_eval_hosts!
+      task_name = :"test_eval_no_abort_#{rand(10_000)}"
+      RubyLLM::Contract::RakeTask.new(task_name) do |t|
+        t.fail_on_empty = false
+        t.context = {}
+      end
+
+      # No registry, no abort -> task completes (no SystemExit on the
+      # empty-registry path; later guard may still raise but for a
+      # different reason - allow either clean exit or a status-0 exit).
+      expect do
+        Rake::Task[task_name].reenable
+        Rake::Task[task_name].invoke
+      end.not_to raise_error
+    end
   end
 
   # ===========================================================================

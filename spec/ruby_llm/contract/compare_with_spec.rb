@@ -104,14 +104,32 @@ RSpec.describe "compare_with — prompt A/B testing" do
       expect(diff.score_delta).to be > 0
     end
 
-    it "accepts model: parameter" do
+    it "accepts model: parameter and forwards it to BOTH legs' adapter calls" do
+      # Anti-facade F9: previously only `be_a(PromptDiff)` + score equality.
+      # That passes even if `comparison_context` ignores `model:` because
+      # adapter is canned and returns the same response regardless of
+      # model. Spy on the adapter and assert both calls received the
+      # explicit model name.
+      models_seen = []
+      spy_adapter = Class.new(RubyLLM::Contract::Adapters::Base) do
+        define_method(:call) do |messages:, **opts|
+          models_seen << opts[:model]
+          RubyLLM::Contract::Adapters::Response.new(
+            content: '{"answer": "ok"}', usage: { input_tokens: 0, output_tokens: 0 }
+          )
+        end
+      end.new
+
       result = candidate_step.compare_with(
         equal_step, eval: "accuracy", model: "test-model",
-        context: { adapter: good_adapter }
+        context: { adapter: spy_adapter }
       )
 
       expect(result).to be_a(RubyLLM::Contract::Eval::PromptDiff)
       expect(result.candidate_score).to eq(result.baseline_score)
+      expect(models_seen).not_to be_empty
+      expect(models_seen.uniq).to eq(["test-model"]),
+                                  "Both legs should forward model: 'test-model', got #{models_seen.uniq.inspect}"
     end
   end
 
