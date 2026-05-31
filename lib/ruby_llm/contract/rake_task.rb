@@ -2,6 +2,7 @@
 
 require "rake"
 require "rake/tasklib"
+require_relative "rake_task/suite_gate"
 
 module RubyLLM
   module Contract
@@ -33,71 +34,49 @@ module RubyLLM
           RubyLLM::Contract.load_evals!(*@eval_dirs)
 
           context = @context.respond_to?(:call) ? @context.call : @context
-          results = RubyLLM::Contract.run_all_evals(context: context)
-
-          if results.empty?
-            if @fail_on_empty
-              abort "No evals defined. Define evals with define_eval or set fail_on_empty = false."
-            else
-              puts "No evals defined."
-              next
-            end
-          end
-
-          gate_passed = true
-          suite_cost = 0.0
-
-          passed_reports = []
-          all_reports = []
-
-          results.each do |host, reports|
-            puts "\n#{host.name || host.to_s}"
-            reports.each_value do |report|
-              report.print_summary
-              suite_cost += report.total_cost
-              all_reports << [host, report]
-              report_ok = report_meets_score?(report) && !check_regression(report)
-              gate_passed = false unless report_ok
-              passed_reports << report if report_ok
-            end
-          end
+          host_reports = collect_host_reports(context)
+          next unless host_reports # empty path already handled
 
           # Save history BEFORE gating — failures are valuable trend data (ADR-0016 F3)
-          save_all_history!(all_reports, context) if @track_history
+          save_all_history!(host_reports, context) if @track_history
 
-          if @maximum_cost && suite_cost > @maximum_cost
-            abort "\nEval suite FAILED: total cost $#{format("%.4f", suite_cost)} " \
-                  "exceeds budget $#{format("%.4f", @maximum_cost)}"
-          end
+          verdict = SuiteGate.evaluate(
+            host_reports: host_reports,
+            minimum_score: @minimum_score,
+            maximum_cost: @maximum_cost,
+            fail_on_regression: @fail_on_regression
+          )
 
-          abort "\nEval suite FAILED" unless gate_passed
+          abort "\nEval suite FAILED: #{verdict.abort_reason}" unless verdict.passed?
 
           # Save baselines only after ALL gates pass
-          passed_reports.each { |r| save_baseline!(r) } if @save_baseline
+          verdict.passed_reports.each { |_host, r| save_baseline!(r) } if @save_baseline
 
           puts "\nAll evals passed."
         end
       end
 
-      def report_meets_score?(report)
-        if @minimum_score
-          report.score >= @minimum_score
-        else
-          report.passed?
-        end
-      end
+      def collect_host_reports(context)
+        results = RubyLLM::Contract.run_all_evals(context: context)
 
-      def check_regression(report)
-        return false unless @fail_on_regression && report.baseline_exists?
-
-        diff = report.compare_with_baseline
-        if diff.regressed?
-          puts "\n  REGRESSIONS DETECTED:"
-          puts "  #{diff}"
-          true
-        else
-          false
+        if results.empty?
+          if @fail_on_empty
+            abort "No evals defined. Define evals with define_eval or set fail_on_empty = false."
+          else
+            puts "No evals defined."
+            return nil
+          end
         end
+
+        host_reports = []
+        results.each do |host, reports|
+          puts "\n#{host.name || host.to_s}"
+          reports.each_value do |report|
+            report.print_summary
+            host_reports << [host, report]
+          end
+        end
+        host_reports
       end
 
       def save_baseline!(report)

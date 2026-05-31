@@ -1,4 +1,10 @@
-# TODO — Post-0.9.0 Code Quality Refactor
+# TODO — Post-0.9.0 Code Quality Refactor ✅ COMPLETE
+
+**Status: ALL 8 Codex findings addressed.** Sum across batches: 1369 tests / 0 failures. Ready for 0.10.0 release.
+
+---
+
+
 
 Plan oparty na audycie Codex'a (8 high-priority findings) + safety map
 (`characterization-first` — żaden refactor bez testów charakteryzujących bieżące
@@ -61,21 +67,12 @@ Refactor stats: dsl.rb -71 / +52 LOC net (-19). All 5 resettable attributes (`mo
 
 ---
 
-## Batch 4 — RakeTask god method extraction
+## Batch 4 — RakeTask god method extraction ✅ DONE
 
-### B4-T1: Characterization tests dla gate logic
-
-- [ ] Stwórz `spec/ruby_llm/contract/rake_task_gate_spec.rb` z 4 testami:
-  1. Gate passes when all reports pass → abort NOT called
-  2. Gate fails on score threshold → abort called z "FAILED" message
-  3. `suite_cost > maximum_cost` → abort z cost message BEFORE score gate
-  4. Baselines saved tylko gdy gate_passed (nie gdy report fails)
-
-### B4-T2: Extract `SuiteGate` value object
-
-- [ ] Stwórz `lib/ruby_llm/contract/rake_task/suite_gate.rb`
-- [ ] Otrzymuje results array, zwraca `{passed:, reason:}`
-- [ ] `define_task` redukuje się do ~10 linii: run evals → build results → delegate
+- [x] B4-T1: 5 characterization tests w `spec/ruby_llm/contract/rake_task_gate_spec.rb` covering all 4 gate dimensions (pass / score-fail / cost-priority / baseline-conditional)
+- [x] B4-T2: Extracted `RakeTask::SuiteGate` value object in `lib/ruby_llm/contract/rake_task/suite_gate.rb` (~100 LOC, testable in isolation, returns `Verdict` Data struct with `passed?`, `abort_reason`, `passed_reports`, `suite_cost`)
+- [x] `RakeTask#define_task` reduced from ~52 LOC god method to ~25 LOC + extracted `collect_host_reports` helper. Gate logic, regression detection, cost comparison — all delegated.
+- Suite: 1369 / 0 failures.
 
 ---
 
