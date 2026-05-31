@@ -9,6 +9,7 @@ module RubyLLM
         def initialize(input_type:, output_type:, prompt_block:, contract_definition:,
                        adapter:, model:, output_schema: nil, max_output: nil,
                        max_input: nil, max_cost: nil, on_unknown_pricing: :refuse,
+                       attachment_token_estimate: nil, on_unknown_attachment_size: :refuse,
                        temperature: nil, extra_options: {}, observers: [])
           @config = RunnerConfig.new(
             input_type: input_type,
@@ -22,6 +23,8 @@ module RubyLLM
             max_input: max_input,
             max_cost: max_cost,
             on_unknown_pricing: on_unknown_pricing,
+            attachment_token_estimate: attachment_token_estimate,
+            on_unknown_attachment_size: on_unknown_attachment_size,
             temperature: temperature,
             extra_options: extra_options,
             observers: observers
@@ -88,6 +91,19 @@ module RubyLLM
 
         def on_unknown_pricing
           @config.on_unknown_pricing
+        end
+
+        def attachment_token_estimate
+          @config.attachment_token_estimate
+        end
+
+        def on_unknown_attachment_size
+          @config.on_unknown_attachment_size
+        end
+
+        def attachment_present?
+          opts = @config.extra_options
+          !opts.nil? && !opts[:attachment].nil?
         end
 
         def effective_max_output

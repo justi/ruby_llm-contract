@@ -50,7 +50,7 @@ RSpec.describe RubyLLM::Contract::Adapters::RubyLLM do
       it "sends the user message via chat.ask" do
         adapter.call(messages: messages, model: "gpt-4.1-mini")
 
-        expect(mock_chat).to have_received(:ask).with("Hello")
+        expect(mock_chat).to have_received(:ask).with("Hello", with: nil)
       end
 
       it "passes model to RubyLLM.chat" do
@@ -95,7 +95,7 @@ RSpec.describe RubyLLM::Contract::Adapters::RubyLLM do
           .with(role: :user, content: "I want to buy")
         expect(mock_chat).to have_received(:add_message)
           .with(role: :assistant, content: '{"intent":"sales"}')
-        expect(mock_chat).to have_received(:ask).with("Help with my bill")
+        expect(mock_chat).to have_received(:ask).with("Help with my bill", with: nil)
       end
     end
 
@@ -172,7 +172,7 @@ RSpec.describe RubyLLM::Contract::Adapters::RubyLLM do
       it "sends last system message as user ask instead of nil" do
         adapter.call(messages: messages, model: "gpt-4.1-mini")
 
-        expect(mock_chat).to have_received(:ask).with("Return JSON only.")
+        expect(mock_chat).to have_received(:ask).with("Return JSON only.", with: nil)
       end
 
       it "uses remaining system messages as instructions" do
@@ -188,7 +188,7 @@ RSpec.describe RubyLLM::Contract::Adapters::RubyLLM do
       it "sends empty string instead of nil to chat.ask" do
         adapter.call(messages: messages, model: "gpt-4.1-mini")
 
-        expect(mock_chat).to have_received(:ask).with("")
+        expect(mock_chat).to have_received(:ask).with("", with: nil)
       end
     end
 

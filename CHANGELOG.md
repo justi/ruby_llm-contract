@@ -1,5 +1,25 @@
 # Changelog
 
+## Unreleased — 0.9.0 (in progress)
+
+Multimodal input. Adopter-driven feature (pdf_to_quiz Faza 2). See [ADR-0022](doc/decisions/ADR-0022-v09-multimodal-input.md) for the full design record.
+
+### Added
+
+- **Multimodal input via `context: { attachment: ... }`** — pass a file/IO/URL through `Step.run(input, context: { attachment: path })`; the adapter forwards it to `RubyLLM::Chat#ask(content, with: attachment)`. RubyLLM normalises wire format per provider (Anthropic url/base64, OpenAI `image_url`/`file`, Gemini `inline_data`). Multi-attachment supported natively (`with: [pdf1, pdf2]` or `with: { images: [...], pdfs: [...] }`).
+- **`attachment_token_estimate(n)` class macro** — adopter-declared conservative estimate of attachment input tokens. Applied to BOTH runtime (`limit_checker`) and pre-flight (`estimate_cost`) — same source of truth, no estimate/runtime drift.
+- **`on_unknown_attachment_size(:refuse | :warn)` class macro** — mirrors `on_unknown_pricing` opt-out semantics. Defaults to `:refuse`. Never settable as global default — same invariant as `max_cost` fail-closed.
+
+### Behavioural change (READ BEFORE UPGRADING)
+
+- **Contracts with `max_cost` or `max_input` AND `context[:attachment]` set AND no `attachment_token_estimate` declared → REFUSE with `:limit_exceeded`.** This is fail-closed semantics: the gem cannot bound vision/PDF token cost without an adopter-declared estimate. Opt out per-step with `on_unknown_attachment_size :warn`. Text-only contracts and contracts without `max_cost`/`max_input` are unaffected.
+
+### Deferred (not in 0.9.0)
+
+- `add_history` multi-turn replay of prior attachments — single-turn multimodal supported; follow-up questions on the same document deferred to a later release.
+- Streaming + attachment — contract steps remain synchronous.
+- Provider-specific attachment size caps — surface only via `attachment_token_estimate` calibration; consult provider docs.
+
 ## 0.8.0 (2026-04-26)
 
 Narrative repositioning + small API additions. Internal architecture unchanged: no `Step::Base` refactor, no breaking changes to existing DSL.

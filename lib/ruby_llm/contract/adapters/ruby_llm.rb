@@ -13,7 +13,10 @@ module RubyLLM
           chat = build_chat(options, system_contents)
           add_history(chat, conversation[0..-2])
 
-          response = chat.ask(conversation.last&.fetch(:content, ""))
+          response = chat.ask(
+            conversation.last&.fetch(:content, ""),
+            with: options[:attachment]
+          )
           build_response(response)
         end
 

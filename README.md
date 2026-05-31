@@ -166,6 +166,8 @@ Pre-1.0 (currently **0.8.0**). Semver tracked; breaking changes flagged in [CHAN
 
 **Where in a Rails app?** Default `app/contracts/`. The Railtie reloads `app/contracts/eval/` and `app/steps/eval/` in development; any autoloaded directory also works. See [Rails integration](docs/guide/rails_integration.md).
 
+**Upgraded to 0.9.0 and my contract started refusing — why?** 0.9.0 added multimodal input. If your contract has `max_cost` or `max_input` set AND now receives `context: { attachment: ... }`, you must declare `attachment_token_estimate(n)` (conservative input-token budget for the attachment) — otherwise the call fails closed with `:limit_exceeded`. The gem cannot bound vision/PDF cost without your estimate. Opt out per-step with `on_unknown_attachment_size :warn`. Text-only contracts are unaffected. See [multimodal input guide](docs/guide/multimodal_input.md).
+
 ## License
 
 MIT

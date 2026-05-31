@@ -160,6 +160,49 @@ module RubyLLM
           end
         end
 
+        def attachment_token_estimate(n = nil)
+          if n == :default
+            @attachment_token_estimate = nil
+            @attachment_token_estimate_explicitly_unset = true
+            return nil
+          end
+
+          if n
+            unless n.is_a?(Numeric) && n.positive?
+              raise ArgumentError, "attachment_token_estimate must be positive, got #{n}"
+            end
+
+            @attachment_token_estimate_explicitly_unset = false
+            return @attachment_token_estimate = n
+          end
+
+          if defined?(@attachment_token_estimate) && !@attachment_token_estimate_explicitly_unset
+            return @attachment_token_estimate
+          end
+          return nil if @attachment_token_estimate_explicitly_unset
+
+          superclass.attachment_token_estimate if superclass.respond_to?(:attachment_token_estimate)
+        end
+
+        def on_unknown_attachment_size(mode = nil)
+          if mode
+            unless %i[refuse warn].include?(mode)
+              raise ArgumentError,
+                    "on_unknown_attachment_size must be :refuse or :warn, got #{mode.inspect}"
+            end
+
+            return @on_unknown_attachment_size = mode
+          end
+
+          if defined?(@on_unknown_attachment_size)
+            @on_unknown_attachment_size
+          elsif superclass.respond_to?(:on_unknown_attachment_size)
+            superclass.on_unknown_attachment_size
+          else
+            :refuse
+          end
+        end
+
         def model(name = nil)
           if name == :default
             @model = nil

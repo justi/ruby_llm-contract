@@ -11,12 +11,45 @@ module RubyLLM
         def check_limits(messages)
           return nil unless max_input || max_cost
 
-          estimated = TokenEstimator.estimate(messages)
+          text_tokens = TokenEstimator.estimate(messages)
+          attachment_tokens, attachment_error = resolve_attachment_tokens
+          if attachment_error
+            return build_limit_result(messages, text_tokens, [attachment_error])
+          end
+
+          estimated = text_tokens + attachment_tokens
           errors = collect_limit_errors(estimated)
 
           return nil if errors.empty?
 
           build_limit_result(messages, estimated, errors)
+        end
+
+        # Fail-closed: when an attachment is passed via context but no
+        # attachment_token_estimate is declared, the gem cannot bound vision/
+        # PDF cost. Refuses with a clear error unless on_unknown_attachment_size
+        # is :warn (per-step opt-out, mirroring on_unknown_pricing).
+        def resolve_attachment_tokens
+          return [0, nil] unless attachment_present?
+
+          estimate = attachment_token_estimate
+          if estimate.nil?
+            if on_unknown_attachment_size == :warn
+              warn "[ruby_llm-contract] attachment present but " \
+                   "attachment_token_estimate not declared — cost limit not enforced " \
+                   "for the attachment portion"
+              return [0, nil]
+            end
+
+            return [0,
+                    "attachment present but attachment_token_estimate not declared; " \
+                    "cost cannot be bounded. Declare " \
+                    "`attachment_token_estimate(n)` on the step class, or set " \
+                    "`on_unknown_attachment_size :warn` to proceed without attachment " \
+                    "cost checks."]
+          end
+
+          [estimate, nil]
         end
 
         def collect_limit_errors(estimated)

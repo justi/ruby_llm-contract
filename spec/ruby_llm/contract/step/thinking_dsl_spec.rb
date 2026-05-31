@@ -158,8 +158,9 @@ RSpec.describe "Step thinking DSL" do
         def with_schema(_); self; end
         def with_instructions(_); self; end
         def add_message(**); end
-        def ask(content)
+        def ask(content, with: nil)
           @messages << content
+          @last_attachment = with
           OpenStruct.new(content: '{"ok":true}', input_tokens: 10, output_tokens: 5)
         end
       end

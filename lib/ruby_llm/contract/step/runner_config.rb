@@ -15,6 +15,8 @@ module RubyLLM
         :max_input,
         :max_cost,
         :on_unknown_pricing,
+        :attachment_token_estimate,
+        :on_unknown_attachment_size,
         :temperature,
         :extra_options,
         :observers

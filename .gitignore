@@ -12,3 +12,5 @@ Gemfile.lock
 /internal/
 /doc/decisions/
 /docs/ideas/
+/.revive/
+/.bin/

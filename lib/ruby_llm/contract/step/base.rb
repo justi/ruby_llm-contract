@@ -21,12 +21,16 @@ module RubyLLM
                              context: context).results.first
           end
 
-          def estimate_cost(input:, model: nil)
+          def estimate_cost(input:, model: nil, attachment: nil)
             model_name = estimated_model_name(model)
             model_info = CostCalculator.send(:find_model, model_name)
             return nil unless model_info
 
-            input_tokens = TokenEstimator.estimate(build_messages(input))
+            text_tokens = TokenEstimator.estimate(build_messages(input))
+            attachment_tokens, attachment_error = resolve_attachment_tokens(attachment)
+            return nil if attachment_error
+
+            input_tokens = text_tokens + attachment_tokens
             output_tokens = max_output || DEFAULT_OUTPUT_TOKENS
 
             {
@@ -71,7 +75,7 @@ module RubyLLM
           end
 
           KNOWN_CONTEXT_KEYS = %i[adapter model temperature max_tokens provider assume_model_exists
-                                  reasoning_effort retry_policy_override].freeze
+                                  reasoning_effort retry_policy_override attachment].freeze
 
           include Concerns::ContextHelpers
 
@@ -110,6 +114,25 @@ module RubyLLM
               model_info,
               { input_tokens: input_tokens, output_tokens: output_tokens }
             )
+          end
+
+          # Returns [tokens, error?] where error is true when fail-closed should
+          # short-circuit the caller. Mirrors limit_checker.rb fail-closed policy
+          # so estimate_cost and runtime check_limits agree on the same input.
+          def resolve_attachment_tokens(attachment)
+            return [0, false] if attachment.nil?
+
+            estimate = attachment_token_estimate if respond_to?(:attachment_token_estimate)
+            return [estimate, false] unless estimate.nil?
+
+            mode = respond_to?(:on_unknown_attachment_size) ? on_unknown_attachment_size : :refuse
+            if mode == :warn
+              warn "[ruby_llm-contract] attachment present but attachment_token_estimate not " \
+                   "declared on #{name || self} — estimate_cost proceeds without attachment cost"
+              return [0, false]
+            end
+
+            [0, true]
           end
 
           def estimate_eval_cost_for_model(cases, model_name)
@@ -159,7 +182,7 @@ module RubyLLM
 
           def runtime_settings(context)
             policy = context.key?(:retry_policy_override) ? context[:retry_policy_override] : retry_policy
-            extra = context.slice(:provider, :assume_model_exists, :max_tokens, :reasoning_effort)
+            extra = context.slice(:provider, :assume_model_exists, :max_tokens, :reasoning_effort, :attachment)
 
             # Always pass the class-level `thinking` config to the adapter when
             # set, so fields like `budget` survive a per-call `reasoning_effort`
@@ -224,6 +247,8 @@ module RubyLLM
                   adapter: adapter, model: model, output_schema: output_schema,
                   max_output: max_output, max_input: max_input, max_cost: max_cost,
                   on_unknown_pricing: on_unknown_pricing,
+                  attachment_token_estimate: attachment_token_estimate,
+                  on_unknown_attachment_size: on_unknown_attachment_size,
                   temperature: effective_temp, extra_options: extra_options,
                   observers: class_observers
                 )
