@@ -1,6 +1,16 @@
 # Changelog
 
+## 0.10.1 (2026-06-01)
+
+Patch release fixing gem packaging. 0.10.0 was yanked from rubygems.org due to the issue documented below; 0.10.1 is the recommended upgrade target. No code behavior change vs 0.10.0.
+
+### Fixed
+
+- **Gem no longer ships internal tracker / dev configs.** Excluded from `spec.files`: `TODO.md`, `.rspec`, `.rubycritic.yml`, `.simplecov`, and the `.revive/` directory. Pre-0.10.1 the published gem contained these files; adopters who already extracted 0.10.0 can safely delete them.
+
 ## 0.10.0 (2026-06-01)
+
+First published release since 0.8.0. Consolidates work originally tagged as 0.9.0 (multimodal input) and 0.9.1 (internal quality refactor), neither of which was pushed to rubygems. Adopters upgrading from 0.8.0 should read the **Behavioural change** and **Breaking changes** sections below before installing.
 
 ### Breaking changes
 
@@ -18,24 +28,20 @@ validate("") { |o| o[:score].between?(0, 100) }
 validate("score in range 0-100") { |o| o[:score].between?(0, 100) }
 ```
 
+### Added
+
+- **Multimodal input via `context: { attachment: ... }`** — pass a file/IO/URL through `Step.run(input, context: { attachment: path })`; the adapter forwards it to `RubyLLM::Chat#ask(content, with: attachment)`. RubyLLM normalises wire format per provider (Anthropic url/base64, OpenAI `image_url`/`file`, Gemini `inline_data`). Multi-attachment supported natively (`with: [pdf1, pdf2]` or `with: { images: [...], pdfs: [...] }`). See [multimodal input guide](docs/guide/multimodal_input.md) and [ADR-0022](doc/decisions/ADR-0022-v09-multimodal-input.md).
+- **`attachment_token_estimate(n)` class macro** — adopter-declared conservative estimate of attachment input tokens. Applied to BOTH runtime (`limit_checker`) and pre-flight (`estimate_cost`) — same source of truth, no estimate/runtime drift.
+- **`on_unknown_attachment_size(:refuse | :warn)` class macro** — mirrors `on_unknown_pricing` opt-out semantics. Defaults to `:refuse`. Never settable as global default — same invariant as `max_cost` fail-closed.
+
+### Behavioural change (READ BEFORE UPGRADING)
+
+- **Contracts with `max_cost` or `max_input` AND `context[:attachment]` set AND no `attachment_token_estimate` declared → REFUSE with `:limit_exceeded`.** This is fail-closed semantics: the gem cannot bound vision/PDF token cost without an adopter-declared estimate. Opt out per-step with `on_unknown_attachment_size :warn`. Text-only contracts and contracts without `max_cost`/`max_input` are unaffected.
+
 ### Changed
 
-- **`run_eval` (no args) return shape pinned to `Hash<String, Report>` keyed by eval name.** Documents the existing contract used by `RubyLLM::Contract::RakeTask#collect_host_reports` and adopters. No runtime change vs 0.8.0 / 0.9.x — only the spec assertion now locks the shape.
+- **`run_eval` (no args) return shape pinned to `Hash<String, Report>` keyed by eval name.** Documents the existing contract used by `RubyLLM::Contract::RakeTask#collect_host_reports` and adopters. No runtime change vs 0.8.0 — only the spec assertion now locks the shape.
 - **`Parser.parse(text, strategy: :json)` first-bracket-wins boundary documented.** Extraction commits to the first balanced `{` or `[` structure and does NOT retry on later candidates. Empty `{}` followed by real JSON parses as the empty Hash; non-JSON `{braces}` before real JSON raises `ParseError`. No runtime change — this codifies long-standing behavior with explicit boundary tests.
-
-### Internal
-
-- Suite-wide anti-facade audit complete: 89/89 spec files under per-test 17-mode walk (Phase A: 26 specs, Phase C: 63 specs via parallel Codex fan-out). Net +30 strengthened tests against mutation-blind assertions, zero public API change beyond the breaking entry above.
-
-### Tests
-
-- Suite: 1401 examples / 0 failures / 7 pending (was 1371/0/8 at 0.9.1).
-
-## 0.9.1 (2026-05-31)
-
-Internal quality refactor batch — zero public API change. Pulls a Codex
-code-quality audit forward to the closest patch boundary so adopters bumping
-to `~> 0.9.0` immediately get the safer code path on the next install.
 
 ### Fixed
 
@@ -45,36 +51,18 @@ to `~> 0.9.0` immediately get the safer code path on the next install.
 
 ### Internal
 
+- **Anti-facade audit complete: 89/89 spec files under per-test 17-mode walk** (Phase A: 26 specs, Phase C: 63 specs via parallel Codex fan-out). Net +30 strengthened tests against mutation-blind assertions, zero public API change beyond the breaking entry above.
 - **Dead `ObjectSpace.each_object(Class)` fallback removed** in `concerns/eval_host.rb#register_subclasses`. The gemspec requires Ruby `>= 3.2.0`, so `Class#subclasses` (Ruby ≥ 3.1) is always available; the legacy fallback was unreachable code that would have iterated all loaded classes O(n) and was not thread-safe.
 
-### Tests
-
-- +12 net new tests across `cost_calculator_spec.rb`, `eval_host_spec.rb`, `retry_optimizer_spec.rb`, `f1_stub_step_block_spec.rb` — each batch added characterization tests BEFORE refactor, then replaced with new contract tests post-refactor.
-- Suite: 1346 examples / 0 failures / 8 pending.
-
-### Refactor backlog (deferred to 0.10.0+)
-
-Documented in `TODO.md`. Remaining Codex findings: `Runner.new` 17 kwargs → `RunnerConfig` factory; DSL inheritance walk DRY + `UNSET` sentinel; `RakeTask#define_task` god method → `SuiteGate` extraction.
-
-## 0.9.0 (2026-05-31)
-
-Multimodal input. Adopter-driven feature (pdf_to_quiz Faza 2). See [ADR-0022](doc/decisions/ADR-0022-v09-multimodal-input.md) for the full design record.
-
-### Added
-
-- **Multimodal input via `context: { attachment: ... }`** — pass a file/IO/URL through `Step.run(input, context: { attachment: path })`; the adapter forwards it to `RubyLLM::Chat#ask(content, with: attachment)`. RubyLLM normalises wire format per provider (Anthropic url/base64, OpenAI `image_url`/`file`, Gemini `inline_data`). Multi-attachment supported natively (`with: [pdf1, pdf2]` or `with: { images: [...], pdfs: [...] }`).
-- **`attachment_token_estimate(n)` class macro** — adopter-declared conservative estimate of attachment input tokens. Applied to BOTH runtime (`limit_checker`) and pre-flight (`estimate_cost`) — same source of truth, no estimate/runtime drift.
-- **`on_unknown_attachment_size(:refuse | :warn)` class macro** — mirrors `on_unknown_pricing` opt-out semantics. Defaults to `:refuse`. Never settable as global default — same invariant as `max_cost` fail-closed.
-
-### Behavioural change (READ BEFORE UPGRADING)
-
-- **Contracts with `max_cost` or `max_input` AND `context[:attachment]` set AND no `attachment_token_estimate` declared → REFUSE with `:limit_exceeded`.** This is fail-closed semantics: the gem cannot bound vision/PDF token cost without an adopter-declared estimate. Opt out per-step with `on_unknown_attachment_size :warn`. Text-only contracts and contracts without `max_cost`/`max_input` are unaffected.
-
-### Deferred (not in 0.9.0)
+### Deferred (not in 0.10.x)
 
 - `add_history` multi-turn replay of prior attachments — single-turn multimodal supported; follow-up questions on the same document deferred to a later release.
 - Streaming + attachment — contract steps remain synchronous.
 - Provider-specific attachment size caps — surface only via `attachment_token_estimate` calibration; consult provider docs.
+
+### Tests
+
+- Suite: 1401 examples / 0 failures / 7 pending (was 1346/0/8 at 0.8.0).
 
 ## 0.8.0 (2026-04-26)
 

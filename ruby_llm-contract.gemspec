@@ -23,9 +23,13 @@ Gem::Specification.new do |spec|
   spec.metadata["rubygems_mfa_required"] = "true"
 
   spec.files = Dir.chdir(__dir__) do
+    # Internal trackers + dev configs excluded so the published gem
+    # contains only what adopters actually need at runtime.
+    excluded_files = %w[TODO.md .rspec .rubycritic.yml .simplecov]
     `git ls-files -z`.split("\x0").reject do |f|
       (File.expand_path(f) == __FILE__) ||
-        f.start_with?("spec/", "docs/", "doc/", ".ai/", ".claude/", ".git")
+        f.start_with?("spec/", "docs/", "doc/", ".ai/", ".claude/", ".git", ".revive/") ||
+        excluded_files.include?(f)
     end
   end
   spec.require_paths = ["lib"]
