@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.10.3 (2026-06-10)
+
+Hot-fix release: the schema validator now correctly accepts `nil` on **required-but-nullable** fields. This unblocks OpenAI structured-output strict mode, where every property has to be in `required` and "nullable" is expressed as a `null` branch in `anyOf`/`oneOf` or as an array `type` — exactly the combination the prior validator wrongly rejected.
+
+### Fixed
+
+- **`SchemaValidator` no longer rejects legal `nil` on required-nullable fields.** Pre-0.10.3 (every published version 0.2.x–0.10.2) conflated "required" (must be present) with "non-nullable" (cannot be null) — JSON Schema treats those as orthogonal. The validator now honours all three idioms for nullability:
+  - `type: ["string", "null"]` (array form)
+  - `type: "null"` (degenerate scalar form)
+  - `anyOf: [{type: "string"}, {type: "null"}]` and `oneOf` equivalents
+
+  **Adopter impact:** if you bypassed the bug by setting `required: false` + disabling OpenAI `strict: true` on every nullable field, you can now restore `strict: true` and keep the field required (= OpenAI's standard nullable idiom). Non-nullable required fields still reject `nil` exactly as before; this is a strictly additive fix.
+
+  Discovered via dogfooding in a production adopter using OpenAI strict structured output with 17 nullable fields (`"set the rest to null"` prompt). Smoking-gun mutation: remove `nullable_schema?` short-circuit from `validate_nil_field` — the three new spec cases in `spec/ruby_llm/contract/contract/schema_validator_spec.rb` fail.
+
 ## 0.10.2 (2026-06-10)
 
 Patch release: ship the `docs/guide/` directory inside the gem so adopters and LLM integration agents can read the manuals locally (via `bundle show ruby_llm-contract` or `gem unpack`) without an internet round-trip to GitHub. No code behavior change.

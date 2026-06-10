@@ -425,6 +425,86 @@ RSpec.describe RubyLLM::Contract::SchemaValidator do
         errors = described_class.validate({ name: "Alice", bio: nil }, optional_schema)
         expect(errors).to be_empty
       end
+
+      # ----------------------------------------------------------------
+      # Bug fix in 0.10.3 — validator must respect nullable schemas on
+      # required fields. Before the fix, `type: ["string", "null"]`,
+      # `anyOf: [{type:"string"}, {type:"null"}]`, and `oneOf` equivalents
+      # were all rejected when the value was nil, even though JSON Schema
+      # explicitly permits null. Smoking-gun mutation: removing
+      # `nullable_schema?` short-circuit from `validate_nil_field` makes
+      # each of these tests fail with "expected ..., got nil".
+      # ----------------------------------------------------------------
+      it "passes nil on required field when schema declares type: [..., 'null'] (array form)" do
+        nullable_schema = double("nullable_schema").tap do |s|
+          allow(s).to receive(:respond_to?).with(:to_json_schema).and_return(true)
+          allow(s).to receive(:to_json_schema).and_return({
+                                                            schema: {
+                                                              type: "object",
+                                                              properties: {
+                                                                x: { type: ["string", "null"] }
+                                                              },
+                                                              required: ["x"]
+                                                            }
+                                                          })
+        end
+        errors = described_class.validate({ x: nil }, nullable_schema)
+        expect(errors).to be_empty
+      end
+
+      it "passes nil on required field when schema uses anyOf with null branch" do
+        nullable_schema = double("nullable_schema").tap do |s|
+          allow(s).to receive(:respond_to?).with(:to_json_schema).and_return(true)
+          allow(s).to receive(:to_json_schema).and_return({
+                                                            schema: {
+                                                              type: "object",
+                                                              properties: {
+                                                                y: { anyOf: [{ type: "string" }, { type: "null" }] }
+                                                              },
+                                                              required: ["y"]
+                                                            }
+                                                          })
+        end
+        errors = described_class.validate({ y: nil }, nullable_schema)
+        expect(errors).to be_empty
+      end
+
+      it "passes nil on required field when schema uses oneOf with null branch" do
+        nullable_schema = double("nullable_schema").tap do |s|
+          allow(s).to receive(:respond_to?).with(:to_json_schema).and_return(true)
+          allow(s).to receive(:to_json_schema).and_return({
+                                                            schema: {
+                                                              type: "object",
+                                                              properties: {
+                                                                z: { oneOf: [{ type: "integer" }, { type: "null" }] }
+                                                              },
+                                                              required: ["z"]
+                                                            }
+                                                          })
+        end
+        errors = described_class.validate({ z: nil }, nullable_schema)
+        expect(errors).to be_empty
+      end
+
+      it "still rejects nil on required field when schema is non-nullable" do
+        # Regression guard: the fix must not over-relax. Plain non-nullable
+        # required field (no array type / no anyOf-null) must still raise.
+        non_nullable_schema = double("non_nullable_schema").tap do |s|
+          allow(s).to receive(:respond_to?).with(:to_json_schema).and_return(true)
+          allow(s).to receive(:to_json_schema).and_return({
+                                                            schema: {
+                                                              type: "object",
+                                                              properties: {
+                                                                w: { type: "string" }
+                                                              },
+                                                              required: ["w"]
+                                                            }
+                                                          })
+        end
+        errors = described_class.validate({ w: nil }, non_nullable_schema)
+        expect(errors).not_to be_empty
+        expect(errors.first).to match(/w.*expected.*got nil/)
+      end
     end
   end
 end
