@@ -28,7 +28,7 @@ Gem::Specification.new do |spec|
     excluded_files = %w[TODO.md .rspec .rubycritic.yml .simplecov]
     `git ls-files -z`.split("\x0").reject do |f|
       (File.expand_path(f) == __FILE__) ||
-        f.start_with?("spec/", "docs/", "doc/", ".ai/", ".claude/", ".git", ".revive/") ||
+        f.start_with?("spec/", "docs/ideas/", "doc/", ".ai/", ".claude/", ".git", ".revive/") ||
         excluded_files.include?(f)
     end
   end

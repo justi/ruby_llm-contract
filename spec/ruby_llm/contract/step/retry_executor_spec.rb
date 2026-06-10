@@ -22,7 +22,7 @@ RSpec.describe RubyLLM::Contract::Step::RetryExecutor do
           invariant("key not empty") { |o| o[:key].to_s != "" }
         end
         retry_policy do
-          escalate({ model: "gpt-4.1-nano" }, { model: "gpt-4.1-mini", reasoning_effort: "high" })
+          escalate({ model: "gpt-5-nano" }, { model: "gpt-5-mini", reasoning_effort: "high" })
         end
       end
 
@@ -51,7 +51,7 @@ RSpec.describe RubyLLM::Contract::Step::RetryExecutor do
           invariant("always fails") { |_o| false }
         end
         retry_policy do
-          escalate({ model: "gpt-4.1-nano" }, { model: "gpt-4.1-mini", reasoning_effort: "high" })
+          escalate({ model: "gpt-5-nano" }, { model: "gpt-5-mini", reasoning_effort: "high" })
         end
       end
 

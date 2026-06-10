@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.10.2 (2026-06-10)
+
+Patch release: ship the `docs/guide/` directory inside the gem so adopters and LLM integration agents can read the manuals locally (via `bundle show ruby_llm-contract` or `gem unpack`) without an internet round-trip to GitHub. No code behavior change.
+
+### Added
+
+- **`docs/guide/*` is now packaged with the gem** (14 files, ~120 KB). Previously the README's "See also" links pointed at `docs/guide/getting_started.md`, `docs/guide/optimizing_retry_policy.md`, etc., but those files were stripped from the published gem - LLM integration agents (Cursor, Claude Code, Copilot) reported "no documentation in the gem" because the links 404'd locally. `docs/ideas/` and `doc/decisions/` remain excluded.
+
+### Fixed
+
+- **`models:` keyword form documented + pinned for hash configs.** `retry_policy models: ["gpt-5-nano", { model: "gpt-5-mini", reasoning_effort: "high" }]` is now covered by a spec and shown in [getting_started.md](docs/guide/getting_started.md). The block form (`escalate(...)`) and the keyword form share the same `@configs` storage; both forms accept config hashes.
+- **`reasoning_effort` examples corrected to gpt-5 family.** Pre-0.10.2 docs and specs paired `reasoning_effort` with `gpt-4.1-*` model names, which is incorrect: `gpt-4.1` is not a reasoning model. Updated across `docs/guide/getting_started.md`, `docs/guide/optimizing_retry_policy.md`, `CHANGELOG.md`, and 7 spec files. Non-reasoning `gpt-4.1` examples (model fallback chains without `reasoning_effort`) are unchanged.
+- **Version mentions corrected in README and multimodal guide.** README FAQ ("Upgraded to 0.9.0 - why?") now reads "Upgraded to 0.10.0 from 0.8.x"; `docs/guide/multimodal_input.md` references `0.10.0+` and `0.10.x` instead of `0.9.0`. 0.9.0 and 0.9.1 were tagged but never published to rubygems; adopters jump from 0.8.0 directly to 0.10.x.
+
 ## 0.10.1 (2026-06-01)
 
 Patch release fixing gem packaging. 0.10.0 was yanked from rubygems.org due to the issue documented below; 0.10.1 is the recommended upgrade target. No code behavior change vs 0.10.0.
@@ -254,7 +268,7 @@ end
 - **`Step.recommend`** — `ClassifyTicket.recommend("eval", candidates: [...], min_score: 0.95)` runs eval on all candidates and returns a `Recommendation` with optimal model, retry chain, rationale, savings vs current config, and `to_dsl` code output.
 - **Candidates as configurations** — `candidates:` accepts `{ model:, reasoning_effort: }` hashes, not just model name strings. `gpt-5-mini` with `reasoning_effort: "low"` is a different candidate than with `"high"`.
 - **`compare_models` extended** — new `candidates:` parameter alongside existing `models:` (backward compatible). Candidate labels include reasoning effort in output table.
-- **Per-attempt `reasoning_effort` in retry policies** — `escalate` accepts config hashes: `escalate({ model: "gpt-4.1-nano" }, { model: "gpt-5-mini", reasoning_effort: "high" })`. Each attempt gets its own reasoning_effort forwarded to the provider.
+- **Per-attempt `reasoning_effort` in retry policies** — `escalate` accepts config hashes: `escalate({ model: "gpt-5-nano" }, { model: "gpt-5-mini", reasoning_effort: "high" })`. Each attempt gets its own reasoning_effort forwarded to the provider.
 - **`pass_rate_ratio`** — numeric float (0.0–1.0) on `Report` and `ReportStats`, complementing the string `pass_rate` (`"3/5"`).
 - **History entries enriched** — `save_history!` accepts `reasoning_effort:` and stores `model`, `reasoning_effort`, `pass_rate_ratio` in JSONL entries.
 

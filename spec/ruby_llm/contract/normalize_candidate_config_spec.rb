@@ -32,8 +32,8 @@ RSpec.describe "RubyLLM::Contract.normalize_candidate_config" do
     end
 
     it "excludes reasoning_effort when nil" do
-      result = normalize.({ model: "gpt-4.1-mini", reasoning_effort: nil })
-      expect(result).to eq({ model: "gpt-4.1-mini" })
+      result = normalize.({ model: "gpt-5-mini", reasoning_effort: nil })
+      expect(result).to eq({ model: "gpt-5-mini" })
     end
   end
 
@@ -70,7 +70,7 @@ RSpec.describe "RubyLLM::Contract.normalize_candidate_config" do
 
   describe "returns a new hash (no caller mutation)" do
     it "does not freeze the caller's hash" do
-      original = { model: "gpt-4.1-mini", reasoning_effort: "low" }
+      original = { model: "gpt-5-mini", reasoning_effort: "low" }
       normalize.(original)
       expect(original).not_to be_frozen
     end
