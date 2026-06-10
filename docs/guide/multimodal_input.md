@@ -2,7 +2,7 @@
 
 > Read this when your contract needs to send a PDF, image, or audio file to the LLM — not just text.
 
-`ruby_llm-contract` 0.9.0+ routes attachments through the contract layer, so `max_cost`, `validate`, `retry_policy escalate(...)`, and trace observability still apply. The gem does **not** ship its own multimodal API — it forwards `with:` to `RubyLLM::Chat#ask`, which RubyLLM 1.15+ normalises per provider (Anthropic, OpenAI, Gemini).
+`ruby_llm-contract` 0.10.0+ routes attachments through the contract layer, so `max_cost`, `validate`, `retry_policy escalate(...)`, and trace observability still apply. The gem does **not** ship its own multimodal API — it forwards `with:` to `RubyLLM::Chat#ask`, which RubyLLM 1.15+ normalises per provider (Anthropic, OpenAI, Gemini).
 
 ## Minimal example
 
@@ -130,7 +130,7 @@ Pick a value at or above the provider's worst-case. The estimate is a **floor fo
 
 ## Multi-turn caveat
 
-If your contract uses history (`add_history`), attachments from prior turns are **not** replayed in 0.9.0. Single-turn multimodal works; follow-up questions on the same document require additional work that is deferred to a later release. See [ADR-0022](../decisions/ADR-0022-v09-multimodal-input.md) (internal) for the rationale.
+If your contract uses history (`add_history`), attachments from prior turns are **not** replayed in 0.10.x. Single-turn multimodal works; follow-up questions on the same document require additional work that is deferred to a later release. See [ADR-0022](../decisions/ADR-0022-v09-multimodal-input.md) (internal) for the rationale.
 
 ## Provider notes
 
