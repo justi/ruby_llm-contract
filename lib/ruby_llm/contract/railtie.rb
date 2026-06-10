@@ -21,6 +21,14 @@ module RubyLLM
       config.to_prepare do
         RubyLLM::Contract.load_evals!
       end
+
+      # Auto-load rake tasks in Rails apps so `bin/rails ruby_llm_contract:optimize`
+      # works without an explicit `require "ruby_llm/contract/rake_task"` in the
+      # adopter's Rakefile / lib/tasks. Standard Rails railtie idiom: the
+      # `rake_tasks` block fires lazily during `rake` invocation, no boot cost.
+      rake_tasks do
+        require "ruby_llm/contract/rake_task"
+      end
     end
   end
 end

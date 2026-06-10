@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.10.4 (2026-06-10)
+
+Patch release: the `ruby_llm_contract:optimize` rake task now auto-loads in Rails apps. No behaviour change to the task itself.
+
+### Fixed
+
+- **`ruby_llm_contract:optimize` no longer requires manual `require "ruby_llm/contract/rake_task"` in Rails apps.** Pre-0.10.4 the docs claimed the task was "included" with `RubyLLM::Contract::RakeTask`, but the railtie did not load the file — adopters running `bin/rails ruby_llm_contract:optimize` got `Unrecognized command` until they added the require to `Rakefile` or `lib/tasks/*.rake`. The railtie now uses the standard `rake_tasks { require "..." }` idiom, lazy-loading the file only when `rake` is invoked (no boot cost).
+- **Docs corrected** in `docs/guide/optimizing_retry_policy.md` — the "rake task is included" line now explicitly states it auto-loads on 0.10.4+ in Rails, and that non-Rails / older-Rails setups still need the explicit `require`.
+
 ## 0.10.3 (2026-06-10)
 
 Hot-fix release: the schema validator now correctly accepts `nil` on **required-but-nullable** fields. This unblocks OpenAI structured-output strict mode, where every property has to be in `required` and "nullable" is expressed as a `null` branch in `anyOf`/`oneOf` or as an array `type` — exactly the combination the prior validator wrongly rejected.

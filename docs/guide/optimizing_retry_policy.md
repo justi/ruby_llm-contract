@@ -8,7 +8,7 @@ You defined `SummarizeArticle` in the [README](../../README.md) with `retry_poli
 
 - **`SummarizeArticle` already has `retry_policy`.** If your step has none, add one first ([getting started](getting_started.md)).
 - **2–3 evals per step.** One eval optimizes for one scenario; with only `smoke`, you get a recommendation that passes smoke but may miss production edge cases. See [eval-first](eval_first.md).
-- **Rake tasks.** The standard `RubyLLM::Contract::RakeTask` includes `ruby_llm_contract:optimize`. Non-Rails projects: set `EVAL_DIRS=...`.
+- **Rake task `ruby_llm_contract:optimize` is registered when `lib/ruby_llm/contract/rake_task.rb` is loaded.** In Rails apps on **0.10.4+** the railtie auto-loads it lazily during `rake` invocation — no manual setup needed. On older Rails versions or in non-Rails projects, add `require "ruby_llm/contract/rake_task"` to your `Rakefile` (or any file under `lib/tasks/`) and set `EVAL_DIRS=...` on the command line.
 
 > **Two orthogonal dimensions to a retry chain.** A chain element is `{ model:, reasoning_effort: }` — model identity AND thinking budget. `optimize_retry_policy` explores both. You can also fix the thinking config at class level via `thinking effort: :low` (or alias `reasoning_effort :low`) on the Step — it becomes the default for every chain element unless an override is passed. See the `thinking` DSL note at the bottom of this guide.
 
