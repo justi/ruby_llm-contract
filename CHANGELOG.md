@@ -254,7 +254,7 @@ end
 - **`Step.recommend`** — `ClassifyTicket.recommend("eval", candidates: [...], min_score: 0.95)` runs eval on all candidates and returns a `Recommendation` with optimal model, retry chain, rationale, savings vs current config, and `to_dsl` code output.
 - **Candidates as configurations** — `candidates:` accepts `{ model:, reasoning_effort: }` hashes, not just model name strings. `gpt-5-mini` with `reasoning_effort: "low"` is a different candidate than with `"high"`.
 - **`compare_models` extended** — new `candidates:` parameter alongside existing `models:` (backward compatible). Candidate labels include reasoning effort in output table.
-- **Per-attempt `reasoning_effort` in retry policies** — `escalate` accepts config hashes: `escalate({ model: "gpt-4.1-nano" }, { model: "gpt-5-mini", reasoning_effort: "high" })`. Each attempt gets its own reasoning_effort forwarded to the provider.
+- **Per-attempt `reasoning_effort` in retry policies** — `escalate` accepts config hashes: `escalate({ model: "gpt-5-nano" }, { model: "gpt-5-mini", reasoning_effort: "high" })`. Each attempt gets its own reasoning_effort forwarded to the provider.
 - **`pass_rate_ratio`** — numeric float (0.0–1.0) on `Report` and `ReportStats`, complementing the string `pass_rate` (`"3/5"`).
 - **History entries enriched** — `save_history!` accepts `reasoning_effort:` and stores `model`, `reasoning_effort`, `pass_rate_ratio` in JSONL entries.
 

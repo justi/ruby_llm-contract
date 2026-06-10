@@ -300,12 +300,12 @@ RSpec.describe RubyLLM::Contract::Step::Base do
       step = Class.new(described_class) do
         prompt "test {input}"
         retry_policy do
-          escalate({ model: "gpt-4.1-nano" }, { model: "gpt-4.1-mini", reasoning_effort: "high" })
+          escalate({ model: "gpt-5-nano" }, { model: "gpt-5-mini", reasoning_effort: "high" })
         end
       end
 
       config = step.send(:current_model_config)
-      expect(config).to eq({ model: "gpt-4.1-nano" })
+      expect(config).to eq({ model: "gpt-5-nano" })
     end
 
     it "returns model hash when no retry_policy" do

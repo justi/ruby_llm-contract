@@ -79,8 +79,8 @@ Copy the DSL, paste into your step, verify with `rake ruby_llm_contract:eval`. Y
 ```ruby
 SummarizeArticle.compare_models(
   "dense_article",
-  candidates: [{ model: "gpt-4.1-nano" }, { model: "gpt-4.1-mini", reasoning_effort: "low" }],
-  production_mode: { fallback: "gpt-4.1-mini" }
+  candidates: [{ model: "gpt-5-nano" }, { model: "gpt-5-mini", reasoning_effort: "low" }],
+  production_mode: { fallback: "gpt-5-mini" }
 ).print_summary
 ```
 
@@ -89,11 +89,11 @@ Output (live mode, illustrative):
 ```
 dense_article — model comparison
 
-  Chain                                      first-attempt  fallback %  effective cost  latency   score
-  -----------------------------------------------------------------------------------------------------
-  gpt-4.1-nano → gpt-4.1-mini                $0.0010        33%         $0.0018         164ms     1.00
-  gpt-4.1-mini (effort: low) → gpt-4.1-mini  $0.0015         5%         $0.0016         210ms     1.00
-  gpt-4.1-mini                               $0.0030         —          $0.0030         220ms     1.00
+  Chain                                    first-attempt  fallback %  effective cost  latency   score
+  ---------------------------------------------------------------------------------------------------
+  gpt-5-nano → gpt-5-mini                  $0.0010        33%         $0.0018         164ms     1.00
+  gpt-5-mini (effort: low) → gpt-5-mini    $0.0015         5%         $0.0016         210ms     1.00
+  gpt-5-mini                               $0.0030         —          $0.0030         220ms     1.00
 ```
 
 - **first-attempt** — cost of the first run alone.
@@ -109,7 +109,7 @@ Run this before finalizing: a candidate saving 3× on first-attempt but falling 
 
 - **"No viable chain" from a single live run.** Re-run with `RUNS=3`. If scores jump, the first run was noise. Never trust single-run results with gpt-5 / o-series in the pool — `temperature=1.0` is server-enforced.
 - **Every candidate fails the same eval**, including the strongest. The eval is rejecting correct answers. Run the step directly (`context: { retry_policy_override: nil, model: "gpt-4.1" }`), inspect the output, compare with the `verify` block. Loosen the eval if the output is correct but not one of the accepted values.
-- **Testing one specific hypothesis.** (e.g. "does `mini@medium` help on `critical_tone`?") Use `SummarizeArticle.compare_models("critical_tone", candidates: [{ model: "gpt-4.1-mini", reasoning_effort: "medium" }], runs: 3)` directly — three calls instead of rerunning the whole optimize pass.
+- **Testing one specific hypothesis.** (e.g. "does `mini@medium` help on `critical_tone`?") Use `SummarizeArticle.compare_models("critical_tone", candidates: [{ model: "gpt-5-mini", reasoning_effort: "medium" }], runs: 3)` directly — three calls instead of rerunning the whole optimize pass.
 
 ## Programmatic API names
 

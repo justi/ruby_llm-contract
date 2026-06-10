@@ -61,6 +61,19 @@ result.trace[:attempts]
 
 If the whole chain exhausts, `result.status` is the status of the last attempt (`:validation_failed` or `:parse_error`) and `result.parsed_output` is the last attempt's output. The caller decides what to do — ship it anyway, fall back to a template, or raise.
 
+### Per-attempt reasoning effort
+
+`models:` accepts config hashes as well as model-name strings, so a fallback can "try harder" (more reasoning) on retry, not just switch model:
+
+```ruby
+retry_policy models: [
+  "gpt-5-nano",                                      # attempt 1: cheap + fast
+  { model: "gpt-5-mini", reasoning_effort: "high" }  # attempt 2: stronger + more reasoning
+]
+```
+
+`reasoning_effort` is a gpt-5 family feature (gpt-4.1 is not a reasoning model). The per-attempt value is forwarded via `with_thinking` (provider-agnostic — OpenAI `reasoning_effort` and Anthropic extended-thinking budget both supported). Passing it alongside a non-reasoning model is forwarded unchanged to the provider, which will either ignore it or reject the request — the gem does not guard against this.
+
 ## Evals and CI gates
 
 An eval is a named scenario you can run to verify the step still works. `sample_response` makes it offline — zero API calls — so CI can run it on every merge without burning budget.

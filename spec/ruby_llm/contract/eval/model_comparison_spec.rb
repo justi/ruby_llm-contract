@@ -24,13 +24,13 @@ RSpec.describe RubyLLM::Contract::Eval::ModelComparison do
     end
 
     it "includes reasoning_effort in label when present" do
-      config = { model: "gpt-4.1-mini", reasoning_effort: "high" }
-      expect(described_class.candidate_label(config)).to eq("gpt-4.1-mini (effort: high)")
+      config = { model: "gpt-5-mini", reasoning_effort: "high" }
+      expect(described_class.candidate_label(config)).to eq("gpt-5-mini (effort: high)")
     end
 
     it "does not include reasoning_effort when nil" do
-      config = { model: "gpt-4.1-mini", reasoning_effort: nil }
-      expect(described_class.candidate_label(config)).to eq("gpt-4.1-mini")
+      config = { model: "gpt-5-mini", reasoning_effort: nil }
+      expect(described_class.candidate_label(config)).to eq("gpt-5-mini")
     end
   end
 
@@ -65,18 +65,18 @@ RSpec.describe RubyLLM::Contract::Eval::ModelComparison do
     it "returns correct mapping when provided explicitly" do
       report = build_report("eval", [{ passed: true }])
       configs = {
-        "gpt-4.1-nano" => { model: "gpt-4.1-nano" },
-        "gpt-4.1-mini (effort: high)" => { model: "gpt-4.1-mini", reasoning_effort: "high" }
+        "gpt-5-nano" => { model: "gpt-5-nano" },
+        "gpt-5-mini (effort: high)" => { model: "gpt-5-mini", reasoning_effort: "high" }
       }
 
       comparison = described_class.new(
         eval_name: "test",
-        reports: { "gpt-4.1-nano" => report, "gpt-4.1-mini (effort: high)" => report },
+        reports: { "gpt-5-nano" => report, "gpt-5-mini (effort: high)" => report },
         configs: configs
       )
 
-      expect(comparison.configs["gpt-4.1-nano"]).to eq({ model: "gpt-4.1-nano" })
-      expect(comparison.configs["gpt-4.1-mini (effort: high)"]).to eq({ model: "gpt-4.1-mini", reasoning_effort: "high" })
+      expect(comparison.configs["gpt-5-nano"]).to eq({ model: "gpt-5-nano" })
+      expect(comparison.configs["gpt-5-mini (effort: high)"]).to eq({ model: "gpt-5-mini", reasoning_effort: "high" })
     end
 
     it "builds default configs from report keys when configs: not provided" do

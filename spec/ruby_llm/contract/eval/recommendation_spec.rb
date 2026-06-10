@@ -84,10 +84,10 @@ RSpec.describe RubyLLM::Contract::Eval::Recommendation do
 
     it "generates block form when reasoning_effort present" do
       rec = described_class.new(
-        best: { model: "gpt-4.1-mini", reasoning_effort: "high" },
+        best: { model: "gpt-5-mini", reasoning_effort: "high" },
         retry_chain: [
-          { model: "gpt-4.1-nano" },
-          { model: "gpt-4.1-mini", reasoning_effort: "high" }
+          { model: "gpt-5-nano" },
+          { model: "gpt-5-mini", reasoning_effort: "high" }
         ],
         score: 0.95,
         cost_per_call: 0.001,

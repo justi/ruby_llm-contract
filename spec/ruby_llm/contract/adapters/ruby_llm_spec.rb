@@ -147,7 +147,7 @@ RSpec.describe RubyLLM::Contract::Adapters::RubyLLM do
 
     context "with reasoning_effort option" do
       it "forwards reasoning_effort via with_thinking (canonical path since 0.8)" do
-        adapter.call(messages: [{ role: :user, content: "Hi" }], model: "gpt-4.1-mini", reasoning_effort: "low")
+        adapter.call(messages: [{ role: :user, content: "Hi" }], model: "gpt-5-mini", reasoning_effort: "low")
 
         expect(mock_chat).to have_received(:with_thinking).with(effort: "low")
       end
@@ -155,7 +155,7 @@ RSpec.describe RubyLLM::Contract::Adapters::RubyLLM do
 
     context "with both max_tokens and reasoning_effort" do
       it "forwards reasoning_effort via with_thinking and max_tokens via with_params" do
-        adapter.call(messages: [{ role: :user, content: "Hi" }], model: "gpt-4.1-mini",
+        adapter.call(messages: [{ role: :user, content: "Hi" }], model: "gpt-5-mini",
                      max_tokens: 100, reasoning_effort: "high")
 
         expect(mock_chat).to have_received(:with_thinking).with(effort: "high")
