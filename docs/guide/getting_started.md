@@ -8,6 +8,8 @@ The README shows a minimal `SummarizeArticle` step. This guide walks through the
 
 Start with the README example, then add features one layer at a time. Each is optional — use what you need.
 
+The `prompt` body uses a small template syntax — `{X}` placeholders are replaced with values from the input at call time. With the default `input_type String`, the entire `article_text` you pass to `SummarizeArticle.run(article_text)` lands in `{input}`. For `input_type Hash`, each top-level key becomes its own placeholder (e.g. `{summary}`, `{article}`). See [Prompt AST](prompt_ast.md) for the full DSL surface.
+
 ```ruby
 class SummarizeArticle < RubyLLM::Contract::Step::Base
   # 1. Prompt (required)
@@ -39,9 +41,11 @@ class SummarizeArticle < RubyLLM::Contract::Step::Base
 end
 ```
 
+Each `validate` block receives `(parsed_output, context)` — the convention `|o, _|` reads "output, ignore context". Use `o[:key]` to assert on any field your `output_schema` declared. The block returns truthy/falsy: `false` → status `:validation_failed`, retry fires if `retry_policy` was set.
+
 ## Validation and retry behavior
 
-When the cheap model returns output that fails a `validate` block or can't be parsed, retry falls back to the next model in `models:` and tries again.
+When the cheap model returns output that fails a `validate` block (status `:validation_failed`) or can't be parsed as JSON (status `:parse_error`), retry falls back to the next model in `models:` and tries again. Transport errors (timeouts, 5xx) retry independently via Faraday, not via `retry_policy`. See [Optimizing retry_policy](optimizing_retry_policy.md) for tuning the chain.
 
 ```ruby
 result = SummarizeArticle.run(article_text)
@@ -104,6 +108,8 @@ report.score    # => 1.0
 report.print_summary
 ```
 
+`default_input` sets the input once for every case in this eval — useful for smoke evals where you reuse one synthetic article. For regression evals where each case needs its own input, use `add_case input: "..."` (shown next).
+
 For real regression testing, define cases with expected output (online — calls the LLM):
 
 ```ruby
@@ -117,6 +123,8 @@ SummarizeArticle.define_eval("regression") do
            expected: { tone: "negative" }
 end
 ```
+
+`expected:` is treated as a partial match against `parsed_output` — extra output keys are ignored, listed keys must equal. So this case passes whenever the model produces `tone: "analytical"`, regardless of `tldr` content. To assert on multiple keys, list them all in `expected`.
 
 Gate CI on score and cost thresholds:
 

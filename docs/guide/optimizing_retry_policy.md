@@ -10,7 +10,7 @@ You defined `SummarizeArticle` in the [README](../../README.md) with `retry_poli
 - **2–3 evals per step.** One eval optimizes for one scenario; with only `smoke`, you get a recommendation that passes smoke but may miss production edge cases. See [eval-first](eval_first.md).
 - **Rake task `ruby_llm_contract:optimize` is registered when `lib/ruby_llm/contract/rake_task.rb` is loaded.** In Rails apps on **0.10.4+** the railtie auto-loads it lazily during `rake` invocation — no manual setup needed. On older Rails versions or in non-Rails projects, add `require "ruby_llm/contract/rake_task"` to your `Rakefile` (or any file under `lib/tasks/`) and set `EVAL_DIRS=...` on the command line.
 
-> **Two orthogonal dimensions to a retry chain.** A chain element is `{ model:, reasoning_effort: }` — model identity AND thinking budget. `optimize_retry_policy` explores both. You can also fix the thinking config at class level via `thinking effort: :low` (or alias `reasoning_effort :low`) on the Step — it becomes the default for every chain element unless an override is passed. See the `thinking` DSL note at the bottom of this guide.
+> **Two orthogonal dimensions to a retry chain.** A chain element is `{ model:, reasoning_effort: }` — model identity AND thinking budget. `optimize_retry_policy` explores both. You can pin the default thinking config at class level too — see the `thinking` DSL note at the end.
 
 For this guide, assume `SummarizeArticle` has three evals:
 
@@ -29,6 +29,8 @@ rake ruby_llm_contract:optimize \
   STEP=SummarizeArticle \
   CANDIDATES=gpt-4.1-nano,gpt-4.1-mini@low,gpt-4.1-mini,gpt-4.1
 ```
+
+The `@low` (or `@medium`, `@high`) suffix on a candidate is CLI shorthand for `{ model: "gpt-4.1-mini", reasoning_effort: :low }` — saves you constructing hash strings on the command line. Plain model names without `@` use the Step's default thinking config (or none).
 
 Offline uses each eval's `sample_response` — zero API calls. **Every candidate gets the same score** because they all receive the canned response. That's fine for a smoke test (verifying evals load, candidates parse, output renders) but it doesn't compare model quality. For real optimization, go live.
 
@@ -74,7 +76,7 @@ Copy the DSL, paste into your step, verify with `rake ruby_llm_contract:eval`. Y
 
 `optimize` shows **first-attempt** cost. In production, a candidate whose validator rejects 20% of outputs actually costs `first_try_cost + fallback_cost × 0.20` per successful output. The first-attempt number hides this.
 
-`production_mode: { fallback: "..." }` runs each candidate with a runtime `[candidate, fallback]` chain and reports effective cost:
+`production_mode:` is an optional `compare_models` kwarg. With `{ fallback: "model" }` it runs each candidate with a runtime `[candidate, fallback]` chain and reports **effective cost** (first-try + fallback cost weighted by rejection rate). Without it, you get only first-attempt metrics (the default).
 
 ```ruby
 SummarizeArticle.compare_models(

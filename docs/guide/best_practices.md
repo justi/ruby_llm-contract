@@ -80,6 +80,8 @@ end
 
 In a pipeline, each step only sees the previous step's output. If a later step needs original article metadata, an intermediate step must carry it through. Suppose a pipeline `SummarizeArticle → GenerateHashtags`, where `GenerateHashtags` needs the `tone` from the summary:
 
+`rule` is a prompt DSL element distinct from `system` / `user` — use it for declarative invariants the model must keep across the transform (full DSL surface in [Prompt AST](prompt_ast.md)).
+
 ```ruby
 class GenerateHashtags < RubyLLM::Contract::Step::Base
   input_type Hash

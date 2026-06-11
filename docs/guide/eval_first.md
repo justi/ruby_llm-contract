@@ -34,7 +34,24 @@ SummarizeArticle.define_eval("regression") do
 end
 ```
 
-Only after the eval exists, touch: `system`, `rule`, `example`, `validate`, prompt versions.
+"Partial match" means `expected` is treated as a subset of `parsed_output` — each key in `expected` must equal the corresponding key in the output, but extra keys in the output are ignored. So the `ruby release` case passes whenever the model produces `tone: "analytical"`, regardless of what shows up in `tldr` or `takeaways`. To assert on multiple keys, list them all in `expected`.
+
+Only after the eval exists, touch the prompt-shaping building blocks of the Step: `system`, `rule`, and `example` (blocks inside `prompt do`), `validate` (class-level invariant checks that run after the model returns), or the prompt version itself. See [Getting Started](getting_started.md) for the DSL surface.
+
+## Validate your oracle before you trust the score
+
+An eval is exactly as good as its ground-truth. Green tells you the system does what you **specified**, never what you **wanted**. Two failure modes show up the moment a regression eval is taken seriously:
+
+**1. Wrong oracle (green-but-wrong).** You hand-label the expected output — `expected: { page_type: "Article" }` — the classifier returns `Article`, eval passes 8/8 stable. Then a real audit catches that `Article` was the wrong target all along: it triggers a cascade of downstream `Article`-scoped checks that fail on the actual page. The eval gated the **label**, not the **downstream effect**. Fix: assert the target effect, not a convenient proxy. If `page_type` matters because it changes which audit rules run, the case should assert which rules fire (or don't), not the label string.
+
+**2. Unvalidated LLM-judge oracle.** You add a cheap `gpt-5-nano` judge that scores "is this output self-contained?" and gate prompt changes on it. The unit test for the judge **stubs the judge's verdict** and checks the scoring math — it proves the aggregation works, never that the judge's real verdicts agree with reality. A miscalibrated judge gives you a confident percentage that doesn't match what a human reviewer would say. Fix: before the judge gates anything, validate it against a human-labeled golden set of **real production samples** (not synthetic, not edge-cases-you-imagined). Only then do its before/after numbers mean what you think. See [LLM-judge pattern](llm_judge.md) for the full build → calibrate → gate workflow in code.
+
+**Rules:**
+
+- Assert the target **effect**, not a proxy label — pick the assertion by reading what downstream actually does with the output, not what's convenient to label.
+- Validate the oracle (human labels on real prod samples) before trusting any eval's score.
+- For semantic checks that span multiple inputs/locales, use an LLM-judge (one prompt, all cases) — not per-case regex that drifts.
+- Keep LLM-judges in the eval suite (on-demand or scheduled), **never** on the production request path.
 
 ## Three eval kinds
 
@@ -107,7 +124,7 @@ Good for: offline smoke tests, local development, testing evaluator wiring, chec
 
 Not enough for real prompt decisions. For those:
 
-- `run_eval(..., context: { model: "..." })` with a real model, or pass an explicit adapter.
+- `run_eval(..., context: { model: "..." })` with a real model, or pass an explicit adapter via `context: { adapter: ... }`. An *adapter* here is the layer that actually executes the LLM call — `RubyLLM::Contract::Adapters::Test` returns canned data, the default RubyLlm adapter hits the real provider. `model:` chooses the model name; `adapter:` chooses whether the call goes live or stays canned.
 - `compare_with(...)` for prompt A/B.
 
 `compare_with` intentionally ignores `sample_response` — canned data would make both sides look the same.

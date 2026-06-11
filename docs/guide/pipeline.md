@@ -123,6 +123,8 @@ result = ArticleCardPipeline.run(article_text, timeout_ms: 30_000)
 
 ## Pipeline eval
 
+Pipeline `run_eval` matches only the **final step's output** against `expected:` (`BuildArticleCard` here). Intermediate step outputs (`SummarizeArticle`, `GenerateHashtags`) are not routed through `expected:` — assertions on `:tone` or `:hashtags` here would silently never match. For per-step assertions, run evals on each step individually.
+
 ```ruby
 ArticleCardPipeline.define_eval("e2e") do
   add_case "ruby 3.4 release",

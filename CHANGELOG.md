@@ -1,5 +1,31 @@
 # Changelog
 
+## 0.10.5 (2026-06-11)
+
+Docs release: new `llm_judge.md` guide + comprehensive clarity audit across all 16 shipping documentation files. No code behaviour change.
+
+### Added
+
+- **`docs/guide/llm_judge.md`** — new guide for the LLM-as-judge pattern. Three-step workflow (build judge as a Contract Step → calibrate against humans on real production data → use as eval gate). Hook is the Cursor "Sam" April 2025 incident (support chatbot hallucinated company policy, schema valid, brand damage). Covers claims-breakdown alternative output schema, the "calibration is itself iterative" failure mode (over-flagging stylistic courtesy), six anti-patterns (stubbing the judge, calibrating on synthetic data, per-language regex, judge on request path, proxy label assertion, calibrating once and shipping), and an escalation pointer to `ruby_llm-tribunal`'s catalog. 206 lines. Linked from `eval_first.md` (oracle-validation rule) and `relation_to_tribunal.md` (composition recipe). Cited research: Eugene Yan on evals, Hamel Husain field guide, May 2025 LLM-hallucination court-case database, Klarna AI customer-service reversal.
+
+### Fixed
+
+- **`docs/guide/migration.md` — `save_baseline = false` in CI Rakefile.** Pre-0.10.5 the migration template set `save_baseline = true`, which dirties the working checkout on every CI run and races the regression check — directly violating the project invariant ("`save_baseline: true` in CI dirties checkout and races the regression check — keep it false; refresh in a separate job"). Adopters copy-pasting the template hit non-deterministic CI failures + git status noise. The corrected template now sets `false` with an inline comment explaining the baseline-refresh-in-separate-workflow rationale.
+- **`docs/guide/relation_to_tribunal.md` — evaluator lambda arity corrected from 3 to 1.** The example previously used `->(output, _expected, _input)`, but `ProcEvaluator` only accepts arity 1 or 2 — adopters copy-pasting hit `ArgumentError: wrong number of arguments`. Now reads `->(output)`.
+- **`docs/guide/eval_first.md`** — added explicit definition of "partial match" (`expected:` is treated as a subset of `parsed_output`; extra output keys ignored, listed keys must equal), added definition of `adapter` (the layer that actually executes the LLM call), clarified `system`/`rule`/`example`/`validate` as prompt-shaping building blocks with a `prompt_ast.md` link.
+- **`docs/guide/getting_started.md`** — explained the `{X}` prompt template syntax (gem-specific, not ERB, not `String#%`), described `validate(...) { |o, _| ... }` arity convention, named the retry triggers `:validation_failed` / `:parse_error`, differentiated `default_input` from `add_case input:`, explained partial-match semantics.
+- **`README.md`** — three clarity edits to the SummarizeArticle example: `{input}` placeholder syntax explained, `validate` lambda args (`|o, _|`) explained, `retry_policy do escalate(...) end` block form aliased to `retry_policy models: %w[...]` shorthand (both forms share the same DSL — `models` is an alias for `escalate`). Plus the multimodal upgrade FAQ entry was compressed from 7 sentences to a 2-sentence SEO pointer to `multimodal_input.md` (where the full `attachment_token_estimate` setup, fail-closed behaviour, and `on_unknown_attachment_size :warn` opt-out already lived canonically) — reduces README cognitive load for the 90% of adopters not upgrading from pre-0.10.0.
+- **`docs/guide/testing.md`** — clarified pipeline test responses (`responses: { :summarize, :tag, :card }` keys must match `add_step :name, ...` identifiers), distinguished `validate` block (Step-level) from `verify` block (eval-case evaluator declared via `verify(name) { |output| ... }` inside `define_eval`), explained `stub_all_steps(response: { ... })` shape semantics.
+- **`docs/guide/best_practices.md`** — explained `rule` as a prompt DSL element distinct from `system` / `user` with a link to `prompt_ast.md`.
+- **`docs/guide/optimizing_retry_policy.md`** — explained `gpt-4.1-mini@low` CLI shorthand for `{model:, reasoning_effort:}`, defined `production_mode: { fallback: ... }` as an optional `compare_models` kwarg that reports effective cost (first-try + weighted fallback) instead of first-attempt only, compressed the "two orthogonal dimensions" callout from 7 concepts to 3 (DSL alias details moved to the dedicated `thinking` DSL note at the end).
+- **`docs/guide/output_schema.md`** — compressed the `RubyLLM::Agent.schema` boundary callout from 6 concepts to 3 + pointer (full Agent-vs-Step comparison lives canonically in `relation_to_agent.md`).
+- **`docs/guide/pipeline.md`** — documented that `Pipeline.run_eval` matches **only** the final step's output against `expected:` (assertions on intermediate-step outputs silently never match — gem-level invariant).
+- **`docs/guide/prompt_ast.md`** — explained `Types::Hash.schema(...)` typed-input declaration as distinct from plain `input_type Hash` (typed form raises `TypeError` on missing/wrong-type keys; plain form accepts any hash).
+
+### Audit method
+
+All 16 documentation files (README + 15 guides) were audited with a new internal skill, `reader-knowledge-audit` (three-axis: assumption-gap A-modes + reading-overhead R-modes + structural-misplacement M-modes). 33 runnable code examples across the guides were verified end-to-end against a live OpenAI API key (separate test scripts in `.revive/` cover `SummarizeArticle`, smoke / regression evals, multi-key `{X}` template interpolation, 3-step pipeline with fail-fast, full LLM-judge lifecycle, and multimodal PNG + PDF attachment ingestion with `attachment_token_estimate` enforcement).
+
 ## 0.10.4 (2026-06-10)
 
 Patch release: the `ruby_llm_contract:optimize` rake task now auto-loads in Rails apps. No behaviour change to the task itself.

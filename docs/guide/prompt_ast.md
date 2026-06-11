@@ -27,7 +27,9 @@ The AST is immutable, diffable, and hashable. Useful for snapshot testing and au
 
 ## Hash inputs with variable interpolation
 
-When input is a Hash, each key becomes a template variable. Concrete scenario: a multi-language newsletter product where the same article has to be summarised in Polish for EU subscribers, English for US, with different audiences per tier (Rails developers vs engineering managers). Hash inputs let one step cover all of these without forking the class:
+When input is a Hash, each key becomes a template variable. Concrete scenario: a multi-language newsletter product where the same article has to be summarised in Polish for EU subscribers, English for US, with different audiences per tier (Rails developers vs engineering managers). Hash inputs let one step cover all of these without forking the class.
+
+The `Types::Hash.schema(...)` form below declares a **typed contract on the input** — `run()` raises `TypeError` if a required key is missing or its value violates the declared type. Use it when the input shape is part of the Step's interface (multi-key inputs, multi-tenant variants); plain `input_type Hash` accepts any hash and is fine for prototypes or when the schema is enforced upstream.
 
 ```ruby
 class SummarizeArticle < RubyLLM::Contract::Step::Base

@@ -116,7 +116,7 @@ RubyLLM::Contract::RakeTask.new do |t|
   t.minimum_score = 0.8
   t.maximum_cost = 0.05
   t.fail_on_regression = true
-  t.save_baseline = true
+  t.save_baseline = false # read-only in CI; refresh baselines in a separate workflow
 end
 ```
 

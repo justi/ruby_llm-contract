@@ -33,7 +33,7 @@ result = SummarizeArticle.run("article text", context: { adapter: adapter })
 result.ok?  # => true
 ```
 
-Multi-step pipeline testing with per-step named responses (using `ArticleCardPipeline` from [Pipeline](pipeline.md)):
+Multi-step pipeline testing with per-step named responses (using `ArticleCardPipeline` from [Pipeline](pipeline.md)). The keys in `responses:` must match the step identifiers declared with `add_step :name, ...` in your pipeline definition — `:summarize`, `:tag`, `:card` here map to the three steps in that order.
 
 ```ruby
 result = ArticleCardPipeline.test("article text",
@@ -56,7 +56,7 @@ result.parsed_output[:tldr]     # => "..." ✓
 result.parsed_output["tldr"]    # => nil ✗
 ```
 
-The gem warns if a `validate` or `verify` block returns `nil` — usually a sign of string-key access on symbol-keyed data.
+The gem warns if a `validate` block (Step-level invariant check) or a `verify` block (eval-case evaluator declared via `verify(name) { |output| ... }` inside `define_eval`) returns `nil` — usually a sign of string-key access on symbol-keyed data.
 
 ## RSpec setup
 
@@ -118,7 +118,7 @@ stub_steps(
 end
 ```
 
-**Global stub for all steps:**
+**Global stub for all steps** — every Step in the example process returns the same canned hash regardless of its `output_schema`. Useful for high-level integration specs where step output content doesn't matter; use `stub_steps` instead when you need per-step shapes.
 
 ```ruby
 stub_all_steps(response: { default: true })

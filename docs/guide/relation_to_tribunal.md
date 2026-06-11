@@ -98,7 +98,7 @@ A failed Tribunal grade triggers Contract's retry/escalate just like any other v
 ChatReply.define_eval "rag_regression" do
   add_case "policy",
     input: "What is the return policy?",
-    evaluator: ->(output, _expected, _input) {
+    evaluator: ->(output) {
       tc = RubyLLM::Tribunal::TestCase.new(
         actual_output: output[:answer],
         context: ["Returns accepted within 30 days with receipt."]

@@ -55,7 +55,15 @@ class SummarizeArticle < RubyLLM::Contract::Step::Base
              { model: "gpt-5", reasoning_effort: "high" }
   end
 end
+```
 
+Three things to notice in the snippet above:
+
+- **`{input}` is a gem-specific prompt placeholder** — at call time `SummarizeArticle.run(article_text)` interpolates `article_text` into that slot. For `input_type Hash`, each top-level key becomes its own placeholder (e.g. `{title}`, `{body}`). Plain text in, plain text out — no ERB, no `String#%`.
+- **`validate("...") { |o, _| ... }`** — each block receives `(parsed_output, context)`; the convention `|o, _|` reads "output, ignore context". Use `o[:key]` to assert on any field your schema declared. Return false → status `:validation_failed`, retry fires.
+- **`retry_policy do escalate(...) end`** — block form for mixed configs (strings + hashes with per-attempt options). For uniform model lists you can use the shorthand `retry_policy models: %w[gpt-4.1-nano gpt-4.1-mini gpt-4.1]` (it's the same DSL — `models` is an alias for `escalate`).
+
+```ruby
 result = SummarizeArticle.run(article_text)
 result.status           # => :ok  (or :validation_failed if all steps fail)
 result.parsed_output    # => { tldr: "...", takeaways: [...], tone: "..." }
@@ -167,7 +175,7 @@ Pre-1.0 (currently **0.10.4**). Semver tracked; breaking changes flagged in [CHA
 
 **Where in a Rails app?** Default `app/contracts/`. The Railtie reloads `app/contracts/eval/` and `app/steps/eval/` in development; any autoloaded directory also works. See [Rails integration](docs/guide/rails_integration.md).
 
-**Upgraded to 0.10.0 from 0.8.x and my contract started refusing — why?** 0.10.0 added multimodal input. If your contract has `max_cost` or `max_input` set AND now receives `context: { attachment: ... }`, you must declare `attachment_token_estimate(n)` (conservative input-token budget for the attachment) — otherwise the call fails closed with `:limit_exceeded`. The gem cannot bound vision/PDF cost without your estimate. Opt out per-step with `on_unknown_attachment_size :warn`. Text-only contracts are unaffected. See [multimodal input guide](docs/guide/multimodal_input.md).
+**Upgraded from pre-0.10.0 and getting `:limit_exceeded` with attachments?** Multimodal contracts with `max_cost`/`max_input` need `attachment_token_estimate`. See [multimodal input guide](docs/guide/multimodal_input.md#cost-attachment_token_estimate-is-required) for setup, fail-closed behaviour, and `on_unknown_attachment_size :warn` opt-out.
 
 ## License
 
