@@ -195,9 +195,9 @@ What to do operationally:
 
 The drop is your signal to refine the judge's prompt, not to lower the gate.
 
-## When to escalate to Tribunal's catalog
+## When to reach for Tribunal instead
 
-If you find yourself building three or four judges that all rhyme — "faithful?", "hallucination?", "refusal?", "PII leakage?" — you are reinventing what [`ruby_llm-tribunal`](https://github.com/Alqemist-labs/ruby_llm-tribunal) ships as a built-in catalog. See [Relation to Tribunal](relation_to_tribunal.md) for the integration recipe: Contract Steps make the LLM calls, Tribunal supplies the grading vocabulary, and the two compose in a single `define_eval`.
+[`ruby_llm-tribunal`](https://github.com/Alqemist-labs/ruby_llm-tribunal) ships an off-the-shelf catalog of common LLM-as-judge assertions (`assert_faithful`, `assert_hallucination`, `assert_refusal`, `assert_no_pii`, etc.) — a shortcut when your check matches one of those domain-general categories. The methodology in this guide still applies: calibrate the judge against your human-labeled production data **before** trusting Tribunal's `default_threshold = 0.8`, refine the prompt when it over-flags, watch for the anti-patterns above. See [Relation to Tribunal](relation_to_tribunal.md) for the full positioning — what each gem documents (and doesn't), a concrete decision tree on catalog-vs-custom-judge, and three working integration patterns.
 
 ## See also
 

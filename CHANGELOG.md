@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.10.6 (2026-06-11)
+
+Docs accuracy patch: correct the positioning of `llm_judge.md` against `ruby_llm-tribunal` after a deeper audit of Tribunal's documented scope. The previous wording ("you are reinventing what `ruby_llm-tribunal` ships as a built-in catalog") read as if Tribunal made `llm_judge.md` redundant — incorrect. Tribunal's README ships an off-the-shelf implementation catalog (`assert_faithful`, `assert_hallucination`, `assert_refusal`, `assert_no_pii`, etc.) but does **not** document calibration workflow, per-claim breakdown, judge-prompt iteration, or judge-as-`evaluator:` integration — exactly the methodology `llm_judge.md` covers. The two are complementary layers, not alternatives. No code behaviour change.
+
+### Fixed
+
+- **`docs/guide/relation_to_tribunal.md`** — added the **"Tribunal's catalog vs Contract's `llm_judge.md` — concrete decision tree"** sub-section under "When to use which", giving adopters a sharp three-way fork: reach for Tribunal's catalog when the check is domain-general (faithfulness vs context, hallucination, refusal, PII, jailbreak, toxicity, bias); build a custom judge per `llm_judge.md` when the criterion is domain-specific, when the judge needs to live inside a `define_eval` regression gate as the `evaluator:` lambda, when per-claim sentence-level debug output is required, or when the judge prompt itself needs to be iterated against your data; use both for the same project at different lifecycle stages (Tribunal at spec-time, calibrated custom judge at CI merge gate). Added the **"What Tribunal documents — and what it doesn't"** sub-section with a five-row comparison table making explicit which methodology gaps `llm_judge.md` covers that Tribunal's README leaves to the adopter (calibration against humans, prompt iteration on over-flag, per-claim breakdown, evaluator-lambda integration, the six anti-patterns).
+- **`docs/guide/llm_judge.md`** — rewrote the closing "When to escalate to Tribunal's catalog" section as **"When to reach for Tribunal instead"**: shorter, accurate (Tribunal is a complementary catalog, not a replacement), points to `relation_to_tribunal.md` for the full decision tree and integration patterns. The previous wording implied that building any of the four standard judges (faithful / hallucination / refusal / PII) was "reinvention" — true for the **implementation** (Tribunal ships them), false for the **methodology** (Tribunal's README doesn't document calibration, anti-patterns, or per-claim breakdown). The methodology applies equally to Tribunal's built-ins, Tribunal's custom registered judges, and Contract `Step::Base` judges.
+
 ## 0.10.5 (2026-06-11)
 
 Docs release: new `llm_judge.md` guide + comprehensive clarity audit across all 16 shipping documentation files. No code behaviour change.

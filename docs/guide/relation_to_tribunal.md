@@ -73,6 +73,34 @@ Tribunal grades **a fixed set of cases on every PR** to catch quality regression
 
 **Both.** You ship contracts in prod (Contract) AND want stronger CI signal beyond schema regression — judge-quality grading on a frozen dataset, plus adversarial red-team probes. Use Contract's `Step` to make the call, run it in `define_eval` over your dataset, and grade each case with Tribunal helpers in your spec or via the dataset's `evaluator:` proc.
 
+### Tribunal's catalog vs Contract's `llm_judge.md` — concrete decision tree
+
+If you specifically need an **LLM-as-judge** (a second LLM grading the first one's output), the decision is:
+
+- **Reach for Tribunal's catalog** when your check is one of the well-defined, domain-general categories Tribunal ships: *"is this faithful to the retrieved context?"*, *"is this a refusal?"*, *"does this contain PII?"*, *"is this jailbreak-resistant?"*, *"hallucinated?"*, *"toxic?"*, *"biased?"*. One line in a spec, default threshold, no judge code to write or maintain. The judge prompt is baked into the gem.
+- **Build a custom judge per [`llm_judge.md`](llm_judge.md)** when:
+  - **Your criterion is domain-specific** — *"does this medical advice match our internal safety policy?"*, *"is this reply in our brand voice?"*, *"does this summary preserve the legal disclaimer verbatim?"*. No off-the-shelf judge knows your policy; you write the prompt.
+  - **You need the verdict inside a `define_eval` regression gate** (the `evaluator:` lambda pattern) — Tribunal's surface is spec-time assertions, not eval-framework evaluators.
+  - **You need a per-claim breakdown** (sentence-level *"this claim → unsupported, that claim → contradicted"* output) for PR debugging — Tribunal returns one score per assertion.
+  - **You need to iterate the judge prompt** because it over-flags on your data — Tribunal's prompts are fixed per assertion.
+- **Use both** for the same project even when your check is in Tribunal's catalog: Tribunal's `assert_faithful` for spec-time grade on individual responses, plus a calibrated custom judge wired as `evaluator:` in a regression `define_eval` over a frozen dataset for CI merge-gating. They cover different lifecycle stages.
+
+Either way, the **methodology** in [`llm_judge.md`](llm_judge.md) — calibrate the judge against human-labeled production samples before trusting any score, watch for the six anti-patterns, refine the prompt when it over-flags — applies equally to Tribunal's built-ins, Tribunal's custom registered judges, and Contract `Step::Base` judges. Tribunal's `default_threshold = 0.8` is a starting point, not a calibrated bar for your data.
+
+## What Tribunal documents — and what it doesn't
+
+Tribunal's README ships an **implementation catalog** (`assert_faithful`, `assert_hallucination`, `assert_refusal`, `assert_no_pii`, `assert_no_toxicity`, `assert_no_bias`, `assert_jailbreak_resistant`, etc., plus a `register_judge` API for custom ones). What it currently leaves to the adopter:
+
+| Tribunal ships | Tribunal's README doesn't document (Contract's [`llm_judge.md`](llm_judge.md) does) |
+|---|---|
+| `default_threshold = 0.8` (fixed) | How to **calibrate** the threshold against your human-labeled production data |
+| Judge prompt baked in per assertion | How to **iterate the judge prompt** when it over-flags stylistic courtesy as drift |
+| Single score per assertion | **Per-claim breakdown** schema for sentence-level PR debugging |
+| `assert_faithful` in a spec | **Judge as `evaluator:` lambda** in a Contract `define_eval` regression gate |
+| Custom Judge mechanism (`register_judge`) | **Anti-patterns** (stubbing the verdict, calibrating on synthetic data, calibrating once and shipping) |
+
+This is a **complementary gap**, not a competition. Tribunal owns the implementation catalog; Contract's `llm_judge.md` owns the methodology. A typical production setup uses both layers: pick (or build) the implementation, then calibrate it against your humans **before** trusting any score.
+
 ## Integration patterns
 
 These work today without any code changes in either gem — both use plain Ruby blocks/procs as extension points.
