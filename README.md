@@ -132,6 +132,8 @@ Everything below is optional — the example above is a complete step. Reach for
 
 Also supports [multi-step pipelines](docs/guide/pipeline.md) with fail-fast and per-step models.
 
+**Runnable companion repo:** [`ruby_llm-contract_demo`](https://github.com/justi/ruby_llm-contract_demo) — full LLM-as-judge lifecycle (v1 strict → v2 drift → judge calibration → v3/v4 iteration) on a returns-policy chatbot scenario, dual-language (EN default, `DEMO_LANG=pl` opt-in). Live OpenAI calls (`gpt-4.1-mini`, `temperature 0`), `LIVE=1` opt-in, ~$0.30 for the full lifecycle. See [llm_judge.md](docs/guide/llm_judge.md) for the methodology.
+
 ## Relation to `RubyLLM::Agent`
 
 `Step::Base` and `RubyLLM::Agent` (since RubyLLM 1.12) are **siblings** targeting the same niche: reusable, class-based prompts. Both call into `RubyLLM::Chat` directly — Step does not wrap Agent. Step adds the contract layer: `validate` (business invariants), `retry_policy escalate(...)` (model escalation on validation failure), `max_cost` pre-flight refusal, regression-eval framework, pipeline composition. **[Full feature mapping →](docs/guide/relation_to_agent.md)**
