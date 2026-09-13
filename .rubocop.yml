@@ -1,7 +1,13 @@
+inherit_mode:
+  merge:
+    - Exclude
+
 AllCops:
   TargetRubyVersion: 3.2
   NewCops: enable
   SuggestExtensions: false
+  Exclude:
+    - 'internal/**/*'
 
 Style/Documentation:
   Enabled: false
@@ -36,10 +42,6 @@ Naming/VariableNumber:
   Exclude:
     - 'spec/**/*'
     - 'examples/**/*'
-
-AllCops:
-  Exclude:
-    - 'internal/**/*'
 
 Metrics/ClassLength:
   Max: 140
