@@ -3,7 +3,6 @@
 module RubyLLM
   module Contract
     module Eval
-      # Formats eval reports for console and string output.
       class ReportPresenter
         def initialize(report:, stats:)
           @report = report

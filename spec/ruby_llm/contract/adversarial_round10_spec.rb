@@ -122,9 +122,6 @@ RSpec.describe "Adversarial QA round 10 -- production certification audit" do
       end
     end
 
-    # -------------------------------------------------------------------------
-    # Edge cases
-    # -------------------------------------------------------------------------
     describe "edge cases" do
       it "raises ParseError for whitespace-only response" do
         expect do
@@ -207,9 +204,6 @@ RSpec.describe "Adversarial QA round 10 -- production certification audit" do
       end
     end
 
-    # -------------------------------------------------------------------------
-    # Text strategy
-    # -------------------------------------------------------------------------
     describe "text strategy" do
       it "returns raw string as-is" do
         result = RubyLLM::Contract::Parser.parse("hello world", strategy: :text)
@@ -298,9 +292,6 @@ RSpec.describe "Adversarial QA round 10 -- production certification audit" do
       end
     end
 
-    # -------------------------------------------------------------------------
-    # Constraint checking
-    # -------------------------------------------------------------------------
     describe "enum constraint" do
       it "accepts value in enum" do
         schema = make_schema(type: "object", properties: { color: { type: "string", enum: %w[red green blue] } })
@@ -410,9 +401,6 @@ RSpec.describe "Adversarial QA round 10 -- production certification audit" do
       end
     end
 
-    # -------------------------------------------------------------------------
-    # Combination constraints
-    # -------------------------------------------------------------------------
     describe "combination: required + enum" do
       it "reports both missing required and enum violation" do
         schema = make_schema(

@@ -3,7 +3,6 @@
 module RubyLLM
   module Contract
     class SchemaValidator
-      # Validates enum membership for a node when enum values are declared.
       class EnumRule
         def initialize(errors)
           @errors = errors

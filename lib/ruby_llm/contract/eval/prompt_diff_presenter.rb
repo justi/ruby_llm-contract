@@ -3,7 +3,6 @@
 module RubyLLM
   module Contract
     module Eval
-      # Renders a prompt diff as a readable console summary.
       class PromptDiffPresenter
         VARIANT_LABEL_WIDTH = 12
         TABLE_WIDTH = 26

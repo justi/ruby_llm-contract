@@ -3,7 +3,6 @@
 module RubyLLM
   module Contract
     module Eval
-      # Encapsulates the safety and mismatch rules for prompt A/B comparison.
       class PromptDiffComparator
         def initialize(candidate_cases:, baseline_cases:, diff:)
           @candidate_cases = candidate_cases

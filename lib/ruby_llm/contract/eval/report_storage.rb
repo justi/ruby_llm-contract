@@ -6,7 +6,6 @@ require "fileutils"
 module RubyLLM
   module Contract
     module Eval
-      # Persists eval reports as history entries and regression baselines.
       class ReportStorage
         def initialize(report:, stats:)
           @report = report

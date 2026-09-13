@@ -3,7 +3,6 @@
 module RubyLLM
   module Contract
     class SchemaValidator
-      # Validates numeric and collection size bounds for a node.
       class BoundRule
         NUMERIC_LIMITS = [
           { key: :minimum, label: "minimum", relation: "below", invalid: ->(actual, limit) { actual < limit } },

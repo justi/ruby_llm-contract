@@ -3,7 +3,6 @@
 module RubyLLM
   module Contract
     class SchemaValidator
-      # Validates the declared JSON schema type for a node.
       class TypeRule
         def initialize(errors)
           @errors = errors

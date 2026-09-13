@@ -3,7 +3,6 @@
 module RubyLLM
   module Contract
     module Eval
-      # Computes aggregate metrics for an eval report.
       class ReportStats
         def initialize(results:)
           @results = results

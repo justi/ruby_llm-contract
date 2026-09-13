@@ -646,10 +646,6 @@ RSpec.describe "Edge cases" do
     end
   end
 
-  # ===========================================================================
-  # Configuration
-  # ===========================================================================
-
   describe RubyLLM::Contract::Configuration do
     it "has nil defaults" do
       config = described_class.new
