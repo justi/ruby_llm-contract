@@ -25,7 +25,6 @@ module RubyLLM
           build_response(response)
         end
 
-        # Maps option keys to the RubyLLM chat method and argument form.
         CHAT_OPTION_METHODS = {
           temperature: :with_temperature,
           schema: :with_schema

@@ -191,7 +191,6 @@ module RubyLLM
       end
     end
 
-    # Auto-register the optimize task when this file is loaded
     OptimizeRakeTask.new
   end
 end

@@ -21,8 +21,6 @@ module RubyLLM
         step_adapter_overrides.clear
       end
 
-      # --- Eval host registry ---
-
       def register_eval_host(klass)
         eval_hosts << klass unless eval_hosts.include?(klass)
       end
@@ -101,9 +99,7 @@ module RubyLLM
 
       private
 
-      # Filter stale hosts, deduplicate by name (last wins), prune registry in-place
       def live_eval_hosts
-        # Remove hosts without evals
         @eval_hosts&.reject! { |h| !h.respond_to?(:eval_defined?) || !h.eval_defined? }
 
         # Deduplicate: if two classes share a name (reload), keep the latest
