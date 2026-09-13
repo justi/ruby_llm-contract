@@ -292,6 +292,9 @@ RSpec.describe "Adversarial QA round 10 -- production certification audit" do
       end
     end
 
+    # -------------------------------------------------------------------------
+    # Constraint checking
+    # -------------------------------------------------------------------------
     describe "enum constraint" do
       it "accepts value in enum" do
         schema = make_schema(type: "object", properties: { color: { type: "string", enum: %w[red green blue] } })

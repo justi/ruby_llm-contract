@@ -1,8 +1,7 @@
-inherit_mode:
-  merge:
-    - Exclude
-
 AllCops:
+  inherit_mode:
+    merge:
+      - Exclude
   TargetRubyVersion: 3.2
   NewCops: enable
   SuggestExtensions: false

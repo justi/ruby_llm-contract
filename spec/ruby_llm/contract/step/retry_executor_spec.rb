@@ -125,10 +125,12 @@ RSpec.describe RubyLLM::Contract::Step::RetryExecutor do
 
   describe "aggregated trace totals across attempts (anti-facade F13)" do
     # Anti-facade smoking gun: if `build_retry_result` were changed to
-    # `usage: last.trace.usage, cost: last.trace.cost, latency_ms: last.trace.latency_ms`
-    # (last-attempt only), the other 5 tests still pass - none of them
-    # asserts the aggregated totals. This test fails for that mutation.
-    it "sums usage, cost and latency across all attempts in the final trace" do
+    # `usage: last.trace.usage, cost: last.trace.cost` (last-attempt only),
+    # the other 5 tests still pass - none of them asserts the aggregated
+    # totals. This test fails for that mutation. Latency aggregation is
+    # pinned elsewhere: audit_findings_spec.rb:63 and
+    # adversarial_round9_spec.rb:913 (BUG 65).
+    it "sums usage and cost across all attempts in the final trace" do
       adapter_calls = 0
       tracking_adapter = Object.new
       tracking_adapter.define_singleton_method(:call) do |**_opts|
