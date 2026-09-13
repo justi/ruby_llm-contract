@@ -3,8 +3,6 @@
 module RubyLLM
   module Contract
     module Concerns
-      # Shared helpers for context hash manipulation.
-      # Used by EvalHost, Runner, Step::Base.
       module ContextHelpers
         private
 

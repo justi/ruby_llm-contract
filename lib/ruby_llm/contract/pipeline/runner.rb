@@ -95,7 +95,6 @@ module RubyLLM
           ((Process.clock_gettime(Process::CLOCK_MONOTONIC) - start_time) * 1000).round
         end
 
-        # Encapsulates mutable state during pipeline execution
         class ExecutionState
           attr_reader :trace_id, :step_results, :step_traces, :outputs_by_step,
                       :current_input, :status, :failed_step

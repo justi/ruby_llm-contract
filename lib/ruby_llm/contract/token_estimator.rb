@@ -23,8 +23,6 @@ module RubyLLM
     module TokenEstimator
       CHARS_PER_TOKEN = 4
 
-      # Heuristic estimate. Returns an integer token count.
-      # See module docstring for accuracy caveats.
       def self.estimate(messages)
         return 0 unless messages.is_a?(Array)
 

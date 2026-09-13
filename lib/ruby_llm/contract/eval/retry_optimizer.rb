@@ -176,11 +176,9 @@ module RubyLLM
         def build_chain(matrix, labels, evals)
           total = evals.size
 
-          # Find cheapest model that passes every eval — the safe fallback.
           safe_fallback = labels.find { |l| evals.all? { |e| (matrix.dig(e, l) || 0) >= @min_score } }
           return [[], []] unless safe_fallback
 
-          # Prepend cheaper models that pass a strict subset.
           chain = []
           details = []
           covered_evals = Set.new
@@ -197,7 +195,6 @@ module RubyLLM
             details << { label: label, passes: new_additions.size, cost: label }
           end
 
-          # Always end with the safe fallback.
           chain << parse_label_to_config(safe_fallback)
           details << { label: safe_fallback, passes: total, cost: safe_fallback }
 

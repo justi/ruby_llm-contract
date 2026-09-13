@@ -3,7 +3,6 @@
 module RubyLLM
   module Contract
     module Concerns
-      # Recursively converts Hash keys to symbols while preserving array shape.
       module DeepSymbolize
         def deep_symbolize(object)
           case object

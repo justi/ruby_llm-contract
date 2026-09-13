@@ -38,7 +38,6 @@ module RubyLLM
       end
       private_class_method :parse_json_text
 
-      # Fallback: attempt to extract the first JSON object or array from prose
       def self.parse_json_with_extraction(text, raw_output)
         extracted = extract_json(text)
         unless extracted
@@ -72,8 +71,6 @@ module RubyLLM
         match ? match[1] : text
       end
 
-      # Extract the first JSON object or array from text that may contain prose.
-      # Uses bracket-matching to find the outermost balanced { } or [ ] block.
       JSON_START_PATTERN = /[{\[]/
 
       def self.extract_json(text)
