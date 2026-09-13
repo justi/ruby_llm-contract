@@ -3,8 +3,6 @@
 module RubyLLM
   module Contract
     module Eval
-      # Extracted from Runner to reduce class length.
-      # Evaluates expected_traits against parsed output.
       module TraitEvaluator
         private
 

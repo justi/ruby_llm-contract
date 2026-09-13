@@ -3,8 +3,6 @@
 module RubyLLM
   module Contract
     module Step
-      # Extracted from Runner to reduce class length.
-      # Handles input token limit and cost limit checks.
       module LimitChecker
         private
 

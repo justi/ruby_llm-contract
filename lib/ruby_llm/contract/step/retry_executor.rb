@@ -3,8 +3,6 @@
 module RubyLLM
   module Contract
     module Step
-      # Extracted from Base to reduce class length.
-      # Handles retry logic: run_with_retry, build_retry_result, aggregate usage, build attempt entries.
       module RetryExecutor
         include Concerns::UsageAggregator
 

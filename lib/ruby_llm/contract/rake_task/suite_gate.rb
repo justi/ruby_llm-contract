@@ -3,18 +3,6 @@
 module RubyLLM
   module Contract
     class RakeTask < ::Rake::TaskLib
-      # Encapsulates the pass/fail gate that runs after `RakeTask#define_task`
-      # has collected eval reports. Extracted from the prior `define_task`
-      # god-method so each gating dimension (cost, score, regression) is
-      # testable in isolation.
-      #
-      # Returns a `Verdict` value object with:
-      #   - `passed?`         — overall gate verdict
-      #   - `abort_reason`    — String for `abort` when `passed? == false`, nil otherwise
-      #   - `passed_reports`  — [[host, report], ...] of reports that individually passed
-      #                         (used to decide which baselines to save)
-      #   - `suite_cost`      — total cost across all reports
-      #
       # Gate ordering (preserved from pre-refactor behaviour):
       #   1. cost gate runs FIRST — if `maximum_cost` set and exceeded, the
       #      suite aborts before any score check; passed_reports is empty.

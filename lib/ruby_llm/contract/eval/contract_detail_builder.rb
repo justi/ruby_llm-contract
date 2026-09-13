@@ -3,8 +3,6 @@
 module RubyLLM
   module Contract
     module Eval
-      # Extracted from Runner to reduce class length.
-      # Builds contract detail strings for contract-only evaluation.
       module ContractDetailBuilder
         private
 

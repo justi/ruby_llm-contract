@@ -3,8 +3,6 @@
 module RubyLLM
   module Contract
     module Step
-      # Extracted from Base to reduce class length.
-      # DSL accessor methods for step definition (input_type, output_type, prompt, etc.).
       module Dsl # rubocop:disable Metrics/ModuleLength
         # Sentinel signalling "explicitly reset" (`some_attr(:default)`).
         # Distinguishes reset (lookup stops at this class, returns nil) from
