@@ -164,6 +164,7 @@ Different layers, complementary. [`ruby_llm-tribunal`](https://github.com/Alqemi
 | [Multimodal input (PDF / image / audio)](docs/guide/multimodal_input.md) | Route attachments through the contract; `attachment_token_estimate`, fail-closed cost, calibration table |
 | [Schema DSL reference](docs/guide/output_schema.md) | Every constraint, nested objects, pattern table |
 | [Prompt DSL reference](docs/guide/prompt_ast.md) | `system` / `rule` / `section` / `example` / `user` nodes |
+| [Architecture overview](docs/architecture.md) | Class map: Pipeline, Step, Contract, Prompt, Eval |
 
 ## Status & versioning
 

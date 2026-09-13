@@ -1,5 +1,30 @@
 # Changelog
 
+## 0.11.0 (2026-09-13)
+
+Housekeeping release from a 20-pass systematic audit of the whole repository. No API changes and no behaviour change inside `Step`/`Pipeline`/`Eval`; the user-visible differences are in what the gem **packages**, what the RubyGems page **links**, and what the docs **claim**. Suite unchanged throughout at 1406 examples, 0 failures, 7 pending.
+
+### Changed
+
+- **The published gem no longer ships development-only files.** Measured by building the gem and unpacking it: `.rubocop.yml`, `Gemfile`, `Gemfile.lock` and `Rakefile` were being packaged, contradicting the gemspec's own stated policy ("dev configs excluded so the published gem contains only what adopters actually need at runtime"). The shipped `Rakefile` was unusable anyway — it `require`s rspec, which is not a runtime dependency, and defines a task over `spec/`, which the same build excludes. Package contents: **137 → 133 files**; `lib/` (105) and `docs/` (16) unchanged.
+- **`Gemfile.lock` is no longer tracked.** It was in the index despite being matched by `.gitignore:10`, and was repacked on every release. A library should not pin its adopters' dependency versions.
+- **The RubyGems page will now show a "Source Code" link.** `metadata["homepage_uri"]` duplicated `spec.homepage` and, being listed first, suppressed `source_code_uri` in the UI — `gem build` warned about this on every build. Dropped the duplicate; `source_code_uri` stays, because `bundle info` and the RubyGems API read it as a distinct field.
+
+### Fixed
+
+- **`.rubocop.yml` declared `AllCops` twice.** Psych applies last-key-wins, so `TargetRubyVersion: 3.2`, `NewCops: enable` and `SuggestExtensions: false` were silently discarded, and the second block's `Exclude` **replaced** RuboCop's defaults instead of adding to them. Effect: the linter scanned 353 files / 2423 offences, including 117 untracked files under `tmp/`. Merging the blocks alone does not fix it — `inherit_mode: merge` is what restores the defaults. Now 206 files / 305 offences, all pre-existing formatting on real code.
+- **`docs/guide/multimodal_input.md` linked to a file that could never resolve** — `../decisions/ADR-0022-*.md` points at `docs/decisions/` (no such directory; the ADR lives in `doc/decisions/`, singular) and that path is gitignored. Since `docs/guide/*` is packaged, this reproduced exactly the "links 404'd locally" defect that 0.10.2 set out to fix. Same dangling reference removed from the 0.9.0 CHANGELOG entry.
+- **Two documented rake-task environment variables never existed.** `REASONING_EFFORT=` and `OLLAMA_API_BASE=` were listed in the 0.5.0 CHANGELOG entry, but `git log --all -S<name> -- lib/` is empty for both — they were never read at any point in the project's history, and ruby_llm's own configuration only seeds `RUBYLLM_DEBUG` / `RUBYLLM_STREAM_DEBUG` from the environment. Setting either was a silent no-op. Reasoning effort is selected with `CANDIDATES=model@effort`; Ollama's base URL goes through `RubyLLM.configure`.
+- **README stated the wrong current version** (0.10.4 while `version.rb` was 0.10.6) — the one sentence that has to change every release.
+- **`examples/README.md` claimed every example carries an "Expected output" section**; four of seven do, for three different reasons, so the sentence was the error rather than the files.
+- **`docs/architecture.md` was reachable from nowhere** — the only one of 16 tracked docs with no inbound link. Added to the README index.
+
+### Removed
+
+- Dead code with a full evidence battery behind each cut: `SchemaValidator::Node#numeric?` (zero readers; the one place needing the check inlines `value.is_a?(Numeric)`), an abandoned twin test helper whose sibling has 15 call sites, three unused `let`/helper definitions, three useless assignments, seven redundant `require`s in specs, and a `SimpleCov.start` that was a measured no-op because `require "simplecov"` already autoloads `.simplecov`.
+- 19 WHAT comments that restate the line or class below them, including all six occurrences of "Extracted from X to reduce class length" (refactor history git already records) and ten one-line class docstrings paraphrasing their own class name. WHY comments — invariants, external-behaviour notes, anti-duplication markers — were deliberately kept; so were the three evaluator banners that name a comparison semantic the class name cannot convey.
+- Private-project residue: a spec block still labelled "reddit promo planner shape" although that project was removed as private in #25, and four dangling `(Batch N / TODO)` references to a `TODO.md` deleted in 0.10.1.
+
 ## 0.10.6 (2026-06-11)
 
 Docs accuracy patch: correct the positioning of `llm_judge.md` against `ruby_llm-tribunal` after a deeper audit of Tribunal's documented scope. The previous wording ("you are reinventing what `ruby_llm-tribunal` ships as a built-in catalog") read as if Tribunal made `llm_judge.md` redundant — incorrect. Tribunal's README ships an off-the-shelf implementation catalog (`assert_faithful`, `assert_hallucination`, `assert_refusal`, `assert_no_pii`, etc.) but does **not** document calibration workflow, per-claim breakdown, judge-prompt iteration, or judge-as-`evaluator:` integration — exactly the methodology `llm_judge.md` covers. The two are complementary layers, not alternatives. No code behaviour change.
