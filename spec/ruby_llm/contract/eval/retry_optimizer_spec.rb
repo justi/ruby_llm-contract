@@ -290,7 +290,7 @@ RSpec.describe RubyLLM::Contract::Eval::RetryOptimizer do
     end
   end
 
-  # Refactored from "with_retry_disabled" (Batch 2 / B2-T1 / TODO):
+  # Refactored from "with_retry_disabled":
   # the optimizer no longer mutates the step's singleton :retry_policy method;
   # instead it passes `retry_policy_override: nil` through `context:` to
   # `compare_models`. Step::Base#runtime_settings honours the key. These tests

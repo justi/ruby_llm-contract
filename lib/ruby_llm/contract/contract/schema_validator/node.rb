@@ -21,10 +21,6 @@ module RubyLLM
           value.is_a?(Array)
         end
 
-        def numeric?
-          value.is_a?(Numeric)
-        end
-
         def properties
           schema[:properties] || {}
         end

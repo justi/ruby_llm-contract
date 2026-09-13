@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 # Characterization test pinning the register_subclasses path before the
-# dead `ObjectSpace.each_object` else branch was dropped (Batch 1 / TODO).
+# dead `ObjectSpace.each_object` else branch was dropped.
 RSpec.describe RubyLLM::Contract::Concerns::EvalHost do
   before { RubyLLM::Contract.instance_variable_get(:@eval_hosts)&.clear }
 

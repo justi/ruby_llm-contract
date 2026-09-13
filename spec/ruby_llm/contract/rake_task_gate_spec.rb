@@ -5,7 +5,7 @@ require "ruby_llm/contract/rake_task"
 
 # Characterization tests for the gate logic in RakeTask#define_task
 # (lib/ruby_llm/contract/rake_task.rb). Pin pre-refactor behaviour
-# BEFORE extracting `SuiteGate` value object (Batch 4 / B4-T2 / TODO).
+# BEFORE extracting `SuiteGate` value object.
 #
 # Four gating dimensions are exercised:
 #   1. All reports pass        → task succeeds (no abort)

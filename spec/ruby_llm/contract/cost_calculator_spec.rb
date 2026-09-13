@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 # Characterization tests pinning CostCalculator.find_model behaviour
-# before exposing it as a public method (Batch 2 / B2-T3 / TODO).
+# before exposing it as a public method.
 RSpec.describe RubyLLM::Contract::CostCalculator do
   describe ".find_model" do
     after { described_class.reset_custom_models! }

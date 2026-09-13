@@ -70,8 +70,8 @@ RSpec.describe "Parser.symbolize_keys (deep)" do
     end
   end
 
-  describe "real-world: reddit promo planner shape" do
-    it "symbolizes the full target audience response" do
+  describe "real-world: nested audience-segmentation shape" do
+    it "symbolizes the full nested response" do
       input = {
         "locale" => "en",
         "description" => "Invoicing tool for freelancers",
