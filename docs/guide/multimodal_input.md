@@ -130,7 +130,7 @@ Pick a value at or above the provider's worst-case. The estimate is a **floor fo
 
 ## Multi-turn caveat
 
-If your contract uses history (`add_history`), attachments from prior turns are **not** replayed in 0.10.x. Single-turn multimodal works; follow-up questions on the same document require additional work that is deferred to a later release. The rationale is recorded in the project's internal ADR-0022, which is not shipped with the gem.
+If your contract uses history (`add_history`), attachments from prior turns are **not** replayed (still true in 0.11.x). Single-turn multimodal works; follow-up questions on the same document require additional work that is deferred to a later release. The rationale is recorded in the project's internal ADR-0022, which is not shipped with the gem.
 
 ## Provider notes
 

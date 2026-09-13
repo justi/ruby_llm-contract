@@ -12,7 +12,7 @@ Housekeeping release from a 20-pass systematic audit of the whole repository. No
 
 ### Fixed
 
-- **`.rubocop.yml` declared `AllCops` twice.** Psych applies last-key-wins, so `TargetRubyVersion: 3.2`, `NewCops: enable` and `SuggestExtensions: false` were silently discarded, and the second block's `Exclude` **replaced** RuboCop's defaults instead of adding to them. Effect: the linter scanned 353 files / 2423 offences, including 117 untracked files under `tmp/`. Merging the blocks alone does not fix it — `inherit_mode: merge` is what restores the defaults. Now 206 files / 300 offences, all pre-existing formatting on real code.
+- **`.rubocop.yml` declared `AllCops` twice.** Psych applies last-key-wins, so `TargetRubyVersion: 3.2`, `NewCops: enable` and `SuggestExtensions: false` were silently discarded, and the second block's `Exclude` **replaced** RuboCop's defaults instead of adding to them. Effect: the linter scanned 353 files / 2423 offences, 147 of those files untracked under `tmp/` (they carried 2155 of the offences). Merging the blocks alone does not fix it — `inherit_mode: merge` is what restores the defaults. Now 206 files / 300 offences, all pre-existing formatting on real code. (Both counts measured with rubocop 1.88.0; `Gemfile.lock` is no longer tracked, so pin the tool when reproducing.)
 - **`docs/guide/multimodal_input.md` linked to a file that could never resolve** — `../decisions/ADR-0022-*.md` points at `docs/decisions/` (no such directory; the ADR lives in `doc/decisions/`, singular) and that path is gitignored. Since `docs/guide/*` is packaged, this reproduced exactly the "links 404'd locally" defect that 0.10.2 set out to fix. Same dangling reference removed from the 0.9.0 CHANGELOG entry.
 - **Two documented rake-task environment variables never existed.** `REASONING_EFFORT=` and `OLLAMA_API_BASE=` were listed in the 0.5.0 CHANGELOG entry, but `git log --all -S<name> -- lib/` is empty for both — they were never read at any point in the project's history, and ruby_llm's own configuration only seeds `RUBYLLM_DEBUG` / `RUBYLLM_STREAM_DEBUG` from the environment. Setting either was a silent no-op. Reasoning effort is selected with `CANDIDATES=model@effort`; Ollama's base URL goes through `RubyLLM.configure`.
 - **README stated the wrong current version** (0.10.4 while `version.rb` was 0.10.6) — the one sentence that has to change every release.
@@ -21,8 +21,8 @@ Housekeeping release from a 20-pass systematic audit of the whole repository. No
 
 ### Removed
 
-- Dead code with a full evidence battery behind each cut: `SchemaValidator::Node#numeric?` (zero readers; the one place needing the check inlines `value.is_a?(Numeric)`), an abandoned twin test helper whose sibling has 15 call sites, three unused `let`/helper definitions, three useless assignments, seven redundant `require`s in specs, and a `SimpleCov.start` that was a measured no-op because `require "simplecov"` already autoloads `.simplecov`.
-- 19 WHAT comments that restate the line or class below them, including all six occurrences of "Extracted from X to reduce class length" (refactor history git already records) and ten one-line class docstrings paraphrasing their own class name. WHY comments — invariants, external-behaviour notes, anti-duplication markers — were deliberately kept; so were the three evaluator banners that name a comparison semantic the class name cannot convey.
+- Dead code with a full evidence battery behind each cut: `SchemaValidator::Node#numeric?` (zero readers; the one place needing the check inlines `value.is_a?(Numeric)`), an abandoned twin test helper whose sibling has 14 call sites, three unused `let`/helper definitions, four useless assignments, seven redundant `require`s in specs, and a `SimpleCov.start` that was a measured no-op because `require "simplecov"` already autoloads `.simplecov`.
+- 31 WHAT comment blocks (51 lines) in `lib/` plus 20 comment lines in `spec/`, all restating the line or class below them - including all six `Extracted from ...` comments, five of them the "to reduce class length" boilerplate (refactor history git already records) and ten one-line class docstrings paraphrasing their own class name. WHY comments — invariants, external-behaviour notes, anti-duplication markers — were deliberately kept; so were the three evaluator banners that name a comparison semantic the class name cannot convey.
 - Private-project residue: a spec block still labelled "reddit promo planner shape" although that project was removed as private in #25, and four dangling `(Batch N / TODO)` references to a `TODO.md` deleted in 0.10.1.
 
 ## 0.10.6 (2026-06-11)
@@ -308,7 +308,7 @@ end
 
 ### Documentation
 
-- **Guide: [Production-mode cost measurement](docs/guide/optimizing_retry_policy.md#production-mode-cost-measurement)** — API, metric interpretation, 2-tier scope note.
+- **Guide: [Production-mode cost measurement](docs/guide/optimizing_retry_policy.md#measure-effective-cost-before-shipping)** — API, metric interpretation, 2-tier scope note.
 
 ## 0.6.3 (2026-04-20)
 
@@ -317,7 +317,7 @@ end
 - **`runs:` parameter on `compare_models` and `optimize_retry_policy`** — runs each candidate N times per eval and aggregates the mean score, mean cost per run, and mean latency. Reduces sampling variance in live mode where LLM outputs are non-deterministic (gpt-5 family enforces `temperature=1.0` server-side, so a single unlucky sample can misclassify a viable candidate as "failing"). Default `runs: 1` — backward compatible.
 - **`RUNS=N` on `rake ruby_llm_contract:optimize`** — CLI flag for variance-aware optimization.
 - **`Eval::AggregatedReport`** — duck-type `Report` exposing `score` (mean), `score_min`/`score_max` (spread), `total_cost` (mean per run), `pass_rate` (clean-pass count x/N), and `clean_passes`.
-- **Guide: [Reducing variance with `runs:`](docs/guide/optimizing_retry_policy.md#reducing-variance-with-runs)** — when to use it and why.
+- **Guide: [Reducing variance with `runs:`](docs/guide/optimizing_retry_policy.md)** — when to use it and why.
 
 ## 0.6.2 (2026-04-18)
 
