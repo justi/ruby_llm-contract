@@ -16,7 +16,6 @@ Gem::Specification.new do |spec|
   spec.license = "MIT"
   spec.required_ruby_version = ">= 3.2.0"
 
-  spec.metadata["homepage_uri"] = spec.homepage
   spec.metadata["source_code_uri"] = spec.homepage
   spec.metadata["changelog_uri"] = "#{spec.homepage}/blob/main/CHANGELOG.md"
   spec.metadata["documentation_uri"] = "#{spec.homepage}#readme"
@@ -25,7 +24,7 @@ Gem::Specification.new do |spec|
   spec.files = Dir.chdir(__dir__) do
     # Internal trackers + dev configs excluded so the published gem
     # contains only what adopters actually need at runtime.
-    excluded_files = %w[TODO.md .rspec .rubycritic.yml .simplecov]
+    excluded_files = %w[.rspec .simplecov .rubocop.yml Gemfile Rakefile]
     `git ls-files -z`.split("\x0").reject do |f|
       (File.expand_path(f) == __FILE__) ||
         f.start_with?("spec/", "docs/ideas/", "doc/", ".ai/", ".claude/", ".git", ".revive/") ||
