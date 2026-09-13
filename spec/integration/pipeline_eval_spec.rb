@@ -7,8 +7,6 @@
 # on a Pipeline, run_eval matching the FINAL step's output) has no integration
 # coverage outside this file.
 
-require "spec_helper"
-
 RSpec.describe "Pipeline eval end-to-end" do
   before do
     stub_const("SummarizeArticle", Class.new(RubyLLM::Contract::Step::Base) do

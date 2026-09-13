@@ -1,7 +1,5 @@
 # frozen_string_literal: true
 
-require "spec_helper"
-
 # Characterization tests for the DSL inheritance walk in step/dsl.rb.
 # Pin the existing behaviour BEFORE refactoring 5 `_explicitly_unset`
 # shadow-ivar accessors (model, temperature, max_cost,

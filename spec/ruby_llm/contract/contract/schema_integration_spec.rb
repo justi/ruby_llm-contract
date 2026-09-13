@@ -1,7 +1,5 @@
 # frozen_string_literal: true
 
-require "ruby_llm/schema"
-
 RSpec.describe "output_schema client-side validation" do
   before { RubyLLM::Contract.reset_configuration! }
 

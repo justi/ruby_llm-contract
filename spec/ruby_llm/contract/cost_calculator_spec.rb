@@ -1,7 +1,5 @@
 # frozen_string_literal: true
 
-require "spec_helper"
-
 # Characterization tests pinning CostCalculator.find_model behaviour
 # before exposing it as a public method (Batch 2 / B2-T3 / TODO).
 RSpec.describe RubyLLM::Contract::CostCalculator do

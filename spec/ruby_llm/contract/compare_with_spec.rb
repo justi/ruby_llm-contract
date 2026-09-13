@@ -9,7 +9,6 @@ RSpec.describe "compare_with — prompt A/B testing" do
   let(:bad_response) { '{"intent": "", "confidence": 0.1}' }
 
   let(:good_adapter) { RubyLLM::Contract::Adapters::Test.new(response: good_response) }
-  let(:bad_adapter) { RubyLLM::Contract::Adapters::Test.new(response: bad_response) }
 
   let(:candidate_step) do
     Class.new(RubyLLM::Contract::Step::Base) do
@@ -169,27 +168,6 @@ RSpec.describe "compare_with — prompt A/B testing" do
     end
     step.define_singleton_method(:run) do |input, context: {}|
       super(input, context: context.merge(adapter: adapter))
-    end
-    step
-  end
-
-  def build_step_with_eval(fixed_response)
-    adapter = RubyLLM::Contract::Adapters::Test.new(response: fixed_response)
-    step = Class.new(RubyLLM::Contract::Step::Base) do
-      input_type String
-      output_type Hash
-      prompt { user "{input}" }
-      validate("has intent") { |o| !o[:intent].to_s.empty? }
-
-      define_eval("accuracy") do
-        default_input "test query"
-        verify "has intent", { intent: /billing/ }
-        verify "high confidence", ->(o) { o[:confidence] > 0.5 }
-      end
-    end
-    step.define_singleton_method(:run_eval) do |name = nil, context: {}, concurrency: nil|
-      ctx = context.merge(adapter: adapter)
-      super(name, context: ctx, concurrency: concurrency)
     end
     step
   end

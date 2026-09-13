@@ -1,7 +1,5 @@
 # frozen_string_literal: true
 
-require "spec_helper"
-
 RSpec.describe "Multimodal input" do
   describe "DSL: attachment_token_estimate" do
     it "stores positive integer and reads it back" do

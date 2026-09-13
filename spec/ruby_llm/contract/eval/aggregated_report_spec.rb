@@ -1,7 +1,5 @@
 # frozen_string_literal: true
 
-require "ruby_llm/contract"
-
 RSpec.describe RubyLLM::Contract::Eval::AggregatedReport do
   def fake_report(score:, cost: 0.001, latency: 100.0, passed: false, pass_ratio: score, results: [])
     instance_double(

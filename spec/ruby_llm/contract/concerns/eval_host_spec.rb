@@ -1,7 +1,5 @@
 # frozen_string_literal: true
 
-require "spec_helper"
-
 # Characterization test pinning the register_subclasses path before the
 # dead `ObjectSpace.each_object` else branch was dropped (Batch 1 / TODO).
 RSpec.describe RubyLLM::Contract::Concerns::EvalHost do

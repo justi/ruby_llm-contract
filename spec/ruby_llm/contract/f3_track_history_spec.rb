@@ -10,20 +10,6 @@ RSpec.describe "F3: EvalHistory auto-append in RakeTask (ADR-0016)" do
     RubyLLM::Contract.reset_eval_hosts!
   end
 
-  def build_report(name, cases, step_name: nil)
-    results = cases.map do |c|
-      RubyLLM::Contract::Eval::CaseResult.new(
-        name: c[:name], input: "test", output: c[:output] || {},
-        expected: c[:expected] || {}, step_status: :ok,
-        score: c[:passed] ? 1.0 : 0.0, passed: c[:passed],
-        details: c[:details], cost: c[:cost] || 0.001
-      )
-    end
-    RubyLLM::Contract::Eval::Report.new(
-      dataset_name: name, results: results, step_name: step_name
-    )
-  end
-
   # ===========================================================================
   # Attribute defaults
   # ===========================================================================

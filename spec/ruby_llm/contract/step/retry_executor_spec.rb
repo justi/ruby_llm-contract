@@ -130,12 +130,10 @@ RSpec.describe RubyLLM::Contract::Step::RetryExecutor do
     # asserts the aggregated totals. This test fails for that mutation.
     it "sums usage, cost and latency across all attempts in the final trace" do
       adapter_calls = 0
-      attempt_latencies = [100, 200, 300]
       tracking_adapter = Object.new
       tracking_adapter.define_singleton_method(:call) do |**_opts|
-        # Different latencies and tokens per attempt so the SUM has a
+        # Different token counts per attempt so the SUM has a
         # value no single attempt could fake by itself.
-        sleep_ms = attempt_latencies[adapter_calls] || 0
         adapter_calls += 1
         RubyLLM::Contract::Adapters::Response.new(
           content: '{"key": ""}', # invariant fails -> retry

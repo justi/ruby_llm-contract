@@ -22,15 +22,6 @@ RSpec.describe RubyLLM::Contract::Pipeline::Base do
     end
   end
 
-  let(:step_from_hash) do
-    Class.new(RubyLLM::Contract::Step::Base) do
-      input_type RubyLLM::Contract::Types::Hash
-      output_type RubyLLM::Contract::Types::Hash
-      prompt { user "{input}" }
-      contract { parse :json }
-    end
-  end
-
   describe "token_budget" do
     it "stores and retrieves the token budget" do
       pipeline = Class.new(described_class)

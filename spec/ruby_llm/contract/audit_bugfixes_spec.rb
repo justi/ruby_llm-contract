@@ -42,7 +42,7 @@ RSpec.describe "Audit bugfixes" do
           end
 
           task_name = :"audit_history_#{rand(1000)}"
-          task = RubyLLM::Contract::RakeTask.new(task_name) do |t|
+          RubyLLM::Contract::RakeTask.new(task_name) do |t|
             t.context = { adapter: adapter }
             t.track_history = true
             t.minimum_score = 1.0 # will fail — score is 0
@@ -113,7 +113,6 @@ RSpec.describe "Audit bugfixes" do
 
     it "respects string key 'adapter' in context" do
       custom_adapter = RubyLLM::Contract::Adapters::Test.new(response: '{"from":"custom"}')
-      override_adapter = RubyLLM::Contract::Adapters::Test.new(response: '{"from":"override"}')
 
       stub_step(AuditStepA, response: '{"from":"override"}')
 
