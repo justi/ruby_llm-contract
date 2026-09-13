@@ -103,7 +103,7 @@ validate("score in range 0-100") { |o| o[:score].between?(0, 100) }
 
 ### Added
 
-- **Multimodal input via `context: { attachment: ... }`** — pass a file/IO/URL through `Step.run(input, context: { attachment: path })`; the adapter forwards it to `RubyLLM::Chat#ask(content, with: attachment)`. RubyLLM normalises wire format per provider (Anthropic url/base64, OpenAI `image_url`/`file`, Gemini `inline_data`). Multi-attachment supported natively (`with: [pdf1, pdf2]` or `with: { images: [...], pdfs: [...] }`). See [multimodal input guide](docs/guide/multimodal_input.md) and [ADR-0022](doc/decisions/ADR-0022-v09-multimodal-input.md).
+- **Multimodal input via `context: { attachment: ... }`** — pass a file/IO/URL through `Step.run(input, context: { attachment: path })`; the adapter forwards it to `RubyLLM::Chat#ask(content, with: attachment)`. RubyLLM normalises wire format per provider (Anthropic url/base64, OpenAI `image_url`/`file`, Gemini `inline_data`). Multi-attachment supported natively (`with: [pdf1, pdf2]` or `with: { images: [...], pdfs: [...] }`). See [multimodal input guide](docs/guide/multimodal_input.md) (rationale in the internal ADR-0022, not shipped).
 - **`attachment_token_estimate(n)` class macro** — adopter-declared conservative estimate of attachment input tokens. Applied to BOTH runtime (`limit_checker`) and pre-flight (`estimate_cost`) — same source of truth, no estimate/runtime drift.
 - **`on_unknown_attachment_size(:refuse | :warn)` class macro** — mirrors `on_unknown_pricing` opt-out semantics. Defaults to `:refuse`. Never settable as global default — same invariant as `max_cost` fail-closed.
 
@@ -314,9 +314,9 @@ end
 
 ### Features
 
-- **Multi-provider operator tooling** — rake tasks support `PROVIDER=openai|anthropic|ollama`, `CANDIDATES=model@effort,...`, and `REASONING_EFFORT=low|medium|high`.
+- **Multi-provider operator tooling** — rake tasks support `PROVIDER=openai|anthropic|ollama` and `CANDIDATES=model@effort,...`.
 - **`rake ruby_llm_contract:recommend`** — wraps `Step.recommend` with CLI interface, prints best config, retry chain, DSL, rationale, and savings.
-- **Ollama support** — `PROVIDER=ollama` with configurable `OLLAMA_API_BASE`.
+- **Ollama support** — `PROVIDER=ollama` (base URL via `RubyLLM.configure { |c| c.ollama_api_base = ... }`).
 
 ## 0.6.0 (2026-04-12)
 

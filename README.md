@@ -167,7 +167,7 @@ Different layers, complementary. [`ruby_llm-tribunal`](https://github.com/Alqemi
 
 ## Status & versioning
 
-Pre-1.0 (currently **0.10.4**). Semver tracked; breaking changes flagged in [CHANGELOG](CHANGELOG.md). Pin `~> 0.10.4` until 1.0 ships.
+Pre-1.0 (currently **0.11.0**). Semver tracked; breaking changes flagged in [CHANGELOG](CHANGELOG.md). Pin `~> 0.11.0` until 1.0 ships.
 
 ## FAQ
 

@@ -14,7 +14,7 @@ Pedagogical order: hook → activation → evolution → composition → quality
 | 05 | `05_eval_dataset.rb` | **"How do I stop silent prompt regressions?"** — define_eval with real cases, baseline vs regressed adapter, regression detection signal, inline eval_case. |
 | 06 | `06_retry_variants.rb` | **"What retry shapes exist beyond cross-model?"** — `attempts: 3` (variance absorption), `reasoning_effort` escalation (low→medium→high), cross-provider fallback (Ollama → Anthropic → OpenAI). |
 
-Every example has an "Expected output" section in the file header — you can read what each one prints without running it.
+Most examples carry an "Expected output" section in the file header, so you can read what they print without running them. `00_basics.rb` is the exception: it prints nothing and annotates each result inline with `# =>` instead.
 
 ## Running
 
