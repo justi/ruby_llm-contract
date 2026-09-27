@@ -1,0 +1,29 @@
+{
+  "dataset_name": "returns_policy",
+  "step_name": "AnswerReturnsQuestion",
+  "score": 0.6666666666666666,
+  "total_cost": 0.0036899999999999997,
+  "cases": [
+    {
+      "name": "billing",
+      "passed": true,
+      "score": 1.0,
+      "details": "passed",
+      "cost": 0.00123
+    },
+    {
+      "name": "refunds",
+      "passed": false,
+      "score": 0.0,
+      "details": "tone mismatch",
+      "cost": 0.00123
+    },
+    {
+      "name": "shipping",
+      "passed": true,
+      "score": 1.0,
+      "details": "passed",
+      "cost": 0.00123
+    }
+  ]
+}
