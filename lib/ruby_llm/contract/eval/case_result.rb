@@ -4,6 +4,16 @@ module RubyLLM
   module Contract
     module Eval
       class CaseResult
+        # A skipped case carries its reason in `details` behind this prefix, and
+        # BaselineDiff#compute_score keys off it to keep skipped cases out of the
+        # score denominator. Producer and consumer must agree, so both go through
+        # here: drift used to be invisible and surfaced as a phantom regression.
+        SKIPPED_DETAILS_PREFIX = "skipped:"
+
+        def self.skipped_details(reason)
+          "#{SKIPPED_DETAILS_PREFIX} #{reason}"
+        end
+
         attr_reader :name, :input, :output, :expected, :step_status,
                     :score, :details, :duration_ms, :cost, :attempts
 

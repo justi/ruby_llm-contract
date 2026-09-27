@@ -79,8 +79,11 @@ module RubyLLM
         private
 
         def compute_score(cases)
-          # Exclude skipped cases from score (consistent with Report#score)
-          evaluated = cases.reject { |c| c[:details]&.start_with?("skipped:") }
+          # Exclude skipped cases from score (consistent with Report#score).
+          # The baseline side is already filtered structurally by
+          # ReportStats#evaluated_results; the current side reaches here
+          # unfiltered, so this string check is load-bearing on one side only.
+          evaluated = cases.reject { |c| c[:details]&.start_with?(CaseResult::SKIPPED_DETAILS_PREFIX) }
           return 0.0 if evaluated.empty?
 
           evaluated.sum { |c| c[:score] } / evaluated.length

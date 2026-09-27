@@ -30,7 +30,7 @@ module RubyLLM
         private
 
         def missing_adapter?(error)
-          error.message.include?("No adapter configured")
+          error.message.include?(Step::Base::NO_ADAPTER_MESSAGE)
         end
 
         def skipped_result(test_case, reason)
@@ -43,7 +43,7 @@ module RubyLLM
             score: 0.0,
             passed: false,
             label: "SKIP",
-            details: "skipped: #{reason}"
+            details: CaseResult.skipped_details(reason)
           )
         end
       end

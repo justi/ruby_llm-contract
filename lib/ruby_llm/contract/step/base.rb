@@ -6,6 +6,13 @@ module RubyLLM
       class Base
         DEFAULT_OUTPUT_TOKENS = 256
 
+        # Eval::CaseExecutor substring-matches this to decide whether a case is
+        # skipped (no adapter) or the whole run should fail. Rewording it without
+        # updating the consumer turns every skipped case into a hard failure, so
+        # both ends go through here. Pinned in
+        # spec/ruby_llm/contract/eval/producer_consumer_contracts_spec.rb.
+        NO_ADAPTER_MESSAGE = "No adapter configured"
+
         def self.inherited(subclass)
           super
           Contract.register_eval_host(subclass) if respond_to?(:eval_defined?) && eval_defined?
@@ -231,8 +238,9 @@ module RubyLLM
             adapter = context[:adapter] || RubyLLM::Contract.configuration.default_adapter
             return adapter if adapter
 
-            raise RubyLLM::Contract::Error, "No adapter configured. Set one with RubyLLM::Contract.configure " \
-                                            "{ |c| c.default_adapter = ... } or pass context: { adapter: ... }"
+            raise RubyLLM::Contract::Error,
+                  "#{NO_ADAPTER_MESSAGE}. Set one with RubyLLM::Contract.configure " \
+                  "{ |c| c.default_adapter = ... } or pass context: { adapter: ... }"
           end
 
           # ADR-0021 deliverable 2: narrow ArgumentError rescue to DSL-setup phase only.

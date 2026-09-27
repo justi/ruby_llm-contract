@@ -13,6 +13,12 @@ module RubyLLM
       #   result.print_summary
       #   result.to_dsl  # => copy-paste retry_policy
       class RetryOptimizer
+        # The compact label printed in the optimizer table, which a user copies
+        # into CANDIDATES=. OptimizeRakeTask#parse_candidates splits on the same
+        # separator; the round trip is pinned in
+        # spec/ruby_llm/contract/eval/producer_consumer_contracts_spec.rb.
+        EFFORT_SEPARATOR = "@"
+
         Result = Struct.new(:step_name, :eval_names, :candidate_labels, :score_matrix,
                             :constraining_eval, :chain, :chain_details, keyword_init: true) do
           # Terminology alias — `hardest_eval` is the narrative name used in docs;
@@ -83,7 +89,7 @@ module RubyLLM
             label
               .sub("gpt-5-", "")
               .sub("gpt-4.1", "4.1")
-              .sub(" (effort: ", "@")
+              .sub(" (effort: ", EFFORT_SEPARATOR)
               .sub(")", "")
           end
 
@@ -202,13 +208,11 @@ module RubyLLM
         end
 
         def parse_label_to_config(label)
-          if label.match?(/\(effort: (\w+)\)/)
-            model = label.sub(/\s*\(effort:.*/, "").strip
-            effort = label.match(/\(effort: (\w+)\)/)[1]
-            { model: model, reasoning_effort: effort }
-          else
-            { model: label }
-          end
+          match = ModelComparison::EFFORT_LABEL_PATTERN.match(label)
+          return { model: label } unless match
+
+          { model: label.sub(ModelComparison::EFFORT_LABEL_PATTERN, "").strip,
+            reasoning_effort: match[1] }
         end
 
         def empty_result(evals)

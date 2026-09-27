@@ -164,7 +164,7 @@ module RubyLLM
                     Array(JSON.parse(raw))
                   else
                     raw.split(",").map(&:strip).reject(&:empty?).map do |entry|
-                      model, effort = entry.split("@", 2)
+                      model, effort = entry.split(Eval::RetryOptimizer::EFFORT_SEPARATOR, 2)
                       config = { model: model.strip }
                       config[:reasoning_effort] = effort.strip if effort && !effort.empty?
                       config
