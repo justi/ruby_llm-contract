@@ -163,12 +163,6 @@ Lint/AmbiguousOperatorPrecedence:
     - 'lib/ruby_llm/contract/eval/retry_optimizer.rb'
 
 # Offense count: 1
-# Configuration parameters: AllowedMethods.
-# AllowedMethods: enums
-Lint/ConstantDefinitionInBlock:
-  Exclude:
-    - 'spec/ruby_llm/contract/adapters/ruby_llm_2x_boundary_spec.rb'
-
 # Offense count: 4
 # Configuration parameters: IgnoreLiteralBranches, IgnoreConstantBranches, IgnoreDuplicateElseBranch.
 Lint/DuplicateBranch:

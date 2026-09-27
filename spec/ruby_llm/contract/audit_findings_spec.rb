@@ -460,12 +460,10 @@ RSpec.describe "Technical audit findings" do
   describe "FINDING 7: runtime dependency version constraints" do
     it "declares no dependency without a version constraint" do
       gem_root = File.expand_path("../../..", __dir__)
-      gemspec_content = File.read(File.join(gem_root, "ruby_llm-contract.gemspec"))
+      deps = Gem::Specification.load(File.join(gem_root, "ruby_llm-contract.gemspec")).runtime_dependencies
+      expect(deps).not_to be_empty
 
-      declarations = gemspec_content.scan(/add_dependency\s+(.+)$/).flatten
-      expect(declarations).not_to be_empty
-
-      unconstrained = declarations.grep_v(/,\s*"[~><=\d\s.,"]+"/)
+      unconstrained = deps.select { |d| d.requirement.none? }.map(&:name)
       expect(unconstrained).to be_empty, "dependencies without a version constraint: #{unconstrained.inspect}"
     end
   end

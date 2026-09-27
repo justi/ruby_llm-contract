@@ -7,6 +7,13 @@ on:
   pull_request:
   workflow_dispatch:
 
+# GitHub's default step shell is `bash -e {0}` WITHOUT pipefail, so any step
+# ending in a pipe (`... | tee`) reports success even when the left side fails.
+# Declaring the shell explicitly gets `bash -eo pipefail`.
+defaults:
+  run:
+    shell: bash
+
 jobs:
   spec:
     name: spec (ruby ${{ matrix.ruby }}, ${{ matrix.gemfile }})
@@ -37,29 +44,25 @@ jobs:
       # offline. The live specs skip themselves, and the next step pins how
       # many are allowed to do so.
       - name: Suite
-        run: bundle exec rspec --format progress --no-color | tee /tmp/rspec.out
+        run: bundle exec rspec --format progress --format json --out rspec.json
 
+      # Guards against a failing spec being quietly turned into a pending one.
+      # Reads the machine-readable report rather than scraping the human one:
+      # the previous grep relied on every pending block being exactly two lines.
       - name: Pending specs must be exactly the known live-key ones
-        # Guards against a failing spec being quietly turned into a pending one.
-        # All 7 come from spec/integration/cost_of_quality_real_spec.rb, gated on
-        # OPENAI_API_KEY / ANTHROPIC_API_KEY. Any other pending fails the build.
+        env:
+          EXPECTED_PENDING: "7"
+          LIVE_KEY_SPEC: ./spec/integration/cost_of_quality_real_spec.rb
         run: |
-          summary=$(grep -E '^[0-9]+ examples?,' /tmp/rspec.out | tail -1)
-          echo "summary: $summary"
-          pending=$(echo "$summary" | grep -oE '[0-9]+ pending' | grep -oE '[0-9]+' || echo 0)
-          if [ "$pending" != "7" ]; then
-            echo "::error::expected exactly 7 pending (live-key specs), got $pending"
-            grep -A2 -E '^\s+[0-9]+\) ' /tmp/rspec.out | grep -E '^\s+# \./spec' | sort -u
-            exit 1
-          fi
-          unexpected=$(grep -A2 -E '^\s+[0-9]+\) ' /tmp/rspec.out \
-            | grep -E '^\s+# \./spec' \
-            | grep -v 'spec/integration/cost_of_quality_real_spec.rb' || true)
-          if [ -n "$unexpected" ]; then
-            echo "::error::pending specs outside the live-key file:"
-            echo "$unexpected"
-            exit 1
-          fi
+          ruby -rjson -e '
+            pending = JSON.parse(File.read("rspec.json"))["examples"].select { |e| e["status"] == "pending" }
+            files = pending.map { |e| e["file_path"] }.uniq
+            expected = Integer(ENV.fetch("EXPECTED_PENDING"))
+            live = ENV.fetch("LIVE_KEY_SPEC")
+            abort "::error::expected #{expected} pending from #{live}, got #{pending.size} in #{files.inspect}" \
+              unless pending.size == expected && files == [live]
+            puts "pending check ok: #{pending.size} in #{live}"
+          '
 
       - name: Offline examples must run
         # The examples are shipped documentation; a broken one is an adopter-visible

@@ -18,16 +18,17 @@ RSpec.describe "RubyLLM 2.x adapter boundary" do
 
   # Every chainable option the adapter may call, stubbed to return the chat so
   # the builder chain survives. `with_params` is deliberately absent: it does not
-  # exist in 2.x, and a verified double must reject it.
-  CHAINABLE = %i[with_instructions with_temperature with_max_output_tokens
-                 with_thinking with_schema].freeze
-
+  # exist in 2.x, and a verified double must reject it. Spelled out rather than
+  # looped: a constant inside a describe block leaks onto Object, and grepping
+  # for `with_schema` has to find this file.
   def chat_double(response)
-    instance_double("RubyLLM::Chat").tap do |chat|
-      CHAINABLE.each { |m| allow(chat).to receive(m).and_return(chat) }
-      allow(chat).to receive(:add_message).and_return(nil)
-      allow(chat).to receive(:ask).and_return(response)
-    end
+    chat = instance_double("RubyLLM::Chat", add_message: nil, ask: response)
+    allow(chat).to receive(:with_instructions).and_return(chat)
+    allow(chat).to receive(:with_temperature).and_return(chat)
+    allow(chat).to receive(:with_max_output_tokens).and_return(chat)
+    allow(chat).to receive(:with_thinking).and_return(chat)
+    allow(chat).to receive(:with_schema).and_return(chat)
+    chat
   end
 
   describe "token counters" do
