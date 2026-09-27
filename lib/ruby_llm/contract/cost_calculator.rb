@@ -84,11 +84,11 @@ module RubyLLM
       end
 
       def self.compute_cost(model_info, usage)
-        input_price, output_price = prices_for(model_info)
-        return nil if input_price.nil? && output_price.nil?
+        prices = prices_for(model_info)
+        return nil unless prices
 
-        input_cost = token_cost(usage[:input_tokens], input_price)
-        output_cost = token_cost(usage[:output_tokens], output_price)
+        input_cost = token_cost(usage[:input_tokens], prices[:input])
+        output_cost = token_cost(usage[:output_tokens], prices[:output])
         (input_cost + output_cost).round(6)
       end
 
@@ -97,20 +97,23 @@ module RubyLLM
       # moved provider pricing into a nested value object and dropped those flat
       # readers, so it has to be walked: pricing -> text_tokens -> standard.
       #
-      # Returns `[nil, nil]` for a shape with no reachable text-token pricing,
-      # which `calculate` turns into a nil cost — the documented "unknown
-      # pricing" signal that `max_cost` fails closed on. It must NOT be a
-      # swallowed NoMethodError, or a shape change upstream would silently start
-      # refusing every budgeted call.
+      # Returns nil for a shape with no reachable text-token pricing, which
+      # `calculate` turns into a nil cost - the documented "unknown pricing"
+      # signal that `max_cost` fails closed on. One value rather than a pair of
+      # nils, so the caller does not have to know that both slots are always
+      # set or always absent together. It must NOT be a swallowed
+      # NoMethodError, or a shape change upstream would silently start refusing
+      # every budgeted call.
       def self.prices_for(model_info)
         if model_info.respond_to?(:input_price_per_million)
-          return [model_info.input_price_per_million, model_info.output_price_per_million]
+          return { input: model_info.input_price_per_million,
+                   output: model_info.output_price_per_million }
         end
 
         tier = model_info.pricing&.text_tokens&.standard if model_info.respond_to?(:pricing)
-        return [nil, nil] unless tier.respond_to?(:input_per_million)
+        return unless tier.respond_to?(:input_per_million)
 
-        [tier.input_per_million, tier.output_per_million]
+        { input: tier.input_per_million, output: tier.output_per_million }
       end
       private_class_method :prices_for
 
