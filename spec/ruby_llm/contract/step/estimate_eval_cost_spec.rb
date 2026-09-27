@@ -27,7 +27,7 @@ RSpec.describe "Step::Base.estimate_eval_cost unknown-pricing contract" do
     end
   end
 
-  context "when pricing is available" do
+  context "when pricing is registered" do
     before do
       RubyLLM::Contract::CostCalculator.reset_custom_models!
       RubyLLM::Contract::CostCalculator.register_model("ft:priced", input_per_1m: 10.0, output_per_1m: 20.0)

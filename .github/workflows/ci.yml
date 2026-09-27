@@ -50,18 +50,13 @@ jobs:
       # Reads the machine-readable report rather than scraping the human one:
       # the previous grep relied on every pending block being exactly two lines.
       - name: Pending specs must be exactly the known live-key ones
-        env:
-          EXPECTED_PENDING: "7"
-          LIVE_KEY_SPEC: ./spec/integration/cost_of_quality_real_spec.rb
         run: |
           ruby -rjson -e '
-            pending = JSON.parse(File.read("rspec.json"))["examples"].select { |e| e["status"] == "pending" }
-            files = pending.map { |e| e["file_path"] }.uniq
-            expected = Integer(ENV.fetch("EXPECTED_PENDING"))
-            live = ENV.fetch("LIVE_KEY_SPEC")
-            abort "::error::expected #{expected} pending from #{live}, got #{pending.size} in #{files.inspect}" \
-              unless pending.size == expected && files == [live]
-            puts "pending check ok: #{pending.size} in #{live}"
+            live = "./spec/integration/cost_of_quality_real_spec.rb"
+            actual = JSON.parse(File.read("rspec.json"))["examples"]
+                         .select { |e| e["status"] == "pending" }.map { |e| e["file_path"] }.tally
+            abort "::error::pending changed: got #{actual.inspect}, want 7 from #{live}" unless actual == { live => 7 }
+            puts "pending check ok: #{actual.inspect}"
           '
 
       - name: Offline examples must run

@@ -84,11 +84,10 @@ module RubyLLM
           end
 
           def short_candidate_label(label)
-            label
-              .sub("gpt-5-", "")
-              .sub("gpt-4.1", "4.1")
-              .sub(ModelComparison::EFFORT_LABEL_OPEN, EFFORT_SEPARATOR)
-              .sub(ModelComparison::EFFORT_LABEL_CLOSE, "")
+            config = CandidateLabel.parse(label)
+            model = config[:model].sub("gpt-5-", "").sub("gpt-4.1", "4.1")
+            effort = config[:reasoning_effort]
+            effort ? "#{model}#{EFFORT_SEPARATOR}#{effort}" : model
           end
 
           def print_dsl(io)
@@ -195,22 +194,14 @@ module RubyLLM
             next if new_additions.empty?
 
             covered_evals.merge(new_additions)
-            chain << parse_label_to_config(label)
+            chain << CandidateLabel.parse(label)
             details << { label: label, passes: new_additions.size, cost: label }
           end
 
-          chain << parse_label_to_config(safe_fallback)
+          chain << CandidateLabel.parse(safe_fallback)
           details << { label: safe_fallback, passes: total, cost: safe_fallback }
 
           [chain, details]
-        end
-
-        def parse_label_to_config(label)
-          match = ModelComparison::EFFORT_LABEL_PATTERN.match(label)
-          return { model: label } unless match
-
-          { model: label.sub(ModelComparison::EFFORT_LABEL_PATTERN, "").strip,
-            reasoning_effort: match[1] }
         end
 
         def empty_result(evals)

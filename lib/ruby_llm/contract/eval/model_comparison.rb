@@ -6,17 +6,10 @@ module RubyLLM
       class ModelComparison
         attr_reader :eval_name, :reports, :configs, :fallback
 
-        # RetryOptimizer parses these labels back into a retry_policy DSL, so the
-        # pattern is derived from the rendered literal rather than repeating it.
-        EFFORT_LABEL_OPEN = " (effort: "
-        EFFORT_LABEL_CLOSE = ")"
-        EFFORT_LABEL_PATTERN = /\s*#{Regexp.escape(EFFORT_LABEL_OPEN.lstrip)}(\w+)#{Regexp.escape(EFFORT_LABEL_CLOSE)}/
-
+        # Kept as the name six call sites already use; the format itself lives in
+        # CandidateLabel, which owns both directions.
         def self.candidate_label(config)
-          effort = config[:reasoning_effort]
-          return config[:model] unless effort
-
-          "#{config[:model]}#{EFFORT_LABEL_OPEN}#{effort}#{EFFORT_LABEL_CLOSE}"
+          CandidateLabel.render(config)
         end
 
         def initialize(eval_name:, reports:, configs: nil, fallback: nil)

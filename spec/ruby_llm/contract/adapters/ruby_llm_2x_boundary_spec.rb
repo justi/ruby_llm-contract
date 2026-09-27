@@ -11,17 +11,12 @@ RSpec.describe "RubyLLM 2.x adapter boundary" do
                                         tokens: RubyLLM::Tokens.new(input: input, output: output))
   end
 
-  # Spelled out rather than looped: a constant inside a describe block leaks onto
-  # Object. `with_params` is absent because 2.x has no such method, so a verified
-  # double would reject it - that is the double's doing, not an assertion here.
+  # Verified, so any builder method 2.x does not define - `with_params` among them
+  # - fails loudly if the adapter starts calling it. The example below passes no
+  # instructions, temperature, schema, thinking or max_tokens, so no builder is
+  # reached and stubbing the chain would stub nothing.
   def chat_double(response)
-    chat = instance_double("RubyLLM::Chat", add_message: nil, ask: response)
-    allow(chat).to receive(:with_instructions).and_return(chat)
-    allow(chat).to receive(:with_temperature).and_return(chat)
-    allow(chat).to receive(:with_max_output_tokens).and_return(chat)
-    allow(chat).to receive(:with_thinking).and_return(chat)
-    allow(chat).to receive(:with_schema).and_return(chat)
-    chat
+    instance_double("RubyLLM::Chat", ask: response)
   end
 
   # Measured: republishing the counts as floats keeps the Hash shape, and

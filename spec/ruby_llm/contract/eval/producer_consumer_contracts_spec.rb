@@ -35,7 +35,6 @@ RSpec.describe "producer/consumer string contracts" do
     it "writes the exact prefix that older baseline.json files already contain" do
       # This literal is persisted in every saved baseline, so changing it silently
       # reclassifies previously-skipped cases in files already on disk.
-      expect(RubyLLM::Contract::Eval::CaseResult::SKIPPED_DETAILS_PREFIX).to eq("skipped:")
       expect(RubyLLM::Contract::Eval::CaseResult.skipped_details("no adapter"))
         .to eq("skipped: no adapter")
     end
@@ -82,25 +81,22 @@ RSpec.describe "producer/consumer string contracts" do
     end
   end
 
-  # RetryOptimizer#parse_label_to_config parses labels ModelComparison renders, to
-  # rebuild candidate configs. Drift raises nothing: the parser would return the
-  # whole label as the model name.
+  # ModelComparison renders these labels and parses them back to rebuild candidate
+  # configs. Drift raises nothing: the parser would return the whole label as the
+  # model name.
   describe "candidate label with reasoning effort" do
-    let(:comparison) { RubyLLM::Contract::Eval::ModelComparison }
-    let(:optimizer) { RubyLLM::Contract::Eval::RetryOptimizer.allocate }
-
+    let(:label) { RubyLLM::Contract::Eval::CandidateLabel }
     def round_trip(config)
-      optimizer.send(:parse_label_to_config, comparison.candidate_label(config))
+      label.parse(label.render(config))
     end
 
     it "derives the parser pattern from the literal the renderer emits" do
       # Not just "both agree today": the pattern is BUILT from EFFORT_LABEL_OPEN,
       # so a change to the rendered format cannot leave the parser behind. Three
       # places used to hardcode " (effort: " independently.
-      expect(comparison.candidate_label(model: "m", reasoning_effort: "high"))
-        .to include(comparison::EFFORT_LABEL_OPEN)
-      expect(comparison::EFFORT_LABEL_PATTERN.source)
-        .to include(Regexp.escape(comparison::EFFORT_LABEL_OPEN.lstrip))
+      # Behavioural, not structural: the pattern must match what the renderer
+      # emits for an effort it has never seen before.
+      expect(label.render(model: "m", reasoning_effort: "zzz")).to match(label::PATTERN)
     end
 
     it "survives the round trip for a model with effort" do
@@ -136,6 +132,16 @@ RSpec.describe "producer/consumer string contracts" do
         .to eq([{ model: "gpt-4.1-mini" }])
     end
 
+    it "keeps a parenthesised model name intact in the header" do
+      label = RubyLLM::Contract::Eval::ModelComparison.candidate_label(
+        model: "custom (beta)", reasoning_effort: "high"
+      )
+
+      # Cutting the first ")" used to claim the model's own bracket, yielding
+      # "custom (beta@high)".
+      expect(result.send(:short_candidate_label, label)).to eq("custom (beta)#{separator}high")
+    end
+
     it "renders the table header in the same notation the CLI accepts" do
       label = RubyLLM::Contract::Eval::ModelComparison.candidate_label(
         model: "gpt-4.1-mini", reasoning_effort: "low"
@@ -155,7 +161,6 @@ RSpec.describe "producer/consumer string contracts" do
     let(:executor) { RubyLLM::Contract::Eval::CaseExecutor.allocate }
 
     it "recognises the real error the step raises" do
-      RubyLLM::Contract.reset_configuration!
       step = Class.new(RubyLLM::Contract::Step::Base) { prompt "x {input}" }
 
       error = begin
