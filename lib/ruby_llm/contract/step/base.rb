@@ -141,7 +141,13 @@ module RubyLLM
           def estimate_eval_cost_for_model(cases, model_name)
             cases.sum do |test_case|
               estimate = estimate_cost(input: test_case.input, model: model_name)
-              estimate ? estimate[:estimated_cost] : 0.0
+              # Two distinct misses have to floor to 0.0 here, not one: the model
+              # is absent from the registry (estimate is nil), OR it is present
+              # but its pricing is unreadable (estimate is a hash whose
+              # estimated_cost is nil). Guarding only the first raised TypeError
+              # for 669 of the 1672 models in the ruby_llm 2.x registry.
+              # getting_started.md documents this as a floor, not a fail-closed.
+              (estimate && estimate[:estimated_cost]) || 0.0
             end.round(6)
           end
 
