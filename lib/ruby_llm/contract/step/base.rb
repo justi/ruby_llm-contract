@@ -6,11 +6,9 @@ module RubyLLM
       class Base
         DEFAULT_OUTPUT_TOKENS = 256
 
-        # Eval::CaseExecutor substring-matches this to decide whether a case is
-        # skipped (no adapter) or the whole run should fail. Rewording it without
-        # updating the consumer turns every skipped case into a hard failure, so
-        # both ends go through here. Pinned in
-        # spec/ruby_llm/contract/eval/producer_consumer_contracts_spec.rb.
+        # Eval::CaseExecutor substring-matches this to choose skip over raise.
+        # Reworded without the consumer, every skipped eval case becomes a hard
+        # failure of the whole run, so both ends read it from here.
         NO_ADAPTER_MESSAGE = "No adapter configured"
 
         def self.inherited(subclass)
@@ -148,12 +146,9 @@ module RubyLLM
           def estimate_eval_cost_for_model(cases, model_name)
             cases.sum do |test_case|
               estimate = estimate_cost(input: test_case.input, model: model_name)
-              # Two distinct misses have to floor to 0.0 here, not one: the model
-              # is absent from the registry (estimate is nil), OR it is present
-              # but its pricing is unreadable (estimate is a hash whose
-              # estimated_cost is nil). Guarding only the first raised TypeError
-              # for 669 of the 1672 models in the ruby_llm 2.x registry.
-              # getting_started.md documents this as a floor, not a fail-closed.
+              # Two misses floor to 0.0, not one: model absent from the registry
+              # (nil estimate), or present with unreadable pricing (hash whose
+              # estimated_cost is nil). Documented as a floor, not a fail-closed.
               (estimate && estimate[:estimated_cost]) || 0.0
             end.round(6)
           end

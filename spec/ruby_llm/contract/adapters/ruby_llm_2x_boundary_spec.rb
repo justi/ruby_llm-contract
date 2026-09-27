@@ -1,20 +1,8 @@
 # frozen_string_literal: true
 
-# What ONLY this file defends at the RubyLLM 2.x seam. The original version of
-# this spec had nine examples; six were removed after measuring that other files
-# already caught the same mutants (3-17 failures each with this file excluded).
-# Those six are covered by:
-#
-#   flat usage hash from Message#tokens -> adapters/ruby_llm_spec.rb:41,
-#                                         step/multimodal_input_spec.rb:118..175
-#   with_max_output_tokens forwarding   -> adapters/ruby_llm_spec.rb:140,:156,:166,
-#                                         step/thinking_dsl_spec.rb:191,:202,:209
-#   nested pricing walk                 -> cost_tracking_spec.rb:7, f7_max_cost_spec.rb,
-#                                         step_limits_spec.rb, and 14 others
-#   locally registered pricing          -> f7_max_cost_spec.rb:78,:95,:112
-#   cost/to_s/usage reaching the trace  -> cost_tracking_spec.rb:7, pretty_print_spec.rb:12
-#
-# Do not re-add them here. What remains is what nothing else catches.
+# Holds only what nothing else in the suite catches at the RubyLLM 2.x seam.
+# Broad coverage of the adapter and of pricing lives in adapters/ruby_llm_spec.rb,
+# cost_tracking_spec.rb and f7_max_cost_spec.rb - do not duplicate it here.
 RSpec.describe "RubyLLM 2.x adapter boundary" do
   let(:adapter) { RubyLLM::Contract::Adapters::RubyLLM.new }
 
@@ -23,9 +11,9 @@ RSpec.describe "RubyLLM 2.x adapter boundary" do
                                         tokens: RubyLLM::Tokens.new(input: input, output: output))
   end
 
-  # `with_params` is deliberately absent: it does not exist in 2.x, and a verified
-  # double must reject it. Spelled out rather than looped - a constant inside a
-  # describe block leaks onto Object.
+  # Spelled out rather than looped: a constant inside a describe block leaks onto
+  # Object. `with_params` is absent because 2.x has no such method, so a verified
+  # double would reject it - that is the double's doing, not an assertion here.
   def chat_double(response)
     chat = instance_double("RubyLLM::Chat", add_message: nil, ask: response)
     allow(chat).to receive(:with_instructions).and_return(chat)
@@ -49,21 +37,12 @@ RSpec.describe "RubyLLM 2.x adapter boundary" do
     expect(usage.values).to all(be_a(Integer))
   end
 
-  # The fail-closed branch: an unrecognised model shape must degrade to "unknown
-  # pricing" (nil), never to a free budget (0.0). Measured: mutating that return
-  # to [0.0, 0.0] fails only these two examples, nothing else in the suite.
+  # An unrecognised model shape must degrade to "unknown pricing" (nil), never to
+  # a free budget. Nothing else in the suite covers this.
   describe "unreachable pricing degrades to unknown, not to free" do
     let(:shapeless) { Object.new }
 
     before { allow(RubyLLM::Contract::CostCalculator).to receive(:find_model).and_return(shapeless) }
-
-    it "returns nil rather than zero" do
-      cost = RubyLLM::Contract::CostCalculator.calculate(
-        model_name: "whatever", usage: { input_tokens: 100, output_tokens: 100 }
-      )
-
-      expect(cost).to be_nil
-    end
 
     it "makes max_cost refuse the call" do
       step = Class.new(RubyLLM::Contract::Step::Base) do

@@ -153,7 +153,7 @@ RSpec.describe RubyLLM::Contract::Adapters::RubyLLM do
     end
 
     context "with both max_tokens and reasoning_effort" do
-      it "forwards reasoning_effort via with_thinking and max_tokens via with_params" do
+      it "forwards reasoning_effort via with_thinking and max_tokens via with_max_output_tokens" do
         adapter.call(messages: [{ role: :user, content: "Hi" }], model: "gpt-5-mini",
                      max_tokens: 100, reasoning_effort: "high")
 
@@ -163,7 +163,7 @@ RSpec.describe RubyLLM::Contract::Adapters::RubyLLM do
     end
 
     context "without max_tokens or reasoning_effort" do
-      it "does not call with_params" do
+      it "does not call with_max_output_tokens" do
         adapter.call(messages: [{ role: :user, content: "Hi" }], model: "gpt-4.1-mini")
 
         expect(mock_chat).not_to have_received(:with_max_output_tokens)

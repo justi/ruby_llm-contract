@@ -1,13 +1,9 @@
 # frozen_string_literal: true
 
-# Pins the documented contract of `estimate_eval_cost`, which had no spec at all.
-# docs/guide/getting_started.md:194 promises it "silently treats unknown-pricing
+# getting_started.md promises `estimate_eval_cost` "silently treats unknown-pricing
 # cases as $0.00 and sums the rest - it does NOT fail closed the way max_cost
-# does. Treat its output as a floor."
-#
-# The 1.0.0 port broke that: CostCalculator#calculate gained a second meaning for
-# nil (model found, but pricing unreadable), and this summation only guarded the
-# first (model not found at all), so it raised TypeError instead of flooring.
+# does. Treat its output as a floor." Two distinct misses have to floor: model
+# absent from the registry, and model present with unreadable pricing.
 RSpec.describe "Step::Base.estimate_eval_cost unknown-pricing contract" do
   let(:step) do
     Class.new(RubyLLM::Contract::Step::Base) do
@@ -26,10 +22,6 @@ RSpec.describe "Step::Base.estimate_eval_cost unknown-pricing contract" do
       allow(RubyLLM::Contract::CostCalculator).to receive(:find_model).and_return(Object.new)
     end
 
-    it "floors the unknown-pricing cases at $0.00 instead of raising" do
-      expect { step.estimate_eval_cost("regression", models: ["some-model"]) }.not_to raise_error
-    end
-
     it "returns 0.0 for that model" do
       expect(step.estimate_eval_cost("regression", models: ["some-model"])).to eq("some-model" => 0.0)
     end
@@ -43,11 +35,18 @@ RSpec.describe "Step::Base.estimate_eval_cost unknown-pricing contract" do
 
     after { RubyLLM::Contract::CostCalculator.reset_custom_models! }
 
-    it "sums a positive cost across the dataset" do
+    it "sums both cases at the registered price, not just the first" do
+      # Arithmetic spelled out so the literal is checkable without running the
+      # code: each case estimates 6 input + 256 output tokens, so
+      # 6 * 10.0/1e6 + 256 * 20.0/1e6 = 0.00518, and two cases give 0.01036.
+      # `be > 0` was blind to both a dropped case and a wrong divisor.
+      one = step.estimate_cost(input: "first input", model: "ft:priced")[:estimated_cost]
+      two = step.estimate_cost(input: "second input", model: "ft:priced")[:estimated_cost]
+
       total = step.estimate_eval_cost("regression", models: ["ft:priced"])["ft:priced"]
 
-      expect(total).to be_a(Float)
-      expect(total).to be > 0
+      expect(total).to eq((one + two).round(6))
+      expect(total).to be_within(1e-9).of(0.01036)
     end
   end
 

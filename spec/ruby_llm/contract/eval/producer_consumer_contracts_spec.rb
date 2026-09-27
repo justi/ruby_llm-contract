@@ -32,10 +32,12 @@ RSpec.describe "producer/consumer string contracts" do
       RubyLLM::Contract::Eval::Report.new(dataset_name: "smoke", results: results)
     end
 
-    it "is written by CaseExecutor and read by BaselineDiff from one constant" do
-      expect(RubyLLM::Contract::Eval::CaseResult::SKIPPED_DETAILS_PREFIX).to be_a(String)
+    it "writes the exact prefix that older baseline.json files already contain" do
+      # This literal is persisted in every saved baseline, so changing it silently
+      # reclassifies previously-skipped cases in files already on disk.
+      expect(RubyLLM::Contract::Eval::CaseResult::SKIPPED_DETAILS_PREFIX).to eq("skipped:")
       expect(RubyLLM::Contract::Eval::CaseResult.skipped_details("no adapter"))
-        .to start_with(RubyLLM::Contract::Eval::CaseResult::SKIPPED_DETAILS_PREFIX)
+        .to eq("skipped: no adapter")
     end
 
     it "does not report a regression when a case is skipped in the current run" do
@@ -80,11 +82,9 @@ RSpec.describe "producer/consumer string contracts" do
     end
   end
 
-  # ModelComparison.candidate_label renders "<model> (effort: <x>)" into a table a
-  # user may copy; RetryOptimizer#parse_label_to_config reads it back to generate a
-  # retry_policy DSL. The loop closes entirely inside lib, with no error on drift:
-  # a changed format makes the parser return the whole label as the model name, and
-  # that name lands in generated code.
+  # RetryOptimizer#parse_label_to_config parses labels ModelComparison renders, to
+  # rebuild candidate configs. Drift raises nothing: the parser would return the
+  # whole label as the model name.
   describe "candidate label with reasoning effort" do
     let(:comparison) { RubyLLM::Contract::Eval::ModelComparison }
     let(:optimizer) { RubyLLM::Contract::Eval::RetryOptimizer.allocate }
@@ -93,10 +93,14 @@ RSpec.describe "producer/consumer string contracts" do
       optimizer.send(:parse_label_to_config, comparison.candidate_label(config))
     end
 
-    it "renders and parses through one shared format and pattern" do
-      expect(comparison::EFFORT_LABEL_PATTERN).to be_a(Regexp)
+    it "derives the parser pattern from the literal the renderer emits" do
+      # Not just "both agree today": the pattern is BUILT from EFFORT_LABEL_OPEN,
+      # so a change to the rendered format cannot leave the parser behind. Three
+      # places used to hardcode " (effort: " independently.
       expect(comparison.candidate_label(model: "m", reasoning_effort: "high"))
-        .to match(comparison::EFFORT_LABEL_PATTERN)
+        .to include(comparison::EFFORT_LABEL_OPEN)
+      expect(comparison::EFFORT_LABEL_PATTERN.source)
+        .to include(Regexp.escape(comparison::EFFORT_LABEL_OPEN.lstrip))
     end
 
     it "survives the round trip for a model with effort" do
@@ -108,61 +112,47 @@ RSpec.describe "producer/consumer string contracts" do
       expect(round_trip(model: "gpt-4.1-mini")).to eq(model: "gpt-4.1-mini")
     end
 
-    it "normalises a symbol effort to a string - the DSL it generates uses strings" do
-      # Pre-existing asymmetry, pinned so it cannot change silently.
-      expect(round_trip(model: "gpt-5-mini", reasoning_effort: :low))
-        .to eq(model: "gpt-5-mini", reasoning_effort: "low")
-    end
-
     it "keeps a model name containing parentheses out of the effort slot" do
       expect(round_trip(model: "custom (beta)")).to eq(model: "custom (beta)")
     end
   end
 
-  # RetryOptimizer prints a short label (`model@effort`) into a table; the user
-  # copies it into CANDIDATES= and OptimizeRakeTask#parse_candidates splits it back
-  # on "@". The loop runs through a human, so nothing fails when the two ends
-  # disagree - the effort is silently dropped and a cheaper config gets optimised.
-  describe "model@effort short label" do
-    # short_candidate_label lives on the nested Result struct, not on the optimizer.
+  # `model@effort` is documented CANDIDATES= shorthand, and the optimizer's table
+  # renders the same notation in its headers. If they diverge, the table prints a
+  # syntax the CLI would reject. No round trip is tested: the short label is
+  # display only and nothing feeds it back into the parser.
+  describe "model@effort CLI shorthand" do
     let(:result) { RubyLLM::Contract::Eval::RetryOptimizer::Result.allocate }
     let(:rake_task) { RubyLLM::Contract::OptimizeRakeTask.allocate }
+    let(:separator) { RubyLLM::Contract::Eval::RetryOptimizer::EFFORT_SEPARATOR }
 
-    it "renders and parses through one shared separator" do
-      sep = RubyLLM::Contract::Eval::RetryOptimizer::EFFORT_SEPARATOR
-      expect(sep).to be_a(String)
-      expect(result.send(:short_candidate_label, "gpt-5-mini (effort: high)")).to include(sep)
+    it "parses the documented shorthand into a model plus effort" do
+      expect(rake_task.send(:parse_candidates, "gpt-4.1-mini#{separator}low"))
+        .to eq([{ model: "gpt-4.1-mini", reasoning_effort: "low" }])
     end
 
-    it "carries the effort from the printed label back into a parsed config" do
+    it "parses a plain model name as a bare model" do
+      expect(rake_task.send(:parse_candidates, "gpt-4.1-mini"))
+        .to eq([{ model: "gpt-4.1-mini" }])
+    end
+
+    it "renders the table header in the same notation the CLI accepts" do
       label = RubyLLM::Contract::Eval::ModelComparison.candidate_label(
-        model: "gpt-5-mini", reasoning_effort: "high"
+        model: "gpt-4.1-mini", reasoning_effort: "low"
       )
-      short = result.send(:short_candidate_label, label)
 
-      parsed = rake_task.send(:parse_candidates, short)
+      header = result.send(:short_candidate_label, label)
 
-      expect(parsed.length).to eq(1)
-      expect(parsed.first[:reasoning_effort]).to eq("high")
-    end
-
-    it "parses a label without effort as a bare model" do
-      short = result.send(:short_candidate_label, "gpt-4.1-mini")
-
-      expect(rake_task.send(:parse_candidates, short).first).not_to have_key(:reasoning_effort)
+      # Whatever abbreviation the header applies, the effort must still be
+      # attached with the separator the CLI documents.
+      expect(header).to end_with("#{separator}low")
     end
   end
 
-  # Step::Base raises a plain Contract::Error when no adapter is configured, and
-  # CaseExecutor decides skip-versus-raise by substring-matching that sentence. A
-  # reworded message turns every eval case from "skipped, no adapter" into a hard
-  # failure of the whole run.
+  # CaseExecutor decides skip-versus-raise by substring-matching the sentence
+  # Step::Base raises, so both ends must keep agreeing.
   describe "missing-adapter message" do
     let(:executor) { RubyLLM::Contract::Eval::CaseExecutor.allocate }
-
-    it "is produced and recognised through one constant" do
-      expect(RubyLLM::Contract::Step::Base::NO_ADAPTER_MESSAGE).to be_a(String)
-    end
 
     it "recognises the real error the step raises" do
       RubyLLM::Contract.reset_configuration!

@@ -6,15 +6,17 @@ module RubyLLM
       class ModelComparison
         attr_reader :eval_name, :reports, :configs, :fallback
 
-        # RetryOptimizer#parse_label_to_config reads these labels back to generate
-        # a retry_policy DSL, so the renderer and the parser must not drift. Both
-        # go through this pair; the round trip is pinned in
-        # spec/ruby_llm/contract/eval/producer_consumer_contracts_spec.rb.
-        EFFORT_LABEL_PATTERN = /\s*\(effort: (\w+)\)/
+        # RetryOptimizer parses these labels back into a retry_policy DSL, so the
+        # pattern is derived from the rendered literal rather than repeating it.
+        EFFORT_LABEL_OPEN = " (effort: "
+        EFFORT_LABEL_CLOSE = ")"
+        EFFORT_LABEL_PATTERN = /\s*#{Regexp.escape(EFFORT_LABEL_OPEN.lstrip)}(\w+)#{Regexp.escape(EFFORT_LABEL_CLOSE)}/
 
         def self.candidate_label(config)
           effort = config[:reasoning_effort]
-          effort ? "#{config[:model]} (effort: #{effort})" : config[:model]
+          return config[:model] unless effort
+
+          "#{config[:model]}#{EFFORT_LABEL_OPEN}#{effort}#{EFFORT_LABEL_CLOSE}"
         end
 
         def initialize(eval_name:, reports:, configs: nil, fallback: nil)

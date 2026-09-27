@@ -97,13 +97,9 @@ module RubyLLM
       # moved provider pricing into a nested value object and dropped those flat
       # readers, so it has to be walked: pricing -> text_tokens -> standard.
       #
-      # Returns nil for a shape with no reachable text-token pricing, which
-      # `calculate` turns into a nil cost - the documented "unknown pricing"
-      # signal that `max_cost` fails closed on. One value rather than a pair of
-      # nils, so the caller does not have to know that both slots are always
-      # set or always absent together. It must NOT be a swallowed
-      # NoMethodError, or a shape change upstream would silently start refusing
-      # every budgeted call.
+      # nil means "unknown pricing", which `max_cost` fails closed on. Must not
+      # become a swallowed NoMethodError: an upstream shape change would then
+      # silently refuse every budgeted call instead of surfacing.
       def self.prices_for(model_info)
         if model_info.respond_to?(:input_price_per_million)
           return { input: model_info.input_price_per_million,

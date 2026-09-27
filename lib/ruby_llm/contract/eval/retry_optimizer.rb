@@ -13,10 +13,8 @@ module RubyLLM
       #   result.print_summary
       #   result.to_dsl  # => copy-paste retry_policy
       class RetryOptimizer
-        # The compact label printed in the optimizer table, which a user copies
-        # into CANDIDATES=. OptimizeRakeTask#parse_candidates splits on the same
-        # separator; the round trip is pinned in
-        # spec/ruby_llm/contract/eval/producer_consumer_contracts_spec.rb.
+        # Documented CANDIDATES= shorthand, parsed by
+        # OptimizeRakeTask#parse_candidates and rendered in this table's headers.
         EFFORT_SEPARATOR = "@"
 
         Result = Struct.new(:step_name, :eval_names, :candidate_labels, :score_matrix,
@@ -89,8 +87,8 @@ module RubyLLM
             label
               .sub("gpt-5-", "")
               .sub("gpt-4.1", "4.1")
-              .sub(" (effort: ", EFFORT_SEPARATOR)
-              .sub(")", "")
+              .sub(ModelComparison::EFFORT_LABEL_OPEN, EFFORT_SEPARATOR)
+              .sub(ModelComparison::EFFORT_LABEL_CLOSE, "")
           end
 
           def print_dsl(io)
