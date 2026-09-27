@@ -7,8 +7,7 @@ RSpec.describe RubyLLM::Contract::Adapters::RubyLLM do
     instance_double(
       "RubyLLM::Message",
       content: '{"intent":"sales"}',
-      input_tokens: 45,
-      output_tokens: 12
+      tokens: RubyLLM::Tokens.new(input: 45, output: 12)
     )
   end
 
@@ -16,7 +15,7 @@ RSpec.describe RubyLLM::Contract::Adapters::RubyLLM do
     instance_double("RubyLLM::Chat").tap do |chat|
       allow(chat).to receive(:with_instructions).and_return(chat)
       allow(chat).to receive(:with_temperature).and_return(chat)
-      allow(chat).to receive(:with_params).and_return(chat)
+      allow(chat).to receive(:with_max_output_tokens).and_return(chat)
       allow(chat).to receive(:with_thinking).and_return(chat)
       allow(chat).to receive(:add_message).and_return(nil)
       allow(chat).to receive(:ask).and_return(mock_response)
@@ -141,7 +140,7 @@ RSpec.describe RubyLLM::Contract::Adapters::RubyLLM do
       it "forwards max_tokens to the chat" do
         adapter.call(messages: [{ role: :user, content: "Hi" }], model: "gpt-4.1-mini", max_tokens: 100)
 
-        expect(mock_chat).to have_received(:with_params).with(max_tokens: 100)
+        expect(mock_chat).to have_received(:with_max_output_tokens).with(100)
       end
     end
 
@@ -159,7 +158,7 @@ RSpec.describe RubyLLM::Contract::Adapters::RubyLLM do
                      max_tokens: 100, reasoning_effort: "high")
 
         expect(mock_chat).to have_received(:with_thinking).with(effort: "high")
-        expect(mock_chat).to have_received(:with_params).with(max_tokens: 100)
+        expect(mock_chat).to have_received(:with_max_output_tokens).with(100)
       end
     end
 
@@ -167,7 +166,7 @@ RSpec.describe RubyLLM::Contract::Adapters::RubyLLM do
       it "does not call with_params" do
         adapter.call(messages: [{ role: :user, content: "Hi" }], model: "gpt-4.1-mini")
 
-        expect(mock_chat).not_to have_received(:with_params)
+        expect(mock_chat).not_to have_received(:with_max_output_tokens)
       end
     end
 
@@ -223,14 +222,22 @@ RSpec.describe RubyLLM::Contract::Adapters::RubyLLM do
       end
     end
 
-    context "with nil token counts" do
+    # RubyLLM 2.0 has two distinct "no token counts" shapes: no Tokens object at
+    # all, and a Tokens object whose fields are nil. Both must normalise to zero,
+    # because `max_cost` and the trace arithmetic downstream cannot take a nil.
+    context "with no tokens object" do
+      let(:mock_response) { instance_double("RubyLLM::Message", content: "hello", tokens: nil) }
+
+      it "defaults token counts to zero" do
+        result = adapter.call(messages: [{ role: :user, content: "Hi" }], model: "gpt-4.1-mini")
+
+        expect(result.usage).to eq({ input_tokens: 0, output_tokens: 0 })
+      end
+    end
+
+    context "with a tokens object carrying nil counts" do
       let(:mock_response) do
-        instance_double(
-          "RubyLLM::Message",
-          content: "hello",
-          input_tokens: nil,
-          output_tokens: nil
-        )
+        instance_double("RubyLLM::Message", content: "hello", tokens: RubyLLM::Tokens.new)
       end
 
       it "defaults token counts to zero" do
@@ -258,8 +265,7 @@ RSpec.describe RubyLLM::Contract::Adapters::RubyLLM do
         instance_double(
           "RubyLLM::Message",
           content: { "intent" => "sales", "confidence" => 0.9 },
-          input_tokens: 20,
-          output_tokens: 10
+          tokens: RubyLLM::Tokens.new(input: 20, output: 10)
         )
       end
 

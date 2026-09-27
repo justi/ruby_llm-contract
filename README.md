@@ -23,7 +23,7 @@ end
 RubyLLM::Contract.configure { }
 ```
 
-Works with any `ruby_llm` provider (OpenAI, Anthropic, Gemini, etc). Requires `ruby_llm ~> 1.12` and Ruby ≥ 3.2.
+Works with any `ruby_llm` provider (OpenAI, Anthropic, Gemini, etc). Requires `ruby_llm ~> 2.0` and Ruby ≥ 3.2.
 
 ## Example
 
@@ -168,7 +168,14 @@ Different layers, complementary. [`ruby_llm-tribunal`](https://github.com/Alqemi
 
 ## Status & versioning
 
-Pre-1.0 (currently **0.11.0**). Semver tracked; breaking changes flagged in [CHANGELOG](CHANGELOG.md). Pin `~> 0.11.0` until 1.0 ships.
+Stable at **1.0.0**. Semver tracked; breaking changes flagged in [CHANGELOG](CHANGELOG.md). Pin `~> 1.0`.
+
+What 1.0 promises not to break inside the 1.x line: the documented DSL
+(`prompt`, `output_schema`, `validate`, `retry_policy`, `max_cost`, `define_eval`,
+pipelines), the `Result` and `trace` shapes including `trace[:usage]`'s
+`{ input_tokens:, output_tokens: }` keys, and the adapter interface. A new major
+version of a runtime dependency may require a new major version here — that is
+what 1.0.0 itself was.
 
 ## FAQ
 

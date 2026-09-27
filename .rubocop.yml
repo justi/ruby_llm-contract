@@ -1,3 +1,5 @@
+inherit_from: .rubocop_todo.yml
+
 AllCops:
   inherit_mode:
     merge:
@@ -18,9 +20,15 @@ Style/StringLiteralsInInterpolation:
   EnforcedStyle: double_quotes
 
 Metrics/BlockLength:
+  # Listed here rather than in .rubocop_todo.yml because `inherit_mode: merge` is
+  # scoped to AllCops, so a per-cop Exclude REPLACES the inherited one. Anything
+  # this cop must skip has to be named in this block.
   Exclude:
     - 'spec/**/*'
     - '*.gemspec'
+    # RSpec matcher DSL: the blocks ARE the public interface, so splitting them
+    # to satisfy a line count would make the matchers harder to read, not easier.
+    - 'lib/ruby_llm/contract/rspec/pass_eval.rb'
 
 Metrics/MethodLength:
   Max: 25

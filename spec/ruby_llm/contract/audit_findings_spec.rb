@@ -452,17 +452,21 @@ RSpec.describe "Technical audit findings" do
   end
 
   # -------------------------------------------------------------------------
-  # FINDING 7 (MEDIUM): ruby_llm-schema without version constraint
+  # FINDING 7 (MEDIUM): dependency declared without a version constraint
   # -------------------------------------------------------------------------
-  describe "FINDING 7: ruby_llm-schema version constraint" do
-    it "has a version constraint on ruby_llm-schema dependency" do
+  # Originally specific to ruby_llm-schema, which 1.0.0 dropped for schematist.
+  # Generalised to every runtime dependency so the finding cannot be retired by
+  # renaming the gem it happened to be about.
+  describe "FINDING 7: runtime dependency version constraints" do
+    it "declares no dependency without a version constraint" do
       gem_root = File.expand_path("../../..", __dir__)
       gemspec_content = File.read(File.join(gem_root, "ruby_llm-contract.gemspec"))
 
-      # Should NOT have bare dependency without version
-      expect(gemspec_content).not_to match(/add_dependency\s+"ruby_llm-schema"\s*$/)
-      # Should have a version constraint
-      expect(gemspec_content).to match(/add_dependency\s+"ruby_llm-schema",\s+"[~><=\d\s.]+"/)
+      declarations = gemspec_content.scan(/add_dependency\s+(.+)$/).flatten
+      expect(declarations).not_to be_empty
+
+      unconstrained = declarations.grep_v(/,\s*"[~><=\d\s.,"]+"/)
+      expect(unconstrained).to be_empty, "dependencies without a version constraint: #{unconstrained.inspect}"
     end
   end
 end

@@ -2,12 +2,12 @@
 
 > Read this as a reference for the schema DSL — every constraint, nested objects, arrays of objects, the full pattern table.
 
-Declare the expected output structure using [ruby_llm-schema](https://github.com/danielfriis/ruby_llm-schema) DSL. The schema serves **two purposes**:
+Declare the expected output structure using the [schematist](https://github.com/crmne/schematist) DSL. The schema serves **two purposes**:
 
 1. **Output validation** — replaces type and shape checks (enums, ranges, required fields). One declaration instead of many.
 2. **Provider-side request** — with the RubyLLM adapter, the schema is sent to the LLM provider via `chat.with_schema(...)`, asking the model to return JSON matching the shape. Cheaper models sometimes ignore the request, which is why client-side validation (point 1) still matters.
 
-> **Same DSL `RubyLLM::Agent.schema` accepts.** Both use `RubyLLM::Schema.create(&block)` under the hood. `Step.output_schema` is eager-compiled at class load and drives client-side validation; `Agent.schema` accepts a `Proc` for dynamic per-call schemas. See [Relation to Agent](relation_to_agent.md) for the full comparison.
+> **Same DSL `RubyLLM::Agent.schema` accepts.** Both use `Schematist::Schema.create(&block)` under the hood (schematist is what the `ruby_llm-schema` gem became; RubyLLM 2.x depends on it directly). `Step.output_schema` is eager-compiled at class load and drives client-side validation; `Agent.schema` accepts a `Proc` for dynamic per-call schemas. See [Relation to Agent](relation_to_agent.md) for the full comparison.
 
 All examples below extend the `SummarizeArticle` step from the [README](../../README.md).
 

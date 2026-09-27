@@ -30,7 +30,7 @@ RSpec.describe "output_schema forwarding to adapter" do
     # schema is the structural shape the DSL ought to produce — a JSON Schema
     # carrying the declared `intent` property with the declared enum values.
     schema_class = received_options[:schema]
-    expect(schema_class).to be < RubyLLM::Schema
+    expect(schema_class).to be < Schematist::Schema
     json = schema_class.new.to_json
     expect(json).to include("intent").and include("sales").and include("billing")
     # Drop sneaky placeholder so the test reflects the strengthening intent
@@ -64,7 +64,7 @@ RSpec.describe "output_schema forwarding to adapter" do
 
     # Same strengthening as the string-prompt test above.
     schema_class = received_options[:schema]
-    expect(schema_class).to be < RubyLLM::Schema
+    expect(schema_class).to be < Schematist::Schema
     json = schema_class.new.to_json
     expect(json).to include("intent").and include("sales").and include("billing")
   end
@@ -106,8 +106,8 @@ RSpec.describe "output_schema forwarding to adapter" do
     # objects per prompt style) would have passed silently. Compare their
     # JSON serialisations; structural equality is what matters, not object
     # identity (each step builds its own).
-    expect(schemas[0]).to be < RubyLLM::Schema
-    expect(schemas[1]).to be < RubyLLM::Schema
+    expect(schemas[0]).to be < Schematist::Schema
+    expect(schemas[1]).to be < Schematist::Schema
     expect(schemas[0].new.to_json).to eq(schemas[1].new.to_json)
   end
 end

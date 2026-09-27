@@ -610,8 +610,7 @@ RSpec.describe "Edge cases" do
       expect(described_class.calculate(model_name: "gpt-4", usage: nil)).to be_nil
       expect(described_class.calculate(model_name: "gpt-4", usage: "bad")).to be_nil
       expect(described_class.calculate(model_name: "nonexistent-xyz",
-                                       usage: { input_tokens: 100,
-                                                output_tokens: 50 })).to be_nil
+                                       usage: { tokens: RubyLLM::Tokens.new(input: 100, output: 50) })).to be_nil
     end
 
     it "returns 0.0 for known model with empty usage hash (zero tokens)" do
@@ -802,7 +801,7 @@ RSpec.describe "Edge cases" do
       it "populates trace with messages and model even on adapter failure" do
         failing_adapter = Class.new(RubyLLM::Contract::Adapters::Base) do
           def call(messages:, **_options) # rubocop:disable Lint/UnusedMethodArgument
-            raise RubyLLM::Error.new(nil, "network failure")
+            raise RubyLLM::Error.new("network failure")
           end
         end.new
 

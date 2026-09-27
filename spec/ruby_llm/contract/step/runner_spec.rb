@@ -113,7 +113,7 @@ RSpec.describe RubyLLM::Contract::Step::Runner do
       it "returns :adapter_error" do
         failing_adapter = Class.new(RubyLLM::Contract::Adapters::Base) do
           def call(messages:, **_options) # rubocop:disable Lint/UnusedMethodArgument
-            raise RubyLLM::Error.new(nil, "connection timeout")
+            raise RubyLLM::Error.new("connection timeout")
           end
         end.new
         definition = RubyLLM::Contract::Definition.new

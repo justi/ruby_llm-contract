@@ -1,0 +1,107 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  spec:
+    name: spec (ruby ${{ matrix.ruby }}, ${{ matrix.gemfile }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # 3.2 is the gemspec floor; 3.4 is current. ruby_llm 2.0.0 is pinned
+        # separately from latest 2.x so upstream drift is attributable.
+        ruby: ["3.2", "3.4"]
+        gemfile: [ruby_llm_2.0, ruby_llm_2.x]
+    env:
+      BUNDLE_GEMFILE: ${{ github.workspace }}/gemfiles/${{ matrix.gemfile }}.gemfile
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: ${{ matrix.ruby }}
+          bundler-cache: true
+
+      - name: Show resolved dependency versions
+        run: |
+          bundle exec ruby -e 'require "ruby_llm"; puts "ruby_llm #{RubyLLM::VERSION}"'
+          bundle exec ruby -e 'require "schematist"; puts "schematist #{Schematist::VERSION}"'
+
+      # No API keys are configured on purpose: CI must prove the gem works
+      # offline. The live specs skip themselves, and the next step pins how
+      # many are allowed to do so.
+      - name: Suite
+        run: bundle exec rspec --format progress --no-color | tee /tmp/rspec.out
+
+      - name: Pending specs must be exactly the known live-key ones
+        # Guards against a failing spec being quietly turned into a pending one.
+        # All 7 come from spec/integration/cost_of_quality_real_spec.rb, gated on
+        # OPENAI_API_KEY / ANTHROPIC_API_KEY. Any other pending fails the build.
+        run: |
+          summary=$(grep -E '^[0-9]+ examples?,' /tmp/rspec.out | tail -1)
+          echo "summary: $summary"
+          pending=$(echo "$summary" | grep -oE '[0-9]+ pending' | grep -oE '[0-9]+' || echo 0)
+          if [ "$pending" != "7" ]; then
+            echo "::error::expected exactly 7 pending (live-key specs), got $pending"
+            grep -A2 -E '^\s+[0-9]+\) ' /tmp/rspec.out | grep -E '^\s+# \./spec' | sort -u
+            exit 1
+          fi
+          unexpected=$(grep -A2 -E '^\s+[0-9]+\) ' /tmp/rspec.out \
+            | grep -E '^\s+# \./spec' \
+            | grep -v 'spec/integration/cost_of_quality_real_spec.rb' || true)
+          if [ -n "$unexpected" ]; then
+            echo "::error::pending specs outside the live-key file:"
+            echo "$unexpected"
+            exit 1
+          fi
+
+      - name: Offline examples must run
+        # The examples are shipped documentation; a broken one is an adopter-visible
+        # defect the suite does not catch. 02 needs a live provider key, so it is
+        # excluded here rather than silently failing.
+        run: |
+          for f in examples/0*.rb; do
+            case "$f" in *02_real_llm_minimal.rb) continue ;; esac
+            echo "--- $f"
+            bundle exec ruby -Ilib "$f" >/dev/null
+          done
+
+  lint:
+    name: rubocop
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.4"
+          bundler-cache: true
+      - run: bundle exec rubocop --format github
+
+  build:
+    name: gem build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.4"
+          bundler-cache: true
+      # `gem build` must stay warning-free: a duplicate-URI warning here is how
+      # the suppressed "Source Code" link on rubygems.org went unnoticed.
+      - name: Build and fail on any warning
+        run: |
+          gem build ruby_llm-contract.gemspec 2>&1 | tee /tmp/build.out
+          if grep -qi warning /tmp/build.out; then
+            echo "::error::gem build emitted a warning"
+            exit 1
+          fi
+      - name: Installed gem must require cleanly
+        run: |
+          gem install ./ruby_llm-contract-*.gem --no-document
+          ruby -e 'require "ruby_llm/contract"; puts RubyLLM::Contract::VERSION'

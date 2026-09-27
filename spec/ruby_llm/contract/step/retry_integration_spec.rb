@@ -193,7 +193,7 @@ RSpec.describe "retry_policy integration" do
       flaky_adapter = Object.new
       flaky_adapter.define_singleton_method(:call) do |**_opts|
         call_count += 1
-        raise RubyLLM::Error.new(nil, "connection timeout") if call_count < 3
+        raise RubyLLM::Error.new("connection timeout") if call_count < 3
 
         RubyLLM::Contract::Adapters::Response.new(content: '{"key": "good"}', usage: {})
       end
@@ -221,7 +221,7 @@ RSpec.describe "retry_policy integration" do
     it "returns :adapter_error after all retries exhausted" do
       failing_adapter = Object.new
       failing_adapter.define_singleton_method(:call) do |**_opts|
-        raise RubyLLM::Error.new(nil, "connection refused")
+        raise RubyLLM::Error.new("connection refused")
       end
 
       step = Class.new(RubyLLM::Contract::Step::Base) do
@@ -247,7 +247,7 @@ RSpec.describe "retry_policy integration" do
       flaky_adapter = Object.new
       flaky_adapter.define_singleton_method(:call) do |**opts|
         models_used << opts[:model]
-        raise RubyLLM::Error.new(nil, "timeout") if opts[:model] == "nano"
+        raise RubyLLM::Error.new("timeout") if opts[:model] == "nano"
 
         RubyLLM::Contract::Adapters::Response.new(content: '{"key": "ok"}', usage: {})
       end

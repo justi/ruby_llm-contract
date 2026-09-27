@@ -69,12 +69,10 @@ module RubyLLM
           thinking_config = resolve_thinking_config(options)
           chat.with_thinking(**thinking_config) if thinking_config
 
-          # `with_params` carries only raw passthroughs (currently `max_tokens`).
-          # `reasoning_effort` is no longer forwarded here — it goes through
-          # `with_thinking` above, which is the canonical RubyLLM API.
-          params = {}
-          params[:max_tokens] = options[:max_tokens] if options[:max_tokens]
-          chat.with_params(**params) if params.any?
+          # RubyLLM 2.0 removed `with_params`; `with_max_output_tokens` is the
+          # replacement for this one passthrough. `reasoning_effort` is not
+          # forwarded here — it goes through `with_thinking` above.
+          chat.with_max_output_tokens(options[:max_tokens]) if options[:max_tokens]
         end
 
         # Returns merged `{ effort:, budget: }` or nil. `options[:reasoning_effort]`
@@ -90,11 +88,18 @@ module RubyLLM
           content = response.content
           content = content.to_s unless content.is_a?(Hash) || content.is_a?(Array)
 
+          # This is the ONLY place upstream token counts are read. RubyLLM 2.0
+          # replaced `Message#input_tokens`/`#output_tokens` with a `Tokens` value
+          # object. The `{ input_tokens:, output_tokens: }` shape below is this
+          # gem's own public contract (Step::Trace#usage, cost calculation,
+          # documented in the README) and deliberately does NOT change.
+          tokens = response.tokens
+
           Response.new(
             content: content,
             usage: {
-              input_tokens: response.input_tokens || 0,
-              output_tokens: response.output_tokens || 0
+              input_tokens: tokens&.input || 0,
+              output_tokens: tokens&.output || 0
             }
           )
         end

@@ -2,7 +2,7 @@
 
 > Read this when your contract needs to send a PDF, image, or audio file to the LLM — not just text.
 
-`ruby_llm-contract` 0.10.0+ routes attachments through the contract layer, so `max_cost`, `validate`, `retry_policy escalate(...)`, and trace observability still apply. The gem does **not** ship its own multimodal API — it forwards `with:` to `RubyLLM::Chat#ask`, which RubyLLM 1.15+ normalises per provider (Anthropic, OpenAI, Gemini).
+`ruby_llm-contract` 0.10.0+ routes attachments through the contract layer, so `max_cost`, `validate`, `retry_policy escalate(...)`, and trace observability still apply. The gem does **not** ship its own multimodal API — it forwards `with:` to `RubyLLM::Chat#ask`, which RubyLLM normalises per provider (Anthropic, OpenAI, Gemini).
 
 ## Minimal example
 
@@ -130,7 +130,7 @@ Pick a value at or above the provider's worst-case. The estimate is a **floor fo
 
 ## Multi-turn caveat
 
-If your contract uses history (`add_history`), attachments from prior turns are **not** replayed (still true in 0.11.x). Single-turn multimodal works; follow-up questions on the same document require additional work that is deferred to a later release. The rationale is recorded in the project's internal ADR-0022, which is not shipped with the gem.
+If your contract uses history (`add_history`), attachments from prior turns are **not** replayed (still true in 1.0.x). Single-turn multimodal works; follow-up questions on the same document require additional work that is deferred to a later release. The rationale is recorded in the project's internal ADR-0022, which is not shipped with the gem.
 
 ## Provider notes
 
@@ -149,7 +149,8 @@ RSpec.describe ExtractInvoiceData do
   it "forwards attachment to chat.ask" do
     expect_any_instance_of(RubyLLM::Chat).to receive(:ask)
       .with(anything, with: "fixtures/invoice.pdf")
-      .and_return(double(content: '{"vendor":"X",...}', input_tokens: 200, output_tokens: 50))
+      .and_return(double(content: '{"vendor":"X",...}',
+                         tokens: RubyLLM::Tokens.new(input: 200, output: 50)))
 
     result = described_class.run("extract", context: { attachment: "fixtures/invoice.pdf" })
     expect(result.status).to eq(:ok)

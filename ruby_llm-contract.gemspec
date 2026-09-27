@@ -24,16 +24,18 @@ Gem::Specification.new do |spec|
   spec.files = Dir.chdir(__dir__) do
     # Internal trackers + dev configs excluded so the published gem
     # contains only what adopters actually need at runtime.
-    excluded_files = %w[.rspec .simplecov .rubocop.yml Gemfile Rakefile]
+    excluded_files = %w[.rspec .simplecov .rubocop.yml .rubocop_todo.yml Gemfile Rakefile]
     `git ls-files -z`.split("\x0").reject do |f|
       (File.expand_path(f) == __FILE__) ||
-        f.start_with?("spec/", "docs/ideas/", "doc/", ".ai/", ".claude/", ".git", ".revive/") ||
+        f.start_with?("spec/", "docs/ideas/", "doc/", ".ai/", ".claude/", ".git",
+                      ".revive/", "gemfiles/") ||
         excluded_files.include?(f)
     end
   end
   spec.require_paths = ["lib"]
 
   spec.add_dependency "dry-types", "~> 1.7"
-  spec.add_dependency "ruby_llm", "~> 1.12"
-  spec.add_dependency "ruby_llm-schema", "~> 0.3"
+  spec.add_dependency "ruby_llm", "~> 2.0"
+  # schematist is what ruby_llm-schema became; ruby_llm 2.x depends on it too.
+  spec.add_dependency "schematist", "~> 1.1"
 end

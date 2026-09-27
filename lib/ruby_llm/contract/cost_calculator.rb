@@ -84,10 +84,35 @@ module RubyLLM
       end
 
       def self.compute_cost(model_info, usage)
-        input_cost = token_cost(usage[:input_tokens], model_info.input_price_per_million)
-        output_cost = token_cost(usage[:output_tokens], model_info.output_price_per_million)
+        input_price, output_price = prices_for(model_info)
+        return nil if input_price.nil? && output_price.nil?
+
+        input_cost = token_cost(usage[:input_tokens], input_price)
+        output_cost = token_cost(usage[:output_tokens], output_price)
         (input_cost + output_cost).round(6)
       end
+
+      # Two shapes reach here. `RegisteredModel` (our own struct, from
+      # `register_model`) exposes flat `*_price_per_million` readers. RubyLLM 2.0
+      # moved provider pricing into a nested value object and dropped those flat
+      # readers, so it has to be walked: pricing -> text_tokens -> standard.
+      #
+      # Returns `[nil, nil]` for a shape with no reachable text-token pricing,
+      # which `calculate` turns into a nil cost — the documented "unknown
+      # pricing" signal that `max_cost` fails closed on. It must NOT be a
+      # swallowed NoMethodError, or a shape change upstream would silently start
+      # refusing every budgeted call.
+      def self.prices_for(model_info)
+        if model_info.respond_to?(:input_price_per_million)
+          return [model_info.input_price_per_million, model_info.output_price_per_million]
+        end
+
+        tier = model_info.pricing&.text_tokens&.standard if model_info.respond_to?(:pricing)
+        return [nil, nil] unless tier.respond_to?(:input_per_million)
+
+        [tier.input_per_million, tier.output_per_million]
+      end
+      private_class_method :prices_for
 
       # Provider pricing is denominated per 1M tokens; divide here to get
       # the dollar cost for the actual usage count. Named constant for

@@ -1,8 +1,73 @@
 # Changelog
 
-## 0.11.0 (2026-09-13)
+## 1.0.0 (2026-09-27)
 
-Housekeeping release from a 20-pass systematic audit of the whole repository. No API changes and no behaviour change inside `Step`/`Pipeline`/`Eval`; the user-visible differences are in what the gem **packages**, what the RubyGems page **links**, and what the docs **claim**. Suite unchanged throughout at 1406 examples, 0 failures, 7 pending.
+**Requires `ruby_llm ~> 2.0`.** This is the only breaking change: it is a
+dependency requirement, not a change to this gem's API. Your call sites,
+`output_schema` blocks, `trace[:usage]` keys and adapter interface are all
+untouched — if you are on ruby_llm 2.x, upgrading should need no code edits.
+
+1.0 also states what is now stable: the documented DSL, the `Result`/`trace`
+shapes including `trace[:usage]`'s `{ input_tokens:, output_tokens: }` keys, and
+the adapter interface. A future major version of a runtime dependency may again
+require a major version here — that is what this release is.
+
+### Added
+
+- **CI, for the first time.** Matrix over Ruby 3.2 and 3.4 against both
+  ruby_llm 2.0.0 (pinned, so a regression at the major boundary stays
+  distinguishable) and the newest 2.x the gemspec allows. The job also runs every
+  offline example, builds the gem and fails on any `gem build` warning, and
+  installs the built gem to prove it `require`s. The seven live-key specs are
+  bounded explicitly: CI asserts the pending count is exactly 7 and that all
+  seven come from `spec/integration/cost_of_quality_real_spec.rb`, so a failing
+  spec cannot be quietly downgraded to pending.
+- **`.rubocop_todo.yml`** so lint can be enforced in CI at zero offences while the
+  pre-existing backlog stays visible and shrinkable, rather than blocking the gate.
+- **A boundary spec for the RubyLLM 2.x seam**
+  (`spec/ruby_llm/contract/adapters/ruby_llm_2x_boundary_spec.rb`). Every
+  upstream-version-specific detail is supposed to live in `Adapters::RubyLLM` and
+  `CostCalculator`; these tests pin that, including that `max_cost` still fails
+  closed if provider pricing ever becomes unreachable again.
+
+### Changed
+
+- **`ruby_llm` requirement raised to `~> 2.0`** (from `~> 1.12`).
+- **`ruby_llm-schema` replaced by `schematist ~> 1.1`.** `ruby_llm-schema` 1.0.0 is
+  31 lines that emit a deprecation warning and alias `RubyLLM::Schema =
+  Schematist::Schema`; ruby_llm 2.x depends on schematist directly. The
+  `output_schema do ... end` DSL is unchanged — same object behind a different
+  constant.
+- **Adapter reads token counts from `Message#tokens`.** RubyLLM 2.0 replaced
+  `Message#input_tokens`/`#output_tokens` with a `Tokens` value object. This is the
+  only place in the gem that touches upstream token counts, and the normalised
+  `{ input_tokens:, output_tokens: }` hash it publishes is deliberately unchanged.
+- **`max_tokens` now forwards via `with_max_output_tokens`**; `Chat#with_params` no
+  longer exists in 2.0.
+
+### Fixed
+
+- **Cost calculation against ruby_llm 2.x.** 2.0 dropped the flat
+  `input_price_per_million` / `output_price_per_million` readers on `Model` for a
+  nested `pricing -> text_tokens -> standard` walk. Because `CostCalculator`
+  rescued `StandardError` into a nil cost, every priced model silently became
+  "unknown pricing" — and since `max_cost` fails closed on unknown pricing, every
+  budgeted call would have been refused. Pricing extraction is now explicit for
+  both shapes (upstream models and locally `register_model`-ed ones), and an
+  unrecognised shape returns nil rather than a swallowed exception.
+- **A shipped doc example taught the wrong test double.**
+  `docs/guide/multimodal_input.md` showed `double(content:, input_tokens:,
+  output_tokens:)`, which a verified double rejects against ruby_llm 2.0.
+- **`FINDING 7` in the audit specs asserted a constraint on `ruby_llm-schema`**, a
+  dependency this release removes. Generalised to "no runtime dependency is
+  declared without a version constraint", so the check cannot be retired by
+  renaming the gem it happened to be about.
+- Stale version and dependency claims in `README.md`, `docs/guide/output_schema.md`
+  and `docs/guide/multimodal_input.md`.
+
+### Housekeeping (was staged as 0.11.0)
+
+Result of a 20-pass systematic audit of the whole repository. No API changes and no behaviour change inside `Step`/`Pipeline`/`Eval`; the user-visible differences are in what the gem **packages**, what the RubyGems page **links**, and what the docs **claim**.
 
 ### Changed
 

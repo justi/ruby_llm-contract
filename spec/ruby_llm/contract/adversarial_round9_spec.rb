@@ -268,7 +268,7 @@ RSpec.describe "Adversarial QA round 9 -- multi-component interaction bugs" do
         output_type RubyLLM::Contract::Types::Hash
       end
 
-      # We need to set the output_schema manually since we can't use RubyLLM::Schema in tests
+      # We need to set the output_schema manually since we can't use Schematist::Schema in tests
       # Instead, test through SchemaValidator directly with the full Validator chain
       fenced_response = "```json\n{\"items\": [{\"name\": \"test\", \"extra\": true}]}\n```"
 

@@ -1,10 +1,10 @@
 # frozen_string_literal: true
 
-require "ruby_llm/schema"
+require "schematist"
 
 RSpec.describe RubyLLM::Contract::SchemaValidator do
   let(:schema) do
-    RubyLLM::Schema.create do
+    Schematist::Schema.create do
       string :intent, enum: %w[sales support billing]
       number :confidence, minimum: 0.0, maximum: 1.0
       string :summary

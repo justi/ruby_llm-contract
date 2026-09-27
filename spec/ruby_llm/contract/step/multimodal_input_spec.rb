@@ -94,7 +94,7 @@ RSpec.describe "Multimodal input" do
         def with_instructions(*); self; end
         def with_schema(*); self; end
         def with_temperature(*); self; end
-        def with_params(*); self; end
+        def with_max_output_tokens(*); self; end
         def with_thinking(*); self; end
         def add_message(**); end
 
@@ -108,7 +108,7 @@ RSpec.describe "Multimodal input" do
 
     let(:fake_response) do
       instance_double(RubyLLM::Message, content: '{"ok":true}',
-                                        input_tokens: 5, output_tokens: 3)
+                                        tokens: RubyLLM::Tokens.new(input: 5, output: 3))
     end
     let(:fake_chat) { fake_chat_class.new(fake_response) }
     let(:adapter) { RubyLLM::Contract::Adapters::RubyLLM.new }

@@ -1,0 +1,15 @@
+# frozen_string_literal: true
+
+# Pins the exact ruby_llm major-boundary release, so a regression in 2.0.0
+# itself stays distinguishable from a regression in the latest 2.x.
+source "https://rubygems.org"
+
+gemspec path: ".."
+
+gem "ruby_llm", "2.0.0"
+
+group :development, :test do
+  gem "rake", "~> 13.0"
+  gem "rspec", "~> 3.13"
+  gem "simplecov", "~> 0.22"
+end

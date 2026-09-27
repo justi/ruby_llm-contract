@@ -63,8 +63,8 @@ module RubyLLM
 
         def output_schema(&block)
           if block
-            require "ruby_llm/schema"
-            @output_schema = ::RubyLLM::Schema.create(&block)
+            require "schematist"
+            @output_schema = ::Schematist::Schema.create(&block)
           elsif defined?(@output_schema)
             @output_schema
           elsif superclass.respond_to?(:output_schema)

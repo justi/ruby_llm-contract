@@ -137,10 +137,10 @@ RSpec.describe "Step thinking DSL" do
   describe "adapter forwarding" do
     let(:fake_chat_class) do
       Class.new do
-        attr_reader :thinking_calls, :params_calls, :messages
+        attr_reader :thinking_calls, :max_output_tokens_calls, :messages
         def initialize
           @thinking_calls = []
-          @params_calls = []
+          @max_output_tokens_calls = []
           @messages = []
         end
 
@@ -149,8 +149,10 @@ RSpec.describe "Step thinking DSL" do
           self
         end
 
-        def with_params(**kwargs)
-          @params_calls << kwargs
+        # RubyLLM 2.0 has no `with_params`; `with_max_output_tokens` is the only
+        # remaining non-thinking option channel, and it takes a positional value.
+        def with_max_output_tokens(value)
+          @max_output_tokens_calls << value
           self
         end
 
@@ -161,7 +163,7 @@ RSpec.describe "Step thinking DSL" do
         def ask(content, with: nil)
           @messages << content
           @last_attachment = with
-          OpenStruct.new(content: '{"ok":true}', input_tokens: 10, output_tokens: 5)
+          OpenStruct.new(content: '{"ok":true}', tokens: RubyLLM::Tokens.new(input: 10, output: 5))
         end
       end
     end
@@ -186,17 +188,29 @@ RSpec.describe "Step thinking DSL" do
       expect(fake_chat.thinking_calls).to eq([{ effort: :low }])
     end
 
-    it "skips reasoning_effort with_params when thinking already covered it" do
+    it "routes reasoning_effort through with_thinking only, never the token channel" do
       adapter.call(messages: messages, model: "gpt-5-nano",
                    thinking: { effort: :low }, reasoning_effort: :low)
-      effort_params = fake_chat.params_calls.flat_map { |c| c.keys }
-      expect(effort_params).not_to include(:reasoning_effort)
+
+      expect(fake_chat.thinking_calls).to eq([{ effort: :low }])
+      # Asserting emptiness is only meaningful because the fake DOES implement
+      # with_max_output_tokens — otherwise a leak would raise NoMethodError and
+      # this example would pass for the wrong reason.
+      expect(fake_chat.max_output_tokens_calls).to be_empty
     end
 
-    it "reasoning_effort-only forwards via with_thinking (no with_params call for it)" do
+    it "reasoning_effort-only forwards via with_thinking and touches nothing else" do
       adapter.call(messages: messages, model: "gpt-5-nano", reasoning_effort: :high)
+
       expect(fake_chat.thinking_calls).to eq([{ effort: :high }])
-      expect(fake_chat.params_calls.flat_map(&:keys)).not_to include(:reasoning_effort)
+      expect(fake_chat.max_output_tokens_calls).to be_empty
+    end
+
+    it "sends max_tokens through with_max_output_tokens positionally" do
+      adapter.call(messages: messages, model: "gpt-5-nano", max_tokens: 256)
+
+      expect(fake_chat.max_output_tokens_calls).to eq([256])
+      expect(fake_chat.thinking_calls).to be_empty
     end
 
     it "per-attempt :reasoning_effort OVERRIDES class-level :thinking effort (Bug #1 regression)" do

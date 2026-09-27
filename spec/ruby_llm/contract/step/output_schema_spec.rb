@@ -7,8 +7,7 @@ RSpec.describe "output_schema integration" do
     instance_double(
       "RubyLLM::Message",
       content: { "intent" => "sales", "confidence" => 0.95 },
-      input_tokens: 30,
-      output_tokens: 10
+      tokens: RubyLLM::Tokens.new(input: 30, output: 10)
     )
   end
 
@@ -16,7 +15,7 @@ RSpec.describe "output_schema integration" do
     instance_double("RubyLLM::Chat").tap do |chat|
       allow(chat).to receive(:with_instructions).and_return(chat)
       allow(chat).to receive(:with_temperature).and_return(chat)
-      allow(chat).to receive(:with_params).and_return(chat)
+      allow(chat).to receive(:with_max_output_tokens).and_return(chat)
       allow(chat).to receive(:with_schema).and_return(chat)
       allow(chat).to receive(:add_message).and_return(nil)
       allow(chat).to receive(:ask).and_return(mock_response)
@@ -62,8 +61,8 @@ RSpec.describe "output_schema integration" do
   end
 
   describe "Step::Base.output_schema" do
-    it "stores schema as a RubyLLM::Schema subclass" do
-      expect(schema_step.output_schema).to be < RubyLLM::Schema
+    it "stores schema as a Schematist::Schema subclass" do
+      expect(schema_step.output_schema).to be < Schematist::Schema
     end
 
     it "returns nil when no schema defined" do
@@ -116,8 +115,7 @@ RSpec.describe "output_schema integration" do
       low_confidence = instance_double(
         "RubyLLM::Message",
         content: { "intent" => "sales", "confidence" => 0.2 },
-        input_tokens: 30,
-        output_tokens: 10
+        tokens: RubyLLM::Tokens.new(input: 30, output: 10)
       )
       allow(mock_chat).to receive(:ask).and_return(low_confidence)
 
