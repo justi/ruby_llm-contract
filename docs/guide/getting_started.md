@@ -228,7 +228,7 @@ class SummarizeArticle < RubyLLM::Contract::Step::Base
 end
 ```
 
-The count comes from RubyLLM's `chat.count_tokens` (OpenAI Responses, Anthropic, Gemini, Vertex AI, Bedrock Converse) and covers the prompt, the schema and attachments, so `attachment_token_estimate` is not needed. It costs one extra request per attempt, and RubyLLM leaves `provider_options` out of it. Where no count can be had - a provider without the endpoint (Ollama, for one), a failed request, or an adapter without `count_tokens` - the call is refused as `:limit_exceeded` with the reason, never measured with the heuristic under the name "exact". The `Test` adapter counts with the heuristic, since it has no provider to ask. The output side of `max_cost` is still an estimate (`max_output`, or the input size without one).
+The count comes from RubyLLM's `chat.count_tokens` (OpenAI Responses, Anthropic, Gemini, Vertex AI, Bedrock Converse) and covers the prompt and attachments, so `attachment_token_estimate` is not needed. What else a provider counts is its own: OpenAI's and Anthropic's counts include the output schema, Gemini's leaves it out. It costs one extra request per attempt, and RubyLLM leaves `provider_options` out of it. Where no count can be had - a provider without the endpoint (Ollama, for one), a failed request, or an adapter without `count_tokens` - the call is refused as `:limit_exceeded` with the reason, never measured with the heuristic under the name "exact". The `Test` adapter counts with the heuristic, since it has no provider to ask. The output side of `max_cost` is still an estimate (`max_output`, or the input size without one).
 
 ### Local and custom models
 

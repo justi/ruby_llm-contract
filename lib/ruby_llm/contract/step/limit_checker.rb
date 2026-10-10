@@ -41,7 +41,10 @@ module RubyLLM
                          "#{count_adapter.class} does not"]
           end
 
-          [count_adapter.count_tokens(messages: messages, **count_options), nil]
+          counted = count_adapter.count_tokens(messages: messages, **count_options)
+          return [counted, nil] if counted.is_a?(Integer) && !counted.negative?
+
+          [nil, "token_count :exact: no usable token count (got #{counted.inspect})"]
         rescue ::RubyLLM::Error, ::Faraday::Error => e
           [nil, "token_count :exact: the provider could not count the input tokens (#{e.message})"]
         end

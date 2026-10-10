@@ -95,8 +95,11 @@ RSpec.describe "retry_on with exception classes" do
     expect(run(step, adapter).status).to eq(:ok)
   end
 
-  it "refuses a class that is not an exception" do
+  it "refuses a class that is not an exception, and a status that is not a symbol" do
     expect { step_retrying_on(String) }.to raise_error(ArgumentError, /exception classes, got String/)
+    expect { step_retrying_on("validation_failed") }.to raise_error(ArgumentError, /got "validation_failed"/)
+    expect { RubyLLM::Contract::Step::RetryPolicy.new(attempts: 2, retry_on: [:parse_error, 123]) }
+      .to raise_error(ArgumentError, /got 123/)
   end
 
   it "does not match a trace rebuilt from a hash, which keeps only the class name" do

@@ -88,13 +88,13 @@ RSpec.describe RubyLLM::Contract::WorkflowScope do
     expect(inner.last[:workflow_parent_id]).not_to be_nil
   end
 
-  it "leaves no scope behind when a step raises" do
+  it "leaves no scope behind when the call raises inside it" do
     enable
-    failing = Class.new(classify) do
-      around_call { |_input, _result| raise "boom" }
-    end
+    exploding = Class.new(RubyLLM::Contract::Adapters::Base) do
+      def call(messages:, **_options) = raise("boom") # rubocop:disable Lint/UnusedMethodArgument
+    end.new
 
-    expect { failing.run("x", context: { adapter: adapter }) }.to raise_error("boom")
+    expect { classify.run("x", context: { adapter: exploding }) }.to raise_error("boom")
     expect(described_class.current).to be_nil
   end
 

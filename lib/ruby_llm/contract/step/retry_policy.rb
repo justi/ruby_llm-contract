@@ -90,14 +90,21 @@ module RubyLLM
           @retryable_statuses, @retryable_errors = split_conditions(Array(retry_on)) if retry_on
         end
 
+        # Symbols are statuses; exception classes match adapter errors. Anything
+        # else (a String status among them) would never match, so it raises
+        # instead of quietly turning retries off.
         def split_conditions(conditions)
-          classes, statuses = conditions.partition { |condition| condition.is_a?(Class) }
-          non_errors = classes.reject { |klass| klass <= Exception }
-          unless non_errors.empty?
-            raise ArgumentError, "retry_on takes statuses and exception classes, got #{non_errors.join(", ")}"
+          invalid = conditions.reject { |condition| condition.is_a?(Symbol) || exception_class?(condition) }
+          unless invalid.empty?
+            raise ArgumentError,
+                  "retry_on takes status symbols and exception classes, got #{invalid.map(&:inspect).join(", ")}"
           end
 
-          [statuses, classes]
+          conditions.partition { |condition| condition.is_a?(Symbol) }
+        end
+
+        def exception_class?(condition)
+          condition.is_a?(Class) && condition <= Exception
         end
 
         def normalize_config(entry)

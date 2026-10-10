@@ -62,6 +62,13 @@ RSpec.describe "Temperature on models that take none (HTTP intercepted)" do
     expect { run("gpt-5-mini") }.not_to output.to_stderr
   end
 
+  it "works from a subclass of the adapter too" do
+    subclass = Class.new(RubyLLM::Contract::Adapters::RubyLLM)
+
+    expect { run("gpt-5-mini", adapter: subclass.new) }.to output(/does not accept temperature/).to_stderr
+    expect(bodies.last).not_to have_key("temperature")
+  end
+
   it "sends it to a model RubyLLM does not know, as before" do
     run("ft-unknown-model", provider: :openai, assume_model_exists: true)
 

@@ -12,7 +12,9 @@ Everything new is opt-in, except the temperature fix below.
   included, so `attachment_token_estimate` is not needed. One extra request per attempt.
   A provider without the endpoint, a failed count or an adapter without `count_tokens`
   refuses the call (`:limit_exceeded`) rather than falling back to the heuristic; the
-  `Test` adapter counts with the heuristic. `Adapters::RubyLLM#count_tokens`.
+  `Test` adapter counts with the heuristic. What a provider counts beyond prompt and
+  attachments is its own (Gemini's count leaves the output schema out).
+  `Adapters::RubyLLM#count_tokens`.
 - **`on_incomplete_output :refuse`** on a step: a response the provider stopped at a token
   limit fails as `:output_truncated`, one stopped by a content filter as
   `:content_filtered`, before validation, so it is never `:ok`. Both statuses are outside
@@ -41,6 +43,9 @@ Everything new is opt-in, except the temperature fix below.
   2.x sends the value as given, so a step with `temperature` that escalated to one failed
   with an adapter error. The adapter now leaves it out and warns once per model; a model
   the registry does not know still gets it.
+- **`retry_on` raises on a condition it cannot match.** A status given as a String (or
+  any value that is neither a Symbol nor an exception class) never matched a result, so
+  it silently turned retries off; it now raises `ArgumentError` when the step is defined.
 
 ## 1.1.2 (2026-10-10)
 

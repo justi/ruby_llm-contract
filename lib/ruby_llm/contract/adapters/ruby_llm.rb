@@ -22,6 +22,10 @@ module RubyLLM
         def count_tokens(messages:, **options)
           chat, text = prepared_chat(messages, options)
           chat.ask_later(text, with: options[:attachment]).count_tokens
+        rescue KeyError => e
+          # RubyLLM reads OpenAI's count with `fetch`; a reply without the
+          # field is a failed count, not a bug in the caller.
+          raise ::RubyLLM::Error, "count response without input_tokens (#{e.message})"
         end
 
         CHAT_OPTION_METHODS = {
@@ -31,7 +35,8 @@ module RubyLLM
         @dropped_temperature_models = Set.new
         @dropped_temperature_lock = Mutex.new
 
-        # Warns once per provider and model, across threads.
+        # Warns once per provider and model, across threads and subclasses
+        # (called on this class, whose state subclasses do not inherit).
         def self.warn_dropped_temperature(model)
           key = "#{model.provider}:#{model.id}"
           first = @dropped_temperature_lock.synchronize { @dropped_temperature_models.add?(key) }
@@ -114,7 +119,7 @@ module RubyLLM
         def apply_temperature(chat, temperature)
           model = chat.respond_to?(:model) ? chat.model : nil
           if model.respond_to?(:metadata) && model.metadata.is_a?(Hash) && model.metadata[:temperature] == false
-            self.class.warn_dropped_temperature(model)
+            Adapters::RubyLLM.warn_dropped_temperature(model)
           else
             chat.with_temperature(temperature)
           end

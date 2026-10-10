@@ -106,6 +106,25 @@ RSpec.describe "token_count :exact (HTTP intercepted)" do
     expect(a_request(:post, completion_url)).not_to have_been_made
   end
 
+  it "refuses when the provider's reply has no count" do
+    stub_request(:post, count_url).to_return(status: 200, body: "{}", headers: { "Content-Type" => "application/json" })
+
+    result = run
+
+    expect(result.status).to eq(:limit_exceeded)
+    expect(result.validation_errors.first).to include("could not count", "without input_tokens")
+  end
+
+  it "refuses a count that is not a non-negative integer" do
+    lying = Class.new(RubyLLM::Contract::Adapters::Test) do
+      def count_tokens(messages:, **_options) = -1 # rubocop:disable Lint/UnusedMethodArgument
+    end.new(response: '{"label":"x"}')
+
+    result = step.run("x", context: { adapter: lying, model: "gpt-4.1-mini" })
+
+    expect(result.validation_errors).to eq(["token_count :exact: no usable token count (got -1)"])
+  end
+
   it "refuses with an adapter that cannot count" do
     plain = Class.new(RubyLLM::Contract::Adapters::Base) do
       def call(messages:, **_options) # rubocop:disable Lint/UnusedMethodArgument
