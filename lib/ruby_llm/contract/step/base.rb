@@ -103,7 +103,7 @@ module RubyLLM
             context = safe_context(context)
             warn_unknown_context_keys(context)
 
-            result = dispatch_run(input, context)
+            result = WorkflowScope.workflow(name || "anonymous step") { dispatch_run(input, context) }
             log_result(result)
             invoke_around_call(input, result)
           end

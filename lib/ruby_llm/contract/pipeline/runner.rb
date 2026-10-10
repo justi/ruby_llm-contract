@@ -37,7 +37,9 @@ module RubyLLM
 
         def execute_step(step_def, execution)
           step_context = build_step_context(step_def)
-          result = step_def[:step_class].run(execution.current_input, context: step_context)
+          result = WorkflowScope.step(step_def[:alias]) do
+            step_def[:step_class].run(execution.current_input, context: step_context)
+          end
 
           execution.record_step(step_def[:alias], result)
         end

@@ -4,6 +4,7 @@ require_relative "contract/version"
 require_relative "contract/errors"
 require_relative "contract/unknown_policy"
 require_relative "contract/provider_options"
+require_relative "contract/workflow_scope"
 require_relative "contract/types"
 
 module RubyLLM

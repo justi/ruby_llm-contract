@@ -48,7 +48,9 @@ module RubyLLM
           end
 
           def run(input, context: {}, timeout_ms: nil)
-            Runner.new(steps: steps, context: context, timeout_ms: timeout_ms, token_budget: token_budget).call(input)
+            WorkflowScope.workflow(name || "anonymous pipeline") do
+              Runner.new(steps: steps, context: context, timeout_ms: timeout_ms, token_budget: token_budget).call(input)
+            end
           end
 
           def test(input, responses: {}, timeout_ms: nil)
