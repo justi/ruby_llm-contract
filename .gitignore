@@ -8,6 +8,7 @@
 /tmp/
 *.gem
 Gemfile.lock
+/gemfiles/*.gemfile.lock
 .claude/
 /internal/
 /doc/decisions/

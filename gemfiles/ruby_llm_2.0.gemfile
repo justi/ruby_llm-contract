@@ -9,7 +9,9 @@ gemspec path: ".."
 gem "ruby_llm", "2.0.0"
 
 group :development, :test do
+  gem "railties", ">= 7.1" # boots a throwaway app in spec/integration/railtie_boot_spec.rb
   gem "rake", "~> 13.0"
   gem "rspec", "~> 3.13"
   gem "simplecov", "~> 0.22"
+  gem "webmock", "~> 3.25"
 end
