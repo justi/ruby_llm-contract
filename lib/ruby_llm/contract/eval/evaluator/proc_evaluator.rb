@@ -6,6 +6,10 @@ module RubyLLM
       module Evaluator
         # Adapts custom Ruby callables to the EvaluationResult contract.
         class ProcEvaluator
+          # Report hides these under a failure: they repeat the PASS/FAIL label.
+          PASSED_DETAILS = "passed"
+          FAILED_DETAILS = "not passed"
+
           def initialize(callable)
             @callable = callable
           end
@@ -36,9 +40,9 @@ module RubyLLM
           def build_evaluation_result(result)
             case result
             when true
-              EvaluationResult.new(score: 1.0, passed: true, details: "passed")
+              EvaluationResult.new(score: 1.0, passed: true, details: PASSED_DETAILS)
             when false
-              EvaluationResult.new(score: 0.0, passed: false, details: "not passed")
+              EvaluationResult.new(score: 0.0, passed: false, details: FAILED_DETAILS)
             when Numeric
               EvaluationResult.new(score: result, passed: result >= 0.5, details: "custom score: #{result}")
             else

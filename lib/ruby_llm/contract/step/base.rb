@@ -90,8 +90,10 @@ module RubyLLM
             ).call
           end
 
-          KNOWN_CONTEXT_KEYS = %i[adapter model temperature max_tokens provider assume_model_exists
-                                  reasoning_effort retry_policy_override attachment].freeze
+          # Forwarded to the adapter as-is. A key known but not forwarded would be
+          # silently dropped, so the known list is built from this one.
+          ADAPTER_CONTEXT_KEYS = %i[provider assume_model_exists max_tokens reasoning_effort attachment].freeze
+          KNOWN_CONTEXT_KEYS = (%i[adapter model temperature retry_policy_override] + ADAPTER_CONTEXT_KEYS).freeze
 
           include Concerns::ContextHelpers
 
@@ -133,7 +135,7 @@ module RubyLLM
             estimate = attachment_token_estimate if respond_to?(:attachment_token_estimate)
             return [estimate, false] unless estimate.nil?
 
-            mode = respond_to?(:on_unknown_attachment_size) ? on_unknown_attachment_size : :refuse
+            mode = respond_to?(:on_unknown_attachment_size) ? on_unknown_attachment_size : UnknownPolicy::DEFAULT
             if mode == :warn
               warn "[ruby_llm-contract] attachment present but attachment_token_estimate not " \
                    "declared on #{name || self} — estimate_cost proceeds without attachment cost"
@@ -193,7 +195,7 @@ module RubyLLM
 
           def runtime_settings(context)
             policy = context.key?(:retry_policy_override) ? context[:retry_policy_override] : retry_policy
-            extra = context.slice(:provider, :assume_model_exists, :max_tokens, :reasoning_effort, :attachment)
+            extra = context.slice(*ADAPTER_CONTEXT_KEYS)
 
             # Always pass the class-level `thinking` config to the adapter when
             # set, so fields like `budget` survive a per-call `reasoning_effort`

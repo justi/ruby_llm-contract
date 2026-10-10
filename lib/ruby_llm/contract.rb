@@ -2,10 +2,19 @@
 
 require_relative "contract/version"
 require_relative "contract/errors"
+require_relative "contract/unknown_policy"
 require_relative "contract/types"
 
 module RubyLLM
   module Contract
+    # Rails dirs holding Step classes. Each one's eval/ subdir holds define_eval
+    # files, which define no constant, so Zeitwerk must ignore exactly those.
+    RAILS_CONTRACT_DIRS = %w[app/contracts app/steps].freeze
+    RAILS_EVAL_DIRS = RAILS_CONTRACT_DIRS.map { |dir| "#{dir}/eval" }.freeze
+
+    # Set while load_evals! runs: redefining an eval is then a reload, not a mistake.
+    RELOADING_KEY = :ruby_llm_contract_reloading
+
     class << self
       def configuration
         @configuration ||= Configuration.new
@@ -51,7 +60,7 @@ module RubyLLM
       def load_evals!(*dirs)
         dirs = dirs.flatten.compact
         if dirs.empty? && defined?(::Rails)
-          dirs = %w[app/steps/eval app/contracts/eval].filter_map do |path|
+          dirs = RAILS_EVAL_DIRS.filter_map do |path|
             full = ::Rails.root.join(path)
             full.to_s if full.exist?
           end
@@ -64,7 +73,7 @@ module RubyLLM
         eager_load_contract_dirs! if defined?(::Rails)
 
         # Clear file-sourced evals ONCE, then load ALL dirs.
-        Thread.current[:ruby_llm_contract_reloading] = true
+        Thread.current[RELOADING_KEY] = true
         eval_hosts.each do |host|
           host.clear_file_sourced_evals! if host.respond_to?(:clear_file_sourced_evals!)
         end
@@ -73,7 +82,11 @@ module RubyLLM
           Dir[File.join(d, "**", "*_eval.rb")].each { |f| load f }
         end
       ensure
-        Thread.current[:ruby_llm_contract_reloading] = false
+        Thread.current[RELOADING_KEY] = false
+      end
+
+      def reloading?
+        Thread.current[RELOADING_KEY] ? true : false
       end
 
       def normalize_candidate_config(entry)
@@ -111,7 +124,7 @@ module RubyLLM
       end
 
       def eager_load_contract_dirs!
-        %w[app/contracts app/steps].each do |path|
+        RAILS_CONTRACT_DIRS.each do |path|
           full = ::Rails.root.join(path)
           next unless full.exist?
 

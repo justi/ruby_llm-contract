@@ -37,7 +37,7 @@ RSpec.describe "Eval reload lifecycle" do
       end
 
       # During reload, redefine should NOT warn
-      Thread.current[:ruby_llm_contract_reloading] = true
+      Thread.current[RubyLLM::Contract::RELOADING_KEY] = true
       expect do
         step.define_eval("smoke") do
           default_input "test2"
@@ -45,7 +45,7 @@ RSpec.describe "Eval reload lifecycle" do
         end
       end.not_to output.to_stderr
     ensure
-      Thread.current[:ruby_llm_contract_reloading] = false
+      Thread.current[RubyLLM::Contract::RELOADING_KEY] = false
     end
 
     it "outside reload, redefine DOES warn" do

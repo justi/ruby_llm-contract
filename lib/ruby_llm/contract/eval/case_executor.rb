@@ -39,7 +39,7 @@ module RubyLLM
             input: test_case.input,
             output: nil,
             expected: test_case.expected,
-            step_status: :skipped,
+            step_status: CaseResult::SKIPPED_STATUS,
             score: 0.0,
             passed: false,
             label: "SKIP",

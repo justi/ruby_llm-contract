@@ -65,7 +65,7 @@ RSpec::Matchers.define :pass_eval do |eval_name|
   end
 
   chain :on_unknown_pricing do |mode|
-    @on_unknown_pricing = RubyLLM::Contract::Eval::UnknownCostGate.validate!(mode)
+    @on_unknown_pricing = RubyLLM::Contract::UnknownPolicy.validate!("on_unknown_pricing", mode)
   end
 
   chain :without_regressions do
@@ -82,7 +82,7 @@ RSpec::Matchers.define :pass_eval do |eval_name|
     @context ||= {}
     @minimum_score ||= nil
     @maximum_cost ||= nil
-    @on_unknown_pricing ||= :refuse
+    @on_unknown_pricing ||= RubyLLM::Contract::UnknownPolicy::DEFAULT
     @unknown_cost_failure = nil
     @unknown_cost_only = false
     @check_regressions ||= false

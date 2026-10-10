@@ -5,7 +5,7 @@ module RubyLLM
     module Eval
       class PromptDiffSerializer
         def call(report)
-          report.results.reject { |result| result.step_status == :skipped }.map do |result|
+          report.results.reject { |result| result.step_status == CaseResult::SKIPPED_STATUS }.map do |result|
             {
               name: result.name,
               input: result.input,

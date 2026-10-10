@@ -13,7 +13,7 @@ module RubyLLM
         end
 
         def save_history!(path: nil, model: nil, reasoning_effort: nil)
-          file = path || storage_path(Report::HISTORY_DIR, "jsonl", model: model, reasoning_effort: reasoning_effort)
+          file = path || storage_path(Report::HISTORY_DIR, Report::HISTORY_EXT, model: model, reasoning_effort: reasoning_effort)
           entry = history_entry
           entry[:model] = model if model
           entry[:reasoning_effort] = reasoning_effort if reasoning_effort
@@ -22,19 +22,19 @@ module RubyLLM
         end
 
         def eval_history(path: nil, model: nil, reasoning_effort: nil)
-          EvalHistory.load(path || storage_path(Report::HISTORY_DIR, "jsonl", model: model,
-                                                                              reasoning_effort: reasoning_effort))
+          EvalHistory.load(path || storage_path(Report::HISTORY_DIR, Report::HISTORY_EXT,
+                                                model: model, reasoning_effort: reasoning_effort))
         end
 
         def save_baseline!(path: nil, model: nil, reasoning_effort: nil)
-          file = path || storage_path(Report::BASELINE_DIR, "json", model: model, reasoning_effort: reasoning_effort)
+          file = path || storage_path(Report::BASELINE_DIR, Report::BASELINE_EXT, model: model, reasoning_effort: reasoning_effort)
           FileUtils.mkdir_p(File.dirname(file))
           File.write(file, JSON.pretty_generate(serialize_for_baseline))
           file
         end
 
         def compare_with_baseline(path: nil, model: nil, reasoning_effort: nil)
-          file = path || storage_path(Report::BASELINE_DIR, "json", model: model, reasoning_effort: reasoning_effort)
+          file = path || storage_path(Report::BASELINE_DIR, Report::BASELINE_EXT, model: model, reasoning_effort: reasoning_effort)
           raise ArgumentError, "No baseline found at #{file}" unless File.exist?(file)
 
           baseline_data = JSON.parse(File.read(file), symbolize_names: true)
@@ -47,7 +47,7 @@ module RubyLLM
         end
 
         def baseline_exists?(path: nil, model: nil, reasoning_effort: nil)
-          File.exist?(path || storage_path(Report::BASELINE_DIR, "json", model: model, reasoning_effort: reasoning_effort))
+          File.exist?(path || storage_path(Report::BASELINE_DIR, Report::BASELINE_EXT, model: model, reasoning_effort: reasoning_effort))
         end
 
         private

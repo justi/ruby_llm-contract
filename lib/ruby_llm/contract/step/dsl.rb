@@ -151,12 +151,10 @@ module RubyLLM
           if amount
             validate_positive!("max_cost", amount)
 
-            if on_unknown_pricing && !%i[refuse warn].include?(on_unknown_pricing)
-              raise ArgumentError, "on_unknown_pricing must be :refuse or :warn, got #{on_unknown_pricing.inspect}"
-            end
+            UnknownPolicy.validate!("on_unknown_pricing", on_unknown_pricing) if on_unknown_pricing
 
             @max_cost = amount
-            @on_unknown_pricing = on_unknown_pricing || :refuse
+            @on_unknown_pricing = on_unknown_pricing || UnknownPolicy::DEFAULT
             return @max_cost
           end
 
@@ -164,7 +162,7 @@ module RubyLLM
         end
 
         def on_unknown_pricing
-          inherited_value(:on_unknown_pricing) || :refuse
+          inherited_value(:on_unknown_pricing) || UnknownPolicy::DEFAULT
         end
 
         def attachment_token_estimate(n = nil)
@@ -182,16 +180,9 @@ module RubyLLM
         end
 
         def on_unknown_attachment_size(mode = nil)
-          if mode
-            unless %i[refuse warn].include?(mode)
-              raise ArgumentError,
-                    "on_unknown_attachment_size must be :refuse or :warn, got #{mode.inspect}"
-            end
+          return @on_unknown_attachment_size = UnknownPolicy.validate!("on_unknown_attachment_size", mode) if mode
 
-            return @on_unknown_attachment_size = mode
-          end
-
-          inherited_value(:on_unknown_attachment_size) || :refuse
+          inherited_value(:on_unknown_attachment_size) || UnknownPolicy::DEFAULT
         end
 
         def model(name = nil)

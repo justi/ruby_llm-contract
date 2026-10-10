@@ -6,7 +6,7 @@ module RubyLLM
       # Ignore eval/ subdirs BEFORE Zeitwerk setup — eval files don't define
       # constants, they call define_eval on existing Step classes.
       initializer "ruby_llm_contract.ignore_eval_dirs", before: :set_autoload_paths do |app|
-        %w[app/contracts/eval app/steps/eval].each do |path|
+        RubyLLM::Contract::RAILS_EVAL_DIRS.each do |path|
           full = app.root.join(path)
           next unless full.exist?
 

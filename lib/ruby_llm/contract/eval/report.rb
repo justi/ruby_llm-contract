@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require "forwardable"
+require_relative "evaluator/proc_evaluator"
 
 module RubyLLM
   module Contract
@@ -10,9 +11,11 @@ module RubyLLM
 
         attr_reader :dataset_name, :results, :step_name
 
-        GENERIC_DETAILS = ["passed", "not passed"].freeze
+        GENERIC_DETAILS = [Evaluator::ProcEvaluator::PASSED_DETAILS, Evaluator::ProcEvaluator::FAILED_DETAILS].freeze
         HISTORY_DIR = ".eval_history"
+        HISTORY_EXT = "jsonl"
         BASELINE_DIR = ".eval_baselines"
+        BASELINE_EXT = "json"
 
         def_delegators :@stats, :score, :passed, :failed, :skipped, :failures, :pass_rate, :pass_rate_ratio,
                        :total_cost, :unknown_cost_results, :avg_latency_ms, :passed?,

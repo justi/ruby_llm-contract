@@ -40,7 +40,7 @@ module RubyLLM
             report = @comparison.reports[label]
             next nil unless report
 
-            evaluated_count = report.results.count { |r| r.step_status != :skipped }
+            evaluated_count = report.results.count { |r| r.step_status != CaseResult::SKIPPED_STATUS }
             cases_count = [evaluated_count, 1].max
             cost_per_call = report.total_cost.to_f / cases_count
 
@@ -116,7 +116,7 @@ module RubyLLM
           current_report = @comparison.reports[current_label]
           return {} unless current_report
 
-          current_evaluated = current_report.results.count { |r| r.step_status != :skipped }
+          current_evaluated = current_report.results.count { |r| r.step_status != CaseResult::SKIPPED_STATUS }
           current_cases = [current_evaluated, 1].max
           current_cost = current_report.total_cost.to_f / current_cases
           diff = current_cost - best[:cost_per_call]

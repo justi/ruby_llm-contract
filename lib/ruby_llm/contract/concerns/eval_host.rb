@@ -16,13 +16,13 @@ module RubyLLM
           @file_sourced_evals ||= Set.new
           key = name.to_s
 
-          if @eval_definitions.key?(key) && !Thread.current[:ruby_llm_contract_reloading]
+          if @eval_definitions.key?(key) && !Contract.reloading?
             warn "[ruby_llm-contract] Redefining eval '#{key}' on #{self}. " \
                  "This replaces the previous definition."
           end
 
           @eval_definitions[key] = Eval::EvalDefinition.new(key, step_class: self, &)
-          @file_sourced_evals.add(key) if Thread.current[:ruby_llm_contract_reloading]
+          @file_sourced_evals.add(key) if Contract.reloading?
           Contract.register_eval_host(self)
           register_subclasses(self)
         end

@@ -23,7 +23,7 @@ module RubyLLM
         end
 
         def skipped
-          @results.count { |result| result.step_status == :skipped }
+          @results.count { |result| result.step_status == CaseResult::SKIPPED_STATUS }
         end
 
         def failures
@@ -63,7 +63,7 @@ module RubyLLM
         end
 
         def evaluated_results
-          @evaluated_results ||= @results.reject { |result| result.step_status == :skipped }
+          @evaluated_results ||= @results.reject { |result| result.step_status == CaseResult::SKIPPED_STATUS }
         end
 
         def evaluated_results_count

@@ -28,8 +28,8 @@ module RubyLLM
         def self.build(input_type:, output_type:, prompt_block:, contract_definition:,
                        adapter:, model:,
                        output_schema: nil, max_output: nil,
-                       max_input: nil, max_cost: nil, on_unknown_pricing: :refuse,
-                       attachment_token_estimate: nil, on_unknown_attachment_size: :refuse,
+                       max_input: nil, max_cost: nil, on_unknown_pricing: UnknownPolicy::DEFAULT,
+                       attachment_token_estimate: nil, on_unknown_attachment_size: UnknownPolicy::DEFAULT,
                        temperature: nil, extra_options: {}, observers: [])
           new(
             input_type: input_type, output_type: output_type,

@@ -2,7 +2,7 @@
 
 require "rake"
 require "rake/tasklib"
-require_relative "eval/unknown_cost_gate"
+require_relative "unknown_policy"
 require_relative "rake_task/suite_gate"
 
 module RubyLLM
@@ -21,12 +21,12 @@ module RubyLLM
         @maximum_cost = nil  # nil = no cost limit; float = budget cap (suite-level)
         @eval_dirs = []      # directories to load eval files from (non-Rails)
         # With maximum_cost: :refuse fails on cases the budget cannot price; :warn gates priced cases only
-        @on_unknown_pricing = :refuse
+        @on_unknown_pricing = UnknownPolicy::DEFAULT
         @save_baseline = false
         @fail_on_regression = false
         @track_history = false
         block&.call(self)
-        Eval::UnknownCostGate.validate!(@on_unknown_pricing)
+        UnknownPolicy.validate!("on_unknown_pricing", @on_unknown_pricing)
         define_task
       end
 
@@ -134,7 +134,7 @@ module RubyLLM
           abort("STEP is required, e.g. STEP=MatchProblemsToPages") if step_name.empty?
           raw_candidates = ENV["CANDIDATES"].to_s.strip
           abort("CANDIDATES is required, e.g. CANDIDATES=gpt-5-nano,gpt-5-mini@low,gpt-5-mini") if raw_candidates.empty?
-          min_score = ENV.fetch("MIN_SCORE", "0.95").to_f
+          min_score = ENV.fetch("MIN_SCORE") { Eval::DEFAULT_MIN_SCORE }.to_f
           runs = parse_runs(ENV.fetch("RUNS", "1"))
 
           host = RubyLLM::Contract.eval_hosts.find { |h| h.name == step_name }

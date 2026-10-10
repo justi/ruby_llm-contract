@@ -31,8 +31,8 @@ module RubyLLM
       end
 
       def assert_eval_passes(step, eval_name, minimum_score: nil, maximum_cost: nil, context: {}, msg: nil,
-                             on_unknown_pricing: :refuse)
-        Eval::UnknownCostGate.validate!(on_unknown_pricing)
+                             on_unknown_pricing: UnknownPolicy::DEFAULT)
+        UnknownPolicy.validate!("on_unknown_pricing", on_unknown_pricing)
         report = step.run_eval(eval_name, context: context)
 
         if minimum_score

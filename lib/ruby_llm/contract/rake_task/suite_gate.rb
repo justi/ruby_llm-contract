@@ -18,7 +18,7 @@ module RubyLLM
         end
 
         def self.evaluate(host_reports:, minimum_score:, maximum_cost:, fail_on_regression:,
-                          on_unknown_pricing: :refuse)
+                          on_unknown_pricing: UnknownPolicy::DEFAULT)
           new(host_reports: host_reports,
               minimum_score: minimum_score,
               maximum_cost: maximum_cost,
@@ -29,12 +29,12 @@ module RubyLLM
         attr_reader :verdict
 
         def initialize(host_reports:, minimum_score:, maximum_cost:, fail_on_regression:,
-                       on_unknown_pricing: :refuse)
+                       on_unknown_pricing: UnknownPolicy::DEFAULT)
           @host_reports = host_reports
           @minimum_score = minimum_score
           @maximum_cost = maximum_cost
           @fail_on_regression = fail_on_regression
-          @on_unknown_pricing = Eval::UnknownCostGate.validate!(on_unknown_pricing)
+          @on_unknown_pricing = UnknownPolicy.validate!("on_unknown_pricing", on_unknown_pricing)
           @verdict = build_verdict
         end
 
@@ -56,7 +56,7 @@ module RubyLLM
           passed_reports, all_passed = score_each_report
           Verdict.new(
             passed: all_passed,
-            abort_reason: all_passed ? nil : "Eval suite FAILED",
+            abort_reason: all_passed ? nil : "one or more evals did not pass",
             passed_reports: passed_reports,
             suite_cost: suite_cost
           )

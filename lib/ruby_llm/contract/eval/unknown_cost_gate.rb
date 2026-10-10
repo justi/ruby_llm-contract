@@ -8,14 +8,6 @@ module RubyLLM
       # gate that only compares totals passes whatever those cases really cost.
       # Shared by the rake task, the pass_eval matcher and assert_eval_passes.
       module UnknownCostGate
-        MODES = %i[refuse warn].freeze
-
-        def self.validate!(mode)
-          return mode if MODES.include?(mode)
-
-          raise ArgumentError, "on_unknown_pricing must be :refuse or :warn, got #{mode.inspect}"
-        end
-
         # Returns the failure message under :refuse, nil when the gate holds.
         def self.check(reports, mode:)
           names = reports.flat_map(&:unknown_cost_results).map(&:name).uniq

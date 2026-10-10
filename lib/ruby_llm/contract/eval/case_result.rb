@@ -7,6 +7,9 @@ module RubyLLM
         # BaselineDiff#compute_score keys off this prefix to keep skipped cases
         # out of the score denominator. Both ends must read it from here.
         SKIPPED_DETAILS_PREFIX = "skipped:"
+        # Not run (no adapter). Readers compare step_status, so any result object
+        # exposing it works; kept out of score, pass rate and cost-per-call.
+        SKIPPED_STATUS = :skipped
 
         def self.skipped_details(reason)
           "#{SKIPPED_DETAILS_PREFIX} #{reason}"

@@ -61,7 +61,8 @@ RSpec.describe "RakeTask gate logic (pre-SuiteGate extraction)" do
       end
 
       expect do
-        expect { Rake::Task[task.name].invoke }.to raise_error(SystemExit, /Eval suite FAILED/)
+        expect { Rake::Task[task.name].invoke }
+          .to raise_error(SystemExit, "\nEval suite FAILED: one or more evals did not pass")
       end.to output.to_stdout # absorb the task's output
     end
   end
