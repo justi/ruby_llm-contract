@@ -6,6 +6,7 @@ RSpec.describe RubyLLM::Contract::Adapters::RubyLLM do
   let(:mock_response) do
     instance_double(
       "RubyLLM::Message",
+      finish_reason: :stop, cost: RubyLLM::Cost.new,
       content: '{"intent":"sales"}',
       tokens: RubyLLM::Tokens.new(input: 45, output: 12)
     )
@@ -226,7 +227,7 @@ RSpec.describe RubyLLM::Contract::Adapters::RubyLLM do
     # all, and a Tokens object whose fields are nil. Both must normalise to zero,
     # because `max_cost` and the trace arithmetic downstream cannot take a nil.
     context "with no tokens object" do
-      let(:mock_response) { instance_double("RubyLLM::Message", content: "hello", tokens: nil) }
+      let(:mock_response) { instance_double("RubyLLM::Message", finish_reason: :stop, cost: RubyLLM::Cost.new, content: "hello", tokens: nil) }
 
       it "defaults token counts to zero" do
         result = adapter.call(messages: [{ role: :user, content: "Hi" }], model: "gpt-4.1-mini")
@@ -237,7 +238,7 @@ RSpec.describe RubyLLM::Contract::Adapters::RubyLLM do
 
     context "with a tokens object carrying nil counts" do
       let(:mock_response) do
-        instance_double("RubyLLM::Message", content: "hello", tokens: RubyLLM::Tokens.new)
+        instance_double("RubyLLM::Message", finish_reason: :stop, cost: RubyLLM::Cost.new, content: "hello", tokens: RubyLLM::Tokens.new)
       end
 
       it "defaults token counts to zero" do
@@ -264,6 +265,7 @@ RSpec.describe RubyLLM::Contract::Adapters::RubyLLM do
       let(:mock_response) do
         instance_double(
           "RubyLLM::Message",
+          finish_reason: :stop, cost: RubyLLM::Cost.new,
           content: { "intent" => "sales", "confidence" => 0.9 },
           tokens: RubyLLM::Tokens.new(input: 20, output: 10)
         )

@@ -107,7 +107,7 @@ RSpec.describe "Multimodal input" do
     end
 
     let(:fake_response) do
-      instance_double(RubyLLM::Message, content: '{"ok":true}',
+      instance_double(RubyLLM::Message, finish_reason: :stop, cost: RubyLLM::Cost.new, content: '{"ok":true}',
                                         tokens: RubyLLM::Tokens.new(input: 5, output: 3))
     end
     let(:fake_chat) { fake_chat_class.new(fake_response) }

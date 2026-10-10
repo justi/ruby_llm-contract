@@ -6,6 +6,7 @@ RSpec.describe "output_schema integration" do
   let(:mock_response) do
     instance_double(
       "RubyLLM::Message",
+      finish_reason: :stop, cost: RubyLLM::Cost.new,
       content: { "intent" => "sales", "confidence" => 0.95 },
       tokens: RubyLLM::Tokens.new(input: 30, output: 10)
     )
@@ -114,6 +115,7 @@ RSpec.describe "output_schema integration" do
     it "reports invariant failures on schema steps" do
       low_confidence = instance_double(
         "RubyLLM::Message",
+        finish_reason: :stop, cost: RubyLLM::Cost.new,
         content: { "intent" => "sales", "confidence" => 0.2 },
         tokens: RubyLLM::Tokens.new(input: 30, output: 10)
       )

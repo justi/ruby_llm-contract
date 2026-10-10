@@ -7,7 +7,7 @@ RSpec.describe "RubyLLM 2.x adapter boundary" do
   let(:adapter) { RubyLLM::Contract::Adapters::RubyLLM.new }
 
   def message_double(content:, input:, output:)
-    instance_double("RubyLLM::Message", content: content,
+    instance_double("RubyLLM::Message", finish_reason: :stop, cost: RubyLLM::Cost.new, content: content,
                                         tokens: RubyLLM::Tokens.new(input: input, output: output))
   end
 
