@@ -83,12 +83,20 @@ module RubyLLM
             total_usage: aggregate_usage(traces),
             step_traces: traces
           )
+          warn_incomplete_budget_usage(trace)
 
           Result.new(
             status: execution.status, step_results: execution.step_results,
             outputs_by_step: execution.outputs_by_step, failed_step: execution.failed_step,
             trace: trace
           )
+        end
+
+        def warn_incomplete_budget_usage(trace)
+          return unless @token_budget && !trace.usage_complete?
+
+          warn "[ruby_llm-contract] token_budget checked against incomplete token counts: " \
+               "a provider left out usage for at least one step, so the total undercounts"
         end
 
         def elapsed_ms(start_time)

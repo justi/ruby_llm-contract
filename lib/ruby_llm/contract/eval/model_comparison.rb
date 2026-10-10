@@ -36,8 +36,12 @@ module RubyLLM
           @reports[resolve_key(candidate)]&.total_cost
         end
 
+        # A report with unpriced cases has only a subtotal, so it cannot be
+        # called the cheapest.
         def best_for(min_score: 0.0)
-          eligible = @reports.select { |_, report| report.score > 0.0 && report.score >= min_score }
+          eligible = @reports.select do |_, report|
+            report.score > 0.0 && report.score >= min_score && !cost_unknown?(report)
+          end
           return nil if eligible.empty?
 
           eligible.min_by { |_, report| report.total_cost }&.first
@@ -45,6 +49,8 @@ module RubyLLM
 
         def cost_per_point
           @reports.transform_values do |report|
+            next Float::INFINITY if cost_unknown?(report)
+
             report.score.positive? ? report.total_cost / report.score : Float::INFINITY
           end
         end
@@ -161,6 +167,10 @@ module RubyLLM
             effective_latency_ms: report.effective_latency_ms,
             latency_percentiles: report.latency_percentiles
           )
+        end
+
+        def cost_unknown?(report)
+          report.respond_to?(:unknown_cost_results) && report.unknown_cost_results.any?
         end
 
         def resolve_key(candidate)

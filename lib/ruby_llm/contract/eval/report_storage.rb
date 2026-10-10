@@ -52,8 +52,10 @@ module RubyLLM
 
         private
 
+        # cost_unknown is written only when true, so older files and runs that
+        # priced every case keep the same shape.
         def history_entry
-          {
+          entry = {
             date: Time.now.strftime("%Y-%m-%d"),
             score: @stats.score,
             total_cost: @stats.total_cost,
@@ -61,6 +63,8 @@ module RubyLLM
             pass_rate_ratio: @stats.pass_rate_ratio,
             cases_count: @stats.evaluated_results_count
           }
+          entry[:cost_unknown] = true if @stats.unknown_cost_results.any?
+          entry
         end
 
         def serialize_for_baseline
@@ -74,13 +78,15 @@ module RubyLLM
         end
 
         def serialize_case(result)
-          {
+          serialized = {
             name: result.name,
             passed: result.passed?,
             score: result.score,
             details: result.details,
             cost: result.cost
           }
+          serialized[:cost_unknown] = true if result.cost_unknown?
+          serialized
         end
 
         def storage_path(root_dir, extension, model:, reasoning_effort: nil)

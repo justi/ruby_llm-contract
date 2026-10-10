@@ -288,10 +288,16 @@ module RubyLLM
                   "model=#{trace.model} status=#{result.status} " \
                   "latency=#{trace.latency_ms}ms " \
                   "tokens=#{trace.usage&.dig(:input_tokens) || 0}+#{trace.usage&.dig(:output_tokens) || 0} " \
-                  "cost=$#{format("%.6f", trace.cost || 0)}"
+                  "cost=#{log_cost(trace)}"
             logger.info(msg)
 
             log_failed_observations(result, logger)
+          end
+
+          def log_cost(trace)
+            return "unknown" if trace.respond_to?(:cost_unknown?) && trace.cost_unknown?
+
+            "$#{format("%.6f", trace.cost || 0)}"
           end
 
           def log_failed_observations(result, logger)

@@ -85,7 +85,7 @@ module RubyLLM
         def single_shot_cost
           return nil unless production_mode?
 
-          evaluated_results.sum { |r| first_attempt_cost(r) || r.cost || 0.0 }
+          evaluated_results.sum { |r| first_attempt_cost(r) || 0.0 }
         end
 
         def effective_cost
@@ -116,9 +116,14 @@ module RubyLLM
 
         private
 
+        # With attempts, only the first one's cost: falling back to the case
+        # cost when it is unpriced would report a later attempt's spend as the
+        # single-shot cost.
         def first_attempt_cost(result)
-          first = (result.attempts || []).first
-          first && first[:cost]
+          attempts = result.attempts || []
+          return result.cost if attempts.empty?
+
+          attempts.first[:cost]
         end
 
         def first_attempt_latency(result)

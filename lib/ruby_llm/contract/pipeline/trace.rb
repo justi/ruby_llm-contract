@@ -40,6 +40,16 @@ module RubyLLM
           @step_traces.any? { |step_trace| step_trace.respond_to?(:cost_unknown?) && step_trace.cost_unknown? }
         end
 
+        # False when any step's provider left out token counts, so total_usage
+        # (and a token_budget checked against it) undercounts.
+        def usage_complete?
+          return true unless @step_traces.is_a?(Array)
+
+          @step_traces.none? do |step_trace|
+            step_trace.respond_to?(:usage_complete) && step_trace.usage_complete == false
+          end
+        end
+
         def to_h
           { trace_id: @trace_id, total_latency_ms: @total_latency_ms,
             total_usage: @total_usage, step_traces: @step_traces,

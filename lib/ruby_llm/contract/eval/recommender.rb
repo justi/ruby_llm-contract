@@ -51,7 +51,8 @@ module RubyLLM
               cost_per_call: cost_per_call,
               latency: report.avg_latency_ms || Float::INFINITY,
               pass_rate_ratio: report.pass_rate_ratio,
-              total_cost: report.total_cost
+              total_cost: report.total_cost,
+              cost_unknown: unknown_cost?(report)
             }
           end
         end
@@ -114,7 +115,7 @@ module RubyLLM
 
           current_label = ModelComparison.candidate_label(@current_config)
           current_report = @comparison.reports[current_label]
-          return {} unless current_report
+          return {} if current_report.nil? || unknown_cost?(current_report)
 
           current_evaluated = current_report.results.count { |r| r.step_status != CaseResult::SKIPPED_STATUS }
           current_cases = [current_evaluated, 1].max
@@ -125,8 +126,14 @@ module RubyLLM
           { per_call: diff.round(6), monthly_at: { 10_000 => (diff * 10_000).round(2) } }
         end
 
+        # A subtotal over unpriced cases is not a cost to rank by. Zero stays
+        # "unknown pricing" too: offline runs report $0 without any call.
         def cost_known?(scored_candidate)
-          scored_candidate[:cost_per_call]&.positive?
+          !scored_candidate[:cost_unknown] && scored_candidate[:cost_per_call]&.positive?
+        end
+
+        def unknown_cost?(report)
+          report.respond_to?(:unknown_cost_results) && report.unknown_cost_results.any?
         end
       end
     end
