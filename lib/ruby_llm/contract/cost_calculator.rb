@@ -29,7 +29,9 @@ module RubyLLM
     # which calls `calculate` per attempt and sums; not in this module).
     module CostCalculator
       # Simple struct for custom-registered model pricing
-      RegisteredModel = Struct.new(:input_price_per_million, :output_price_per_million, keyword_init: true)
+      RegisteredModel = Struct.new(:input_price_per_million, :output_price_per_million,
+                                   :cache_read_price_per_million, :cache_write_price_per_million,
+                                   keyword_init: true)
 
       @custom_models = {}
 
@@ -40,13 +42,22 @@ module RubyLLM
       #   CostCalculator.register_model("ft:gpt-4o-custom",
       #     input_per_1m: 3.0, output_per_1m: 6.0)
       #
-      def self.register_model(model_name, input_per_1m:, output_per_1m:)
+      # Prompt-cache prices are optional: without `cache_read_per_1m` cache
+      # reads are charged at the input price; without `cache_write_per_1m` a
+      # call that wrote to the cache has no price (writes can cost more than
+      # input).
+      def self.register_model(model_name, input_per_1m:, output_per_1m:, cache_read_per_1m: nil,
+                              cache_write_per_1m: nil)
         validate_price!(:input_per_1m, input_per_1m)
         validate_price!(:output_per_1m, output_per_1m)
+        validate_price!(:cache_read_per_1m, cache_read_per_1m) unless cache_read_per_1m.nil?
+        validate_price!(:cache_write_per_1m, cache_write_per_1m) unless cache_write_per_1m.nil?
 
         @custom_models[model_name] = RegisteredModel.new(
           input_price_per_million: input_per_1m,
-          output_price_per_million: output_per_1m
+          output_price_per_million: output_per_1m,
+          cache_read_price_per_million: cache_read_per_1m,
+          cache_write_price_per_million: cache_write_per_1m
         )
       end
 
@@ -113,18 +124,32 @@ module RubyLLM
         end
       end
 
-      # Our registry knows input and output prices only. Cache reads are
+      # input_tokens includes the cache reads and writes, so each part is
+      # charged once, at its own price. Without a cache-read price, reads are
       # charged at the input price, which assumes they cost no more than
       # uncached input (true of every provider in RubyLLM's registry, not
       # guaranteed for a custom one). Cache writes can cost more than input
-      # (Anthropic charges 1.25x-2x), so a call that wrote to the cache has
-      # no price here rather than an undercount.
+      # (Anthropic charges 1.25x-2x), so without a cache-write price a call
+      # that wrote to the cache has no price rather than an undercount.
       def self.registered_cost(model_info, usage)
-        return nil if (usage[:cache_write_tokens] || 0).positive?
+        cache_read = usage[:cache_read_tokens] || 0
+        cache_write = usage[:cache_write_tokens] || 0
+        read_price, write_price = registered_cache_prices(model_info)
+        return nil if cache_write.positive? && write_price.nil?
 
-        input_cost = token_cost(usage[:input_tokens], model_info.input_price_per_million)
-        output_cost = token_cost(usage[:output_tokens], model_info.output_price_per_million)
-        (input_cost + output_cost).round(6)
+        uncached = [(usage[:input_tokens] || 0) - cache_read - cache_write, 0].max
+        (token_cost(uncached, model_info.input_price_per_million) +
+          token_cost(cache_read, read_price) +
+          token_cost(cache_write, write_price.to_f) +
+          token_cost(usage[:output_tokens], model_info.output_price_per_million)).round(6)
+      end
+
+      # [read price, write price]; a model without a read price reads at its
+      # input price. Duck-typed registry entries may lack both readers.
+      def self.registered_cache_prices(model_info)
+        read = model_info.cache_read_price_per_million if model_info.respond_to?(:cache_read_price_per_million)
+        write = model_info.cache_write_price_per_million if model_info.respond_to?(:cache_write_price_per_million)
+        [read || model_info.input_price_per_million, write]
       end
 
       # RubyLLM counts uncached input apart from cache reads and writes; our
@@ -174,7 +199,8 @@ module RubyLLM
       # to inspect model pricing before invoking `calculate` (e.g., to short-
       # circuit estimate when the model is unknown). Exposing it removes
       # `CostCalculator.send(:find_model)` workarounds at call sites.
-      private_class_method :compute_cost, :registered_cost, :tokens_for, :token_cost, :validate_price!
+      private_class_method :compute_cost, :registered_cost, :registered_cache_prices, :tokens_for, :token_cost,
+                           :validate_price!
     end
   end
 end

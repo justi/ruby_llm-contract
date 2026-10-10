@@ -141,6 +141,35 @@ RSpec.describe RubyLLM::Contract::CostCalculator, "pricing" do
       expect(calculate(usage, model_name: "fx-custom")).to be_nil
     end
 
+    describe "with cache prices" do
+      before do
+        described_class.register_model("fx-cached", input_per_1m: 2.0, output_per_1m: 8.0,
+                                                    cache_read_per_1m: 0.5, cache_write_per_1m: 2.5)
+      end
+
+      # 100_000 uncached x 2.0 + 600_000 read x 0.5 + 300_000 write x 2.5 + 10_000 out x 8.0
+      # = 200_000 + 300_000 + 750_000 + 80_000 = 1_330_000 per million.
+      it "charges each part of the prompt once, at its own price" do
+        usage = { input_tokens: 1_000_000, output_tokens: 10_000, cache_read_tokens: 600_000,
+                  cache_write_tokens: 300_000 }
+
+        expect(calculate(usage, model_name: "fx-cached")).to eq(1.33)
+      end
+
+      it "accepts a free cache" do
+        described_class.register_model("fx-free", input_per_1m: 0, output_per_1m: 0,
+                                                  cache_read_per_1m: 0, cache_write_per_1m: 0)
+        usage = { input_tokens: 1_000, output_tokens: 10, cache_write_tokens: 500 }
+
+        expect(calculate(usage, model_name: "fx-free")).to eq(0.0)
+      end
+
+      it "rejects a negative cache price" do
+        expect { described_class.register_model("fx-bad", input_per_1m: 1, output_per_1m: 1, cache_write_per_1m: -1) }
+          .to raise_error(ArgumentError, /cache_write_per_1m/)
+      end
+    end
+
     it "still overrides RubyLLM's price for the same id" do
       described_class.register_model("fx-model", input_per_1m: 99.0, output_per_1m: 99.0)
 
