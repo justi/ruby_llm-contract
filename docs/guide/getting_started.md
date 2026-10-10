@@ -177,7 +177,7 @@ The eval-level gates - `with_maximum_cost` on `pass_eval`, `maximum_cost` on the
 
 ### What a trace's usage and cost count
 
-`trace[:usage][:input_tokens]` is the whole prompt the model took in, including tokens served from or written to the provider's prompt cache. When the provider reports them, the trace adds a breakdown: `cache_read_tokens`, `cache_write_tokens` and `thinking_tokens`. These are parts of `input_tokens` / `output_tokens`, not extra tokens; reasoning tokens are already in `output_tokens` when the provider bills them as output.
+`trace[:usage][:input_tokens]` is the whole prompt the model took in, including tokens served from or written to the provider's prompt cache. When the provider reports them, the trace adds a breakdown: `cache_read_tokens`, `cache_write_tokens` and `thinking_tokens`. These are parts of `input_tokens` / `output_tokens`, not extra tokens; reasoning tokens are already in `output_tokens` when the provider bills them as output, and a model with a separate reasoning price is charged that price for them.
 
 ```ruby
 result.trace[:usage]
@@ -187,7 +187,7 @@ result.trace[:cost]    # => 0.00162  (gpt-4.1-mini: cache reads at the cache pri
 
 With the RubyLLM adapter, `trace[:cost]` is the cost RubyLLM puts on the response (`response.cost.total`): the price of the provider the call went to, cache and long-context prices, and the amount the provider reported when it reports one (OpenRouter, for example). A price set with `CostCalculator.register_model` still overrides it for that model id, unless the provider reported what it billed; there, cache reads are charged at the input price and a call that wrote to the cache has no price, since cache writes can cost more than input.
 
-When a cost does not cover the whole call, `result.trace.cost_unknown?` is true and the eval gates above refuse. That happens when pricing is missing for a token category the call used, or when the provider sent no token counts (`trace[:usage_complete]` is then `false` and the counts read as 0). On a retried step `trace[:cost]` is the sum of the attempts that could be priced, and `cost_unknown?` is true if any attempt could not. `max_cost` itself is a pre-flight check on an estimate; it does not inspect the finished call.
+When a cost does not cover the whole call, `result.trace.cost_unknown?` is true and the eval gates above refuse. That happens when pricing is missing for a token category the call used, or when the provider sent no token counts for the call or for one of RubyLLM's attempts at it (`trace[:usage_complete]` is then `false` and missing counts read as 0) and did not report what it billed either. On a retried step `trace[:cost]` is the sum of the attempts that could be priced, and `cost_unknown?` is true if any attempt could not. `max_cost` itself is a pre-flight check on an estimate; it does not inspect the finished call.
 
 A custom adapter returning `Response.new(content:, usage:)` is priced from `usage` as before. To report its own cost, pass `cost:` - `nil` means unknown - with `cost_complete:` and `usage_complete:`.
 

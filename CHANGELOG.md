@@ -13,12 +13,15 @@
   reports one, and RubyLLM's own retries of the request. Eval totals, history and
   `compare_models` figures can rise against older baselines; baselines compare scores,
   not costs, so they do not regress on this.
-- **A call without token counts is no longer free.** When the provider sends no usage,
-  the counts still read 0 but `trace[:usage_complete]` is `false` and the cost is
-  unknown, so the eval cost gates refuse (opt out with `on_unknown_pricing: :warn`).
-- **A missing price is unknown, not $0.** A model priced for input but not output (or
-  without a cache-write price, after writing to the cache) has no cost instead of a
-  partial one, so `max_cost` refuses it pre-flight.
+- **A call without token counts is no longer free.** When the provider sends no usage
+  (for the call or for any of RubyLLM's attempts at it), the counts still read 0 but
+  `trace[:usage_complete]` is `false` and, unless the provider reported what it billed,
+  the cost is unknown, so the eval cost gates refuse (opt out with
+  `on_unknown_pricing: :warn`).
+- **A missing price is unknown, not $0.** A model priced for input but not output has no
+  cost instead of a partial one, so `max_cost` refuses it pre-flight. A call that wrote
+  to the prompt cache on a model without a cache-write price has an unknown cost
+  afterwards (pre-flight estimates do not predict cache writes).
 
 ### Fixed
 

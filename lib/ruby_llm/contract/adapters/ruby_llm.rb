@@ -89,7 +89,7 @@ module RubyLLM
           # contract (Step::Trace#usage, README) and does not change; RubyLLM's
           # own counts go into it as described in `usage_from`.
           tokens = response.tokens
-          usage_complete = reported_both_counts?(tokens)
+          usage_complete = every_attempt_counted?(response, tokens)
           reported = tokens&.reported_cost
           usage = usage_from(tokens)
           cost = call_cost(response, model, usage, reported)
@@ -104,6 +104,17 @@ module RubyLLM
             cost_complete: !cost.nil? && (usage_complete || !reported.nil?),
             finish_reason: response.finish_reason
           )
+        end
+
+        # `response.tokens` sums RubyLLM's attempts at the request, skipping
+        # counts an attempt never got, so the sum alone can look complete.
+        # RubyLLM records each attempt; one that failed after the provider may
+        # have billed it keeps nil counts, one never sent or refused gets zeros.
+        def every_attempt_counted?(response, tokens)
+          entries = response.respond_to?(:ruby_llm_usage_entries) ? Array(response.ruby_llm_usage_entries) : []
+          return entries.all? { |entry| reported_both_counts?(entry.tokens) } if entries.any?
+
+          reported_both_counts?(tokens)
         end
 
         # Zero is a reported count (a full cache hit leaves uncached input at 0);
@@ -134,7 +145,9 @@ module RubyLLM
         # long-context prices, the amount the provider reported when it did,
         # and its own retries of the request. It returns nil when it cannot
         # price every attempt. A price set with `register_model` still wins
-        # for its id, unless the provider reported what it billed.
+        # for its id, unless the provider reported what it billed; it prices
+        # the summed counts, so it is complete only when every attempt was
+        # counted (`cost_complete` in build_response).
         def call_cost(response, model, usage, reported)
           if reported.nil? && CostCalculator.registered?(model)
             CostCalculator.calculate(model_name: model, usage: usage)

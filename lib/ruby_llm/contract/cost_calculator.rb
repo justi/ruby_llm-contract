@@ -136,7 +136,9 @@ module RubyLLM
           input: [(usage[:input_tokens] || 0) - cache_read - cache_write, 0].max,
           output: usage[:output_tokens] || 0,
           cache_read: cache_read.positive? ? cache_read : nil,
-          cache_write: cache_write.positive? ? cache_write : nil
+          cache_write: cache_write.positive? ? cache_write : nil,
+          # Priced by RubyLLM only for models with a separate reasoning price.
+          thinking: usage[:thinking_tokens]
         )
       end
 

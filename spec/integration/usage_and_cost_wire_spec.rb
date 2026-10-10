@@ -159,6 +159,22 @@ RSpec.describe "Usage and cost through the RubyLLM adapter (HTTP intercepted)" d
 
     before { allow(RubyLLM).to receive(:chat).and_return(chat) }
 
+    it "is incomplete when an earlier RubyLLM attempt has no counts, even under register_model" do
+      RubyLLM::Contract::CostCalculator.register_model("gpt-4.1-mini", input_per_1m: 1.0, output_per_1m: 2.0)
+      counted = RubyLLM::Tokens.new(input: 100, output: 20)
+      message.ruby_llm_usage_entries = [
+        RubyLLM::Accounting::Usage::Entry.new(operation: :chat, provider: "openai", model: "gpt-4.1-mini",
+                                              status: :failed, tokens: RubyLLM::Tokens.new),
+        RubyLLM::Accounting::Usage::Entry.new(operation: :chat, provider: "openai", model: "gpt-4.1-mini",
+                                              status: :succeeded, tokens: counted)
+      ]
+
+      trace = run_step.trace
+
+      expect(trace.usage).to eq(input_tokens: 100, output_tokens: 20)
+      expect([trace.usage_complete, trace.cost_unknown?]).to eq([false, true])
+    end
+
     it "is the whole cost even without token counts, and wins over register_model" do
       RubyLLM::Contract::CostCalculator.register_model("gpt-4.1-mini", input_per_1m: 1.0, output_per_1m: 2.0)
 

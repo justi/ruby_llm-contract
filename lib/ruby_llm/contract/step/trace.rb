@@ -28,6 +28,7 @@ module RubyLLM
           @usage_complete = usage_complete
           @cost_complete = cost_complete
           @finish_reason = finish_reason
+          @cost_given = !cost.equal?(COST_UNSET)
           @cost = resolve_cost(cost)
           freeze
         end
@@ -83,10 +84,14 @@ module RubyLLM
           ((usage[:input_tokens] || 0) + (usage[:output_tokens] || 0)).positive?
         end
 
+        # A given nil cost is kept as `cost: nil`; dropping it would make
+        # `Trace.new(**to_h)` price the usage from the registry instead.
         def to_h
-          { messages: @messages, model: @model, latency_ms: @latency_ms,
-            usage: @usage, attempts: @attempts, cost: @cost, usage_complete: @usage_complete,
-            cost_complete: @cost_complete, finish_reason: @finish_reason }.compact
+          hash = { messages: @messages, model: @model, latency_ms: @latency_ms,
+                   usage: @usage, attempts: @attempts, cost: @cost, usage_complete: @usage_complete,
+                   cost_complete: @cost_complete, finish_reason: @finish_reason }.compact
+          hash[:cost] = nil if @cost.nil? && @cost_given && @cost_complete.nil?
+          hash
         end
 
         def to_s

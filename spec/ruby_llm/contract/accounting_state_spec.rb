@@ -75,6 +75,15 @@ RSpec.describe "Accounting state on Response and Trace" do
       end
     end
 
+    it "keeps a given nil cost through to_h, so a copy is not priced from the registry" do
+      trace = trace_class.new(model: priced_model, usage: tokens, cost: nil)
+
+      [trace, trace.merge(latency_ms: 5)].each do |original|
+        expect(original.to_h).to include(cost: nil)
+        expect(trace_class.new(**original.to_h).cost).to be_nil
+      end
+    end
+
     it "serializes a trace without accounting state exactly as before" do
       expect(trace_class.new(model: priced_model, usage: tokens).to_h.keys)
         .to contain_exactly(:model, :usage, :cost)

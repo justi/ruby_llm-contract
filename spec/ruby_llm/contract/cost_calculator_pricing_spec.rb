@@ -148,6 +148,16 @@ RSpec.describe RubyLLM::Contract::CostCalculator, "pricing" do
     end
   end
 
+  it "passes reasoning tokens on, for a model that prices them apart from output" do
+    reasoning = model("fx-reason", "fx", { input_per_million: 1.0, output_per_million: 2.0,
+                                           reasoning_output_per_million: 10.0 })
+    allow(RubyLLM.models).to receive(:find).with("fx-reason").and_return(reasoning)
+
+    # 100 x 1 + 50 x 2 + 40 x 10 = 600 per million.
+    usage = { input_tokens: 100, output_tokens: 50, thinking_tokens: 40 }
+    expect(calculate(usage, model_name: "fx-reason")).to eq(0.0006)
+  end
+
   it "costs zero tokens 0.0 whatever the pricing" do
     expect(calculate({ input_tokens: 0, output_tokens: 0 })).to eq(0.0)
   end
