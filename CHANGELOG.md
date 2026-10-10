@@ -1,16 +1,16 @@
 # Changelog
 
-## 1.0.0 (2026-09-27)
+## 1.0.0 (2026-10-10)
 
 **Requires `ruby_llm ~> 2.0`.** This is the only breaking change: it is a
 dependency requirement, not a change to this gem's API. Your call sites,
 `output_schema` blocks, `trace[:usage]` keys and adapter interface are all
-untouched — if you are on ruby_llm 2.x, upgrading should need no code edits.
+untouched - if you are on ruby_llm 2.x, upgrading should need no code edits.
 
 1.0 also states what is now stable: the documented DSL, the `Result`/`trace`
 shapes including `trace[:usage]`'s `{ input_tokens:, output_tokens: }` keys, and
 the adapter interface. A future major version of a runtime dependency may again
-require a major version here — that is what this release is.
+require a major version here - that is what this release is.
 
 ### Added
 
@@ -36,7 +36,7 @@ require a major version here — that is what this release is.
 - **`ruby_llm-schema` replaced by `schematist ~> 1.1`.** `ruby_llm-schema` 1.0.0 is
   31 lines that emit a deprecation warning and alias `RubyLLM::Schema =
   Schematist::Schema`; ruby_llm 2.x depends on schematist directly. The
-  `output_schema do ... end` DSL is unchanged — same object behind a different
+  `output_schema do ... end` DSL is unchanged - same object behind a different
   constant.
 - **Adapter reads token counts from `Message#tokens`.** RubyLLM 2.0 replaced
   `Message#input_tokens`/`#output_tokens` with a `Tokens` value object. This is the
@@ -71,7 +71,7 @@ require a major version here — that is what this release is.
   `input_price_per_million` / `output_price_per_million` readers on `Model` for a
   nested `pricing -> text_tokens -> standard` walk. Because `CostCalculator`
   rescued `StandardError` into a nil cost, every priced model silently became
-  "unknown pricing" — and since `max_cost` fails closed on unknown pricing, every
+  "unknown pricing" - and since `max_cost` fails closed on unknown pricing, every
   budgeted call would have been refused. Pricing extraction is now explicit for
   both shapes (upstream models and locally `register_model`-ed ones), and an
   unrecognised shape returns nil rather than a swallowed exception.
@@ -91,33 +91,33 @@ Result of a 20-pass systematic audit of the whole repository. No API changes and
 
 ### Changed
 
-- **The published gem no longer ships development-only files.** Measured by building the gem and unpacking it: `.rubocop.yml`, `Gemfile`, `Gemfile.lock` and `Rakefile` were being packaged, contradicting the gemspec's own stated policy ("dev configs excluded so the published gem contains only what adopters actually need at runtime"). The shipped `Rakefile` was unusable anyway — it `require`s rspec, which is not a runtime dependency, and defines a task over `spec/`, which the same build excludes. Package contents: **137 → 133 files**; `lib/` (105) and `docs/` (16) unchanged.
+- **The published gem no longer ships development-only files.** Measured by building the gem and unpacking it: `.rubocop.yml`, `Gemfile`, `Gemfile.lock` and `Rakefile` were being packaged, contradicting the gemspec's own stated policy ("dev configs excluded so the published gem contains only what adopters actually need at runtime"). The shipped `Rakefile` was unusable anyway - it `require`s rspec, which is not a runtime dependency, and defines a task over `spec/`, which the same build excludes. Package contents: **137 → 133 files**; `lib/` (105) and `docs/` (16) unchanged.
 - **`Gemfile.lock` is no longer tracked.** It was in the index despite being matched by `.gitignore:10`, and was repacked on every release. A library should not pin its adopters' dependency versions.
-- **The RubyGems page will now show a "Source Code" link.** `metadata["homepage_uri"]` duplicated `spec.homepage` and, being listed first, suppressed `source_code_uri` in the UI — `gem build` warned about this on every build. Dropped the duplicate; `source_code_uri` stays, because `bundle info` and the RubyGems API read it as a distinct field.
+- **The RubyGems page will now show a "Source Code" link.** `metadata["homepage_uri"]` duplicated `spec.homepage` and, being listed first, suppressed `source_code_uri` in the UI - `gem build` warned about this on every build. Dropped the duplicate; `source_code_uri` stays, because `bundle info` and the RubyGems API read it as a distinct field.
 
 ### Fixed
 
-- **`.rubocop.yml` declared `AllCops` twice.** Psych applies last-key-wins, so `TargetRubyVersion: 3.2`, `NewCops: enable` and `SuggestExtensions: false` were silently discarded, and the second block's `Exclude` **replaced** RuboCop's defaults instead of adding to them. Effect: the linter scanned 353 files / 2423 offences, 147 of those files untracked under `tmp/` (they carried 2155 of the offences). Merging the blocks alone does not fix it — `inherit_mode: merge` is what restores the defaults. Now 206 files / 300 offences, all pre-existing formatting on real code. (Both counts measured with rubocop 1.88.0; `Gemfile.lock` is no longer tracked, so pin the tool when reproducing.)
-- **`docs/guide/multimodal_input.md` linked to a file that could never resolve** — `../decisions/ADR-0022-*.md` points at `docs/decisions/` (no such directory; the ADR lives in `doc/decisions/`, singular) and that path is gitignored. Since `docs/guide/*` is packaged, this reproduced exactly the "links 404'd locally" defect that 0.10.2 set out to fix. Same dangling reference removed from the 0.9.0 CHANGELOG entry.
-- **Two documented rake-task environment variables never existed.** `REASONING_EFFORT=` and `OLLAMA_API_BASE=` were listed in the 0.5.0 CHANGELOG entry, but `git log --all -S<name> -- lib/` is empty for both — they were never read at any point in the project's history, and ruby_llm's own configuration only seeds `RUBYLLM_DEBUG` / `RUBYLLM_STREAM_DEBUG` from the environment. Setting either was a silent no-op. Reasoning effort is selected with `CANDIDATES=model@effort`; Ollama's base URL goes through `RubyLLM.configure`.
-- **README stated the wrong current version** (0.10.4 while `version.rb` was 0.10.6) — the one sentence that has to change every release.
+- **`.rubocop.yml` declared `AllCops` twice.** Psych applies last-key-wins, so `TargetRubyVersion: 3.2`, `NewCops: enable` and `SuggestExtensions: false` were silently discarded, and the second block's `Exclude` **replaced** RuboCop's defaults instead of adding to them. Effect: the linter scanned 353 files / 2423 offences, 147 of those files untracked under `tmp/` (they carried 2155 of the offences). Merging the blocks alone does not fix it - `inherit_mode: merge` is what restores the defaults. Now 206 files / 300 offences, all pre-existing formatting on real code. (Both counts measured with rubocop 1.88.0; `Gemfile.lock` is no longer tracked, so pin the tool when reproducing.)
+- **`docs/guide/multimodal_input.md` linked to a file that could never resolve** - `../decisions/ADR-0022-*.md` points at `docs/decisions/` (no such directory; the ADR lives in `doc/decisions/`, singular) and that path is gitignored. Since `docs/guide/*` is packaged, this reproduced exactly the "links 404'd locally" defect that 0.10.2 set out to fix. Same dangling reference removed from the 0.9.0 CHANGELOG entry.
+- **Two documented rake-task environment variables never existed.** `REASONING_EFFORT=` and `OLLAMA_API_BASE=` were listed in the 0.5.0 CHANGELOG entry, but `git log --all -S<name> -- lib/` is empty for both - they were never read at any point in the project's history, and ruby_llm's own configuration only seeds `RUBYLLM_DEBUG` / `RUBYLLM_STREAM_DEBUG` from the environment. Setting either was a silent no-op. Reasoning effort is selected with `CANDIDATES=model@effort`; Ollama's base URL goes through `RubyLLM.configure`.
+- **README stated the wrong current version** (0.10.4 while `version.rb` was 0.10.6) - the one sentence that has to change every release.
 - **`examples/README.md` claimed every example carries an "Expected output" section**; four of seven do, for three different reasons, so the sentence was the error rather than the files.
-- **`docs/architecture.md` was reachable from nowhere** — the only one of 16 tracked docs with no inbound link. Added to the README index.
+- **`docs/architecture.md` was reachable from nowhere** - the only one of 16 tracked docs with no inbound link. Added to the README index.
 
 ### Removed
 
 - Dead code with a full evidence battery behind each cut: `SchemaValidator::Node#numeric?` (zero readers; the one place needing the check inlines `value.is_a?(Numeric)`), an abandoned twin test helper whose sibling has 14 call sites, three unused `let`/helper definitions, four useless assignments, seven redundant `require`s in specs, and a `SimpleCov.start` that was a measured no-op because `require "simplecov"` already autoloads `.simplecov`.
-- 31 WHAT comment blocks (51 lines) in `lib/` plus 20 comment lines in `spec/`, all restating the line or class below them - including all six `Extracted from ...` comments, five of them the "to reduce class length" boilerplate (refactor history git already records) and ten one-line class docstrings paraphrasing their own class name. WHY comments — invariants, external-behaviour notes, anti-duplication markers — were deliberately kept; so were the three evaluator banners that name a comparison semantic the class name cannot convey.
+- 31 WHAT comment blocks (51 lines) in `lib/` plus 20 comment lines in `spec/`, all restating the line or class below them - including all six `Extracted from ...` comments, five of them the "to reduce class length" boilerplate (refactor history git already records) and ten one-line class docstrings paraphrasing their own class name. WHY comments - invariants, external-behaviour notes, anti-duplication markers - were deliberately kept; so were the three evaluator banners that name a comparison semantic the class name cannot convey.
 - Private-project residue: a spec block still labelled "reddit promo planner shape" although that project was removed as private in #25, and four dangling `(Batch N / TODO)` references to a `TODO.md` deleted in 0.10.1.
 
 ## 0.10.6 (2026-06-11)
 
-Docs accuracy patch: correct the positioning of `llm_judge.md` against `ruby_llm-tribunal` after a deeper audit of Tribunal's documented scope. The previous wording ("you are reinventing what `ruby_llm-tribunal` ships as a built-in catalog") read as if Tribunal made `llm_judge.md` redundant — incorrect. Tribunal's README ships an off-the-shelf implementation catalog (`assert_faithful`, `assert_hallucination`, `assert_refusal`, `assert_no_pii`, etc.) but does **not** document calibration workflow, per-claim breakdown, judge-prompt iteration, or judge-as-`evaluator:` integration — exactly the methodology `llm_judge.md` covers. The two are complementary layers, not alternatives. No code behaviour change.
+Docs accuracy patch: correct the positioning of `llm_judge.md` against `ruby_llm-tribunal` after a deeper audit of Tribunal's documented scope. The previous wording ("you are reinventing what `ruby_llm-tribunal` ships as a built-in catalog") read as if Tribunal made `llm_judge.md` redundant - incorrect. Tribunal's README ships an off-the-shelf implementation catalog (`assert_faithful`, `assert_hallucination`, `assert_refusal`, `assert_no_pii`, etc.) but does **not** document calibration workflow, per-claim breakdown, judge-prompt iteration, or judge-as-`evaluator:` integration - exactly the methodology `llm_judge.md` covers. The two are complementary layers, not alternatives. No code behaviour change.
 
 ### Fixed
 
-- **`docs/guide/relation_to_tribunal.md`** — added the **"Tribunal's catalog vs Contract's `llm_judge.md` — concrete decision tree"** sub-section under "When to use which", giving adopters a sharp three-way fork: reach for Tribunal's catalog when the check is domain-general (faithfulness vs context, hallucination, refusal, PII, jailbreak, toxicity, bias); build a custom judge per `llm_judge.md` when the criterion is domain-specific, when the judge needs to live inside a `define_eval` regression gate as the `evaluator:` lambda, when per-claim sentence-level debug output is required, or when the judge prompt itself needs to be iterated against your data; use both for the same project at different lifecycle stages (Tribunal at spec-time, calibrated custom judge at CI merge gate). Added the **"What Tribunal documents — and what it doesn't"** sub-section with a five-row comparison table making explicit which methodology gaps `llm_judge.md` covers that Tribunal's README leaves to the adopter (calibration against humans, prompt iteration on over-flag, per-claim breakdown, evaluator-lambda integration, the six anti-patterns).
-- **`docs/guide/llm_judge.md`** — rewrote the closing "When to escalate to Tribunal's catalog" section as **"When to reach for Tribunal instead"**: shorter, accurate (Tribunal is a complementary catalog, not a replacement), points to `relation_to_tribunal.md` for the full decision tree and integration patterns. The previous wording implied that building any of the four standard judges (faithful / hallucination / refusal / PII) was "reinvention" — true for the **implementation** (Tribunal ships them), false for the **methodology** (Tribunal's README doesn't document calibration, anti-patterns, or per-claim breakdown). The methodology applies equally to Tribunal's built-ins, Tribunal's custom registered judges, and Contract `Step::Base` judges.
+- **`docs/guide/relation_to_tribunal.md`** - added the **"Tribunal's catalog vs Contract's `llm_judge.md` - concrete decision tree"** sub-section under "When to use which", giving adopters a sharp three-way fork: reach for Tribunal's catalog when the check is domain-general (faithfulness vs context, hallucination, refusal, PII, jailbreak, toxicity, bias); build a custom judge per `llm_judge.md` when the criterion is domain-specific, when the judge needs to live inside a `define_eval` regression gate as the `evaluator:` lambda, when per-claim sentence-level debug output is required, or when the judge prompt itself needs to be iterated against your data; use both for the same project at different lifecycle stages (Tribunal at spec-time, calibrated custom judge at CI merge gate). Added the **"What Tribunal documents - and what it doesn't"** sub-section with a five-row comparison table making explicit which methodology gaps `llm_judge.md` covers that Tribunal's README leaves to the adopter (calibration against humans, prompt iteration on over-flag, per-claim breakdown, evaluator-lambda integration, the six anti-patterns).
+- **`docs/guide/llm_judge.md`** - rewrote the closing "When to escalate to Tribunal's catalog" section as **"When to reach for Tribunal instead"**: shorter, accurate (Tribunal is a complementary catalog, not a replacement), points to `relation_to_tribunal.md` for the full decision tree and integration patterns. The previous wording implied that building any of the four standard judges (faithful / hallucination / refusal / PII) was "reinvention" - true for the **implementation** (Tribunal ships them), false for the **methodology** (Tribunal's README doesn't document calibration, anti-patterns, or per-claim breakdown). The methodology applies equally to Tribunal's built-ins, Tribunal's custom registered judges, and Contract `Step::Base` judges.
 
 ## 0.10.5 (2026-06-11)
 
@@ -125,21 +125,21 @@ Docs release: new `llm_judge.md` guide + comprehensive clarity audit across all 
 
 ### Added
 
-- **`docs/guide/llm_judge.md`** — new guide for the LLM-as-judge pattern. Three-step workflow (build judge as a Contract Step → calibrate against humans on real production data → use as eval gate). Hook is the Cursor "Sam" April 2025 incident (support chatbot hallucinated company policy, schema valid, brand damage). Covers claims-breakdown alternative output schema, the "calibration is itself iterative" failure mode (over-flagging stylistic courtesy), six anti-patterns (stubbing the judge, calibrating on synthetic data, per-language regex, judge on request path, proxy label assertion, calibrating once and shipping), and an escalation pointer to `ruby_llm-tribunal`'s catalog. 206 lines. Linked from `eval_first.md` (oracle-validation rule) and `relation_to_tribunal.md` (composition recipe). Cited research: Eugene Yan on evals, Hamel Husain field guide, May 2025 LLM-hallucination court-case database, Klarna AI customer-service reversal.
+- **`docs/guide/llm_judge.md`** - new guide for the LLM-as-judge pattern. Three-step workflow (build judge as a Contract Step → calibrate against humans on real production data → use as eval gate). Hook is the Cursor "Sam" April 2025 incident (support chatbot hallucinated company policy, schema valid, brand damage). Covers claims-breakdown alternative output schema, the "calibration is itself iterative" failure mode (over-flagging stylistic courtesy), six anti-patterns (stubbing the judge, calibrating on synthetic data, per-language regex, judge on request path, proxy label assertion, calibrating once and shipping), and an escalation pointer to `ruby_llm-tribunal`'s catalog. 206 lines. Linked from `eval_first.md` (oracle-validation rule) and `relation_to_tribunal.md` (composition recipe). Cited research: Eugene Yan on evals, Hamel Husain field guide, May 2025 LLM-hallucination court-case database, Klarna AI customer-service reversal.
 
 ### Fixed
 
-- **`docs/guide/migration.md` — `save_baseline = false` in CI Rakefile.** Pre-0.10.5 the migration template set `save_baseline = true`, which dirties the working checkout on every CI run and races the regression check — directly violating the project invariant ("`save_baseline: true` in CI dirties checkout and races the regression check — keep it false; refresh in a separate job"). Adopters copy-pasting the template hit non-deterministic CI failures + git status noise. The corrected template now sets `false` with an inline comment explaining the baseline-refresh-in-separate-workflow rationale.
-- **`docs/guide/relation_to_tribunal.md` — evaluator lambda arity corrected from 3 to 1.** The example previously used `->(output, _expected, _input)`, but `ProcEvaluator` only accepts arity 1 or 2 — adopters copy-pasting hit `ArgumentError: wrong number of arguments`. Now reads `->(output)`.
-- **`docs/guide/eval_first.md`** — added explicit definition of "partial match" (`expected:` is treated as a subset of `parsed_output`; extra output keys ignored, listed keys must equal), added definition of `adapter` (the layer that actually executes the LLM call), clarified `system`/`rule`/`example`/`validate` as prompt-shaping building blocks with a `prompt_ast.md` link.
-- **`docs/guide/getting_started.md`** — explained the `{X}` prompt template syntax (gem-specific, not ERB, not `String#%`), described `validate(...) { |o, _| ... }` arity convention, named the retry triggers `:validation_failed` / `:parse_error`, differentiated `default_input` from `add_case input:`, explained partial-match semantics.
-- **`README.md`** — three clarity edits to the SummarizeArticle example: `{input}` placeholder syntax explained, `validate` lambda args (`|o, _|`) explained, `retry_policy do escalate(...) end` block form aliased to `retry_policy models: %w[...]` shorthand (both forms share the same DSL — `models` is an alias for `escalate`). Plus the multimodal upgrade FAQ entry was compressed from 7 sentences to a 2-sentence SEO pointer to `multimodal_input.md` (where the full `attachment_token_estimate` setup, fail-closed behaviour, and `on_unknown_attachment_size :warn` opt-out already lived canonically) — reduces README cognitive load for the 90% of adopters not upgrading from pre-0.10.0.
-- **`docs/guide/testing.md`** — clarified pipeline test responses (`responses: { :summarize, :tag, :card }` keys must match `add_step :name, ...` identifiers), distinguished `validate` block (Step-level) from `verify` block (eval-case evaluator declared via `verify(name) { |output| ... }` inside `define_eval`), explained `stub_all_steps(response: { ... })` shape semantics.
-- **`docs/guide/best_practices.md`** — explained `rule` as a prompt DSL element distinct from `system` / `user` with a link to `prompt_ast.md`.
-- **`docs/guide/optimizing_retry_policy.md`** — explained `gpt-4.1-mini@low` CLI shorthand for `{model:, reasoning_effort:}`, defined `production_mode: { fallback: ... }` as an optional `compare_models` kwarg that reports effective cost (first-try + weighted fallback) instead of first-attempt only, compressed the "two orthogonal dimensions" callout from 7 concepts to 3 (DSL alias details moved to the dedicated `thinking` DSL note at the end).
-- **`docs/guide/output_schema.md`** — compressed the `RubyLLM::Agent.schema` boundary callout from 6 concepts to 3 + pointer (full Agent-vs-Step comparison lives canonically in `relation_to_agent.md`).
-- **`docs/guide/pipeline.md`** — documented that `Pipeline.run_eval` matches **only** the final step's output against `expected:` (assertions on intermediate-step outputs silently never match — gem-level invariant).
-- **`docs/guide/prompt_ast.md`** — explained `Types::Hash.schema(...)` typed-input declaration as distinct from plain `input_type Hash` (typed form raises `TypeError` on missing/wrong-type keys; plain form accepts any hash).
+- **`docs/guide/migration.md` - `save_baseline = false` in CI Rakefile.** Pre-0.10.5 the migration template set `save_baseline = true`, which dirties the working checkout on every CI run and races the regression check - directly violating the project invariant ("`save_baseline: true` in CI dirties checkout and races the regression check - keep it false; refresh in a separate job"). Adopters copy-pasting the template hit non-deterministic CI failures + git status noise. The corrected template now sets `false` with an inline comment explaining the baseline-refresh-in-separate-workflow rationale.
+- **`docs/guide/relation_to_tribunal.md` - evaluator lambda arity corrected from 3 to 1.** The example previously used `->(output, _expected, _input)`, but `ProcEvaluator` only accepts arity 1 or 2 - adopters copy-pasting hit `ArgumentError: wrong number of arguments`. Now reads `->(output)`.
+- **`docs/guide/eval_first.md`** - added explicit definition of "partial match" (`expected:` is treated as a subset of `parsed_output`; extra output keys ignored, listed keys must equal), added definition of `adapter` (the layer that actually executes the LLM call), clarified `system`/`rule`/`example`/`validate` as prompt-shaping building blocks with a `prompt_ast.md` link.
+- **`docs/guide/getting_started.md`** - explained the `{X}` prompt template syntax (gem-specific, not ERB, not `String#%`), described `validate(...) { |o, _| ... }` arity convention, named the retry triggers `:validation_failed` / `:parse_error`, differentiated `default_input` from `add_case input:`, explained partial-match semantics.
+- **`README.md`** - three clarity edits to the SummarizeArticle example: `{input}` placeholder syntax explained, `validate` lambda args (`|o, _|`) explained, `retry_policy do escalate(...) end` block form aliased to `retry_policy models: %w[...]` shorthand (both forms share the same DSL - `models` is an alias for `escalate`). Plus the multimodal upgrade FAQ entry was compressed from 7 sentences to a 2-sentence SEO pointer to `multimodal_input.md` (where the full `attachment_token_estimate` setup, fail-closed behaviour, and `on_unknown_attachment_size :warn` opt-out already lived canonically) - reduces README cognitive load for the 90% of adopters not upgrading from pre-0.10.0.
+- **`docs/guide/testing.md`** - clarified pipeline test responses (`responses: { :summarize, :tag, :card }` keys must match `add_step :name, ...` identifiers), distinguished `validate` block (Step-level) from `verify` block (eval-case evaluator declared via `verify(name) { |output| ... }` inside `define_eval`), explained `stub_all_steps(response: { ... })` shape semantics.
+- **`docs/guide/best_practices.md`** - explained `rule` as a prompt DSL element distinct from `system` / `user` with a link to `prompt_ast.md`.
+- **`docs/guide/optimizing_retry_policy.md`** - explained `gpt-4.1-mini@low` CLI shorthand for `{model:, reasoning_effort:}`, defined `production_mode: { fallback: ... }` as an optional `compare_models` kwarg that reports effective cost (first-try + weighted fallback) instead of first-attempt only, compressed the "two orthogonal dimensions" callout from 7 concepts to 3 (DSL alias details moved to the dedicated `thinking` DSL note at the end).
+- **`docs/guide/output_schema.md`** - compressed the `RubyLLM::Agent.schema` boundary callout from 6 concepts to 3 + pointer (full Agent-vs-Step comparison lives canonically in `relation_to_agent.md`).
+- **`docs/guide/pipeline.md`** - documented that `Pipeline.run_eval` matches **only** the final step's output against `expected:` (assertions on intermediate-step outputs silently never match - gem-level invariant).
+- **`docs/guide/prompt_ast.md`** - explained `Types::Hash.schema(...)` typed-input declaration as distinct from plain `input_type Hash` (typed form raises `TypeError` on missing/wrong-type keys; plain form accepts any hash).
 
 ### Audit method
 
@@ -151,23 +151,23 @@ Patch release: the `ruby_llm_contract:optimize` rake task now auto-loads in Rail
 
 ### Fixed
 
-- **`ruby_llm_contract:optimize` no longer requires manual `require "ruby_llm/contract/rake_task"` in Rails apps.** Pre-0.10.4 the docs claimed the task was "included" with `RubyLLM::Contract::RakeTask`, but the railtie did not load the file — adopters running `bin/rails ruby_llm_contract:optimize` got `Unrecognized command` until they added the require to `Rakefile` or `lib/tasks/*.rake`. The railtie now uses the standard `rake_tasks { require "..." }` idiom, lazy-loading the file only when `rake` is invoked (no boot cost).
-- **Docs corrected** in `docs/guide/optimizing_retry_policy.md` — the "rake task is included" line now explicitly states it auto-loads on 0.10.4+ in Rails, and that non-Rails / older-Rails setups still need the explicit `require`.
+- **`ruby_llm_contract:optimize` no longer requires manual `require "ruby_llm/contract/rake_task"` in Rails apps.** Pre-0.10.4 the docs claimed the task was "included" with `RubyLLM::Contract::RakeTask`, but the railtie did not load the file - adopters running `bin/rails ruby_llm_contract:optimize` got `Unrecognized command` until they added the require to `Rakefile` or `lib/tasks/*.rake`. The railtie now uses the standard `rake_tasks { require "..." }` idiom, lazy-loading the file only when `rake` is invoked (no boot cost).
+- **Docs corrected** in `docs/guide/optimizing_retry_policy.md` - the "rake task is included" line now explicitly states it auto-loads on 0.10.4+ in Rails, and that non-Rails / older-Rails setups still need the explicit `require`.
 
 ## 0.10.3 (2026-06-10)
 
-Hot-fix release: the schema validator now correctly accepts `nil` on **required-but-nullable** fields. This unblocks OpenAI structured-output strict mode, where every property has to be in `required` and "nullable" is expressed as a `null` branch in `anyOf`/`oneOf` or as an array `type` — exactly the combination the prior validator wrongly rejected.
+Hot-fix release: the schema validator now correctly accepts `nil` on **required-but-nullable** fields. This unblocks OpenAI structured-output strict mode, where every property has to be in `required` and "nullable" is expressed as a `null` branch in `anyOf`/`oneOf` or as an array `type` - exactly the combination the prior validator wrongly rejected.
 
 ### Fixed
 
-- **`SchemaValidator` no longer rejects legal `nil` on required-nullable fields.** Pre-0.10.3 (every published version 0.2.x–0.10.2) conflated "required" (must be present) with "non-nullable" (cannot be null) — JSON Schema treats those as orthogonal. The validator now honours all three idioms for nullability:
+- **`SchemaValidator` no longer rejects legal `nil` on required-nullable fields.** Pre-0.10.3 (every published version 0.2.x–0.10.2) conflated "required" (must be present) with "non-nullable" (cannot be null) - JSON Schema treats those as orthogonal. The validator now honours all three idioms for nullability:
   - `type: ["string", "null"]` (array form)
   - `type: "null"` (degenerate scalar form)
   - `anyOf: [{type: "string"}, {type: "null"}]` and `oneOf` equivalents
 
   **Adopter impact:** if you bypassed the bug by setting `required: false` + disabling OpenAI `strict: true` on every nullable field, you can now restore `strict: true` and keep the field required (= OpenAI's standard nullable idiom). Non-nullable required fields still reject `nil` exactly as before; this is a strictly additive fix.
 
-  Discovered via dogfooding in a production adopter using OpenAI strict structured output with 17 nullable fields (`"set the rest to null"` prompt). Smoking-gun mutation: remove `nullable_schema?` short-circuit from `validate_nil_field` — the three new spec cases in `spec/ruby_llm/contract/contract/schema_validator_spec.rb` fail.
+  Discovered via dogfooding in a production adopter using OpenAI strict structured output with 17 nullable fields (`"set the rest to null"` prompt). Smoking-gun mutation: remove `nullable_schema?` short-circuit from `validate_nil_field` - the three new spec cases in `spec/ruby_llm/contract/contract/schema_validator_spec.rb` fail.
 
 ## 0.10.2 (2026-06-10)
 
@@ -197,7 +197,7 @@ First published release since 0.8.0. Consolidates work originally tagged as 0.9.
 
 ### Breaking changes
 
-- **`validate(description, &block)` and `Definition#invariant(description, &block)` now raise `ArgumentError` when `description` is `nil` or empty.** Pre-0.10.0 the empty descriptor was silently accepted and produced `""` entries in `result.validation_errors`, making debugging impossible. Codex audit found zero production use sites across `lib/`, `examples/`, `README` — only the regression-marker test certifying the bug.
+- **`validate(description, &block)` and `Definition#invariant(description, &block)` now raise `ArgumentError` when `description` is `nil` or empty.** Pre-0.10.0 the empty descriptor was silently accepted and produced `""` entries in `result.validation_errors`, making debugging impossible. Codex audit found zero production use sites across `lib/`, `examples/`, `README` - only the regression-marker test certifying the bug.
 
 ### Migration
 
@@ -213,9 +213,9 @@ validate("score in range 0-100") { |o| o[:score].between?(0, 100) }
 
 ### Added
 
-- **Multimodal input via `context: { attachment: ... }`** — pass a file/IO/URL through `Step.run(input, context: { attachment: path })`; the adapter forwards it to `RubyLLM::Chat#ask(content, with: attachment)`. RubyLLM normalises wire format per provider (Anthropic url/base64, OpenAI `image_url`/`file`, Gemini `inline_data`). Multi-attachment supported natively (`with: [pdf1, pdf2]` or `with: { images: [...], pdfs: [...] }`). See [multimodal input guide](docs/guide/multimodal_input.md) (rationale in the internal ADR-0022, not shipped).
-- **`attachment_token_estimate(n)` class macro** — adopter-declared conservative estimate of attachment input tokens. Applied to BOTH runtime (`limit_checker`) and pre-flight (`estimate_cost`) — same source of truth, no estimate/runtime drift.
-- **`on_unknown_attachment_size(:refuse | :warn)` class macro** — mirrors `on_unknown_pricing` opt-out semantics. Defaults to `:refuse`. Never settable as global default — same invariant as `max_cost` fail-closed.
+- **Multimodal input via `context: { attachment: ... }`** - pass a file/IO/URL through `Step.run(input, context: { attachment: path })`; the adapter forwards it to `RubyLLM::Chat#ask(content, with: attachment)`. RubyLLM normalises wire format per provider (Anthropic url/base64, OpenAI `image_url`/`file`, Gemini `inline_data`). Multi-attachment supported natively (`with: [pdf1, pdf2]` or `with: { images: [...], pdfs: [...] }`). See [multimodal input guide](docs/guide/multimodal_input.md) (rationale in the internal ADR-0022, not shipped).
+- **`attachment_token_estimate(n)` class macro** - adopter-declared conservative estimate of attachment input tokens. Applied to BOTH runtime (`limit_checker`) and pre-flight (`estimate_cost`) - same source of truth, no estimate/runtime drift.
+- **`on_unknown_attachment_size(:refuse | :warn)` class macro** - mirrors `on_unknown_pricing` opt-out semantics. Defaults to `:refuse`. Never settable as global default - same invariant as `max_cost` fail-closed.
 
 ### Behavioural change (READ BEFORE UPGRADING)
 
@@ -223,13 +223,13 @@ validate("score in range 0-100") { |o| o[:score].between?(0, 100) }
 
 ### Changed
 
-- **`run_eval` (no args) return shape pinned to `Hash<String, Report>` keyed by eval name.** Documents the existing contract used by `RubyLLM::Contract::RakeTask#collect_host_reports` and adopters. No runtime change vs 0.8.0 — only the spec assertion now locks the shape.
-- **`Parser.parse(text, strategy: :json)` first-bracket-wins boundary documented.** Extraction commits to the first balanced `{` or `[` structure and does NOT retry on later candidates. Empty `{}` followed by real JSON parses as the empty Hash; non-JSON `{braces}` before real JSON raises `ParseError`. No runtime change — this codifies long-standing behavior with explicit boundary tests.
+- **`run_eval` (no args) return shape pinned to `Hash<String, Report>` keyed by eval name.** Documents the existing contract used by `RubyLLM::Contract::RakeTask#collect_host_reports` and adopters. No runtime change vs 0.8.0 - only the spec assertion now locks the shape.
+- **`Parser.parse(text, strategy: :json)` first-bracket-wins boundary documented.** Extraction commits to the first balanced `{` or `[` structure and does NOT retry on later candidates. Empty `{}` followed by real JSON parses as the empty Hash; non-JSON `{braces}` before real JSON raises `ParseError`. No runtime change - this codifies long-standing behavior with explicit boundary tests.
 
 ### Fixed
 
 - **`with_retry_disabled` no longer mutates the step class's singleton method.** The optimizer now passes `retry_policy_override: nil` through `context:` to `compare_models`, which `Step::Base#runtime_settings` already honours. Removes a concurrency hazard where two parallel `optimize_retry_policy` calls on the same step would race on the singleton restore in `ensure`.
-- **`CostCalculator.find_model` exposed as a public class method.** Removes two `CostCalculator.send(:find_model, ...)` workarounds in `Step::Base#estimate_cost`. The `estimated_cost_for` helper is gone — `estimate_cost` now routes through the existing public `CostCalculator.calculate(model_name:, usage:)`.
+- **`CostCalculator.find_model` exposed as a public class method.** Removes two `CostCalculator.send(:find_model, ...)` workarounds in `Step::Base#estimate_cost`. The `estimated_cost_for` helper is gone - `estimate_cost` now routes through the existing public `CostCalculator.calculate(model_name:, usage:)`.
 - **`stub_step` unified on a single storage path.** Both block and non-block forms now write to `RubyLLM::Contract.step_adapter_overrides` (thread-local). The `around(:each)` hook in `rspec.rb` handles cleanup between examples. Removes the prior `allow(step).to receive(:run)` branch.
 
 ### Internal
@@ -239,9 +239,9 @@ validate("score in range 0-100") { |o| o[:score].between?(0, 100) }
 
 ### Deferred (not in 0.10.x)
 
-- `add_history` multi-turn replay of prior attachments — single-turn multimodal supported; follow-up questions on the same document deferred to a later release.
-- Streaming + attachment — contract steps remain synchronous.
-- Provider-specific attachment size caps — surface only via `attachment_token_estimate` calibration; consult provider docs.
+- `add_history` multi-turn replay of prior attachments - single-turn multimodal supported; follow-up questions on the same document deferred to a later release.
+- Streaming + attachment - contract steps remain synchronous.
+- Provider-specific attachment size caps - surface only via `attachment_token_estimate` calibration; consult provider docs.
 
 ### Tests
 
@@ -253,20 +253,20 @@ Narrative repositioning + small API additions. Internal architecture unchanged: 
 
 ### Added
 
-- **`thinking(effort:, budget:)` class macro on `Step::Base`** — mirrors `RubyLLM::Agent.thinking` signature exactly. Stored as `{ effort:, budget: }` hash; reader returns the hash; supports `:default` reset semantics; superclass inheritance like `model`/`temperature`. The convenience alias `reasoning_effort(:low)` is implemented as `thinking(effort: :low)` — single normalized state, not separate ivar.
-- **Adapter wiring for `with_thinking`** — when `thinking` is set on the Step class, OR when `reasoning_effort:` is passed through context, OR when an attempt config in `retry_policy escalate(...)` carries `reasoning_effort:`, the RubyLLM adapter resolves the effective `{ effort:, budget: }` hash and forwards it via `chat.with_thinking(**)` — provider-agnostic (supports OpenAI `reasoning_effort` AND Anthropic extended-thinking budget). Precedence: per-attempt / context `reasoning_effort` overrides class-level `thinking[:effort]`; budget is taken from class-level `thinking[:budget]`. **Behavioural change vs 0.7.x**: `reasoning_effort` is now forwarded via `with_thinking` instead of `with_params`. Same wire-level OpenAI parameter; provider-agnostic Anthropic support is now automatic.
+- **`thinking(effort:, budget:)` class macro on `Step::Base`** - mirrors `RubyLLM::Agent.thinking` signature exactly. Stored as `{ effort:, budget: }` hash; reader returns the hash; supports `:default` reset semantics; superclass inheritance like `model`/`temperature`. The convenience alias `reasoning_effort(:low)` is implemented as `thinking(effort: :low)` - single normalized state, not separate ivar.
+- **Adapter wiring for `with_thinking`** - when `thinking` is set on the Step class, OR when `reasoning_effort:` is passed through context, OR when an attempt config in `retry_policy escalate(...)` carries `reasoning_effort:`, the RubyLLM adapter resolves the effective `{ effort:, budget: }` hash and forwards it via `chat.with_thinking(**)` - provider-agnostic (supports OpenAI `reasoning_effort` AND Anthropic extended-thinking budget). Precedence: per-attempt / context `reasoning_effort` overrides class-level `thinking[:effort]`; budget is taken from class-level `thinking[:budget]`. **Behavioural change vs 0.7.x**: `reasoning_effort` is now forwarded via `with_thinking` instead of `with_params`. Same wire-level OpenAI parameter; provider-agnostic Anthropic support is now automatic.
 
 ### Dependencies
 
-- **`ruby_llm` constraint bumped from `~> 1.0` to `~> 1.12`** — `Chat#with_thinking` is the canonical path for reasoning effort + extended thinking; it shipped in RubyLLM 1.12. Adopters on `ruby_llm < 1.12` need to bump RubyLLM before upgrading this gem to 0.8.0.
+- **`ruby_llm` constraint bumped from `~> 1.0` to `~> 1.12`** - `Chat#with_thinking` is the canonical path for reasoning effort + extended thinking; it shipped in RubyLLM 1.12. Adopters on `ruby_llm < 1.12` need to bump RubyLLM before upgrading this gem to 0.8.0.
 
 ### Changed
 
-- **Tagline + README opening** — repositioned around "Contracts + Evals for RubyLLM". New "Relation to RubyLLM::Agent" section explicitly frames Step as a sibling abstraction (same niche as Agent, wider contract), not an alternative or foundation. README does not claim "Step uses Agent under the hood" — current call path is `Step → Runner → Adapters::RubyLLM → RubyLLM.chat` directly.
-- **`TokenEstimator` documented as heuristic** — module docstring expanded with explicit "±30% accuracy" framing. Refusal messages from `LimitChecker` now include `(heuristic ±30%)` suffix so adopters know the pre-flight number is estimated, not measured. RubyLLM 1.14 also has no pre-flight tokenizer; `RubyLLM::Tokens` is post-hoc only.
-- **`CostCalculator` repositioned in docs** — module narrative reframed from "cost calculator" to "fine-tune pricing registry + lookup with fallback chain". Math methods (`compute_cost`, `token_cost`, etc.) were already private; this release makes the docs match. Public API surface unchanged: `register_model`, `unregister_model`, `reset_custom_models!`, `calculate`.
-- **`output_schema` reframed in docs** — described as "wrapper around `RubyLLM::Schema` + client-side validation step", not a standalone feature. The schema language is identical to what `RubyLLM::Agent.schema` accepts; the difference is what wraps it.
-- **README retry framing** — `retry_policy escalate(...)` (model escalation on validation failure) is the marketed default. `retry_policy attempts: N` (same-model retry) stays in the API for backward compat and niche cases (subjective criteria, multi-step pipelines, weaker models) but is no longer marketed as a recommended default. Empirical basis: four small experiments across PDF quiz generation, GSM8K math (n=30 + n=120), and multi-constraint schedule generation found no useful lift for nano-class models on tasks with clear correctness criteria.
+- **Tagline + README opening** - repositioned around "Contracts + Evals for RubyLLM". New "Relation to RubyLLM::Agent" section explicitly frames Step as a sibling abstraction (same niche as Agent, wider contract), not an alternative or foundation. README does not claim "Step uses Agent under the hood" - current call path is `Step → Runner → Adapters::RubyLLM → RubyLLM.chat` directly.
+- **`TokenEstimator` documented as heuristic** - module docstring expanded with explicit "±30% accuracy" framing. Refusal messages from `LimitChecker` now include `(heuristic ±30%)` suffix so adopters know the pre-flight number is estimated, not measured. RubyLLM 1.14 also has no pre-flight tokenizer; `RubyLLM::Tokens` is post-hoc only.
+- **`CostCalculator` repositioned in docs** - module narrative reframed from "cost calculator" to "fine-tune pricing registry + lookup with fallback chain". Math methods (`compute_cost`, `token_cost`, etc.) were already private; this release makes the docs match. Public API surface unchanged: `register_model`, `unregister_model`, `reset_custom_models!`, `calculate`.
+- **`output_schema` reframed in docs** - described as "wrapper around `RubyLLM::Schema` + client-side validation step", not a standalone feature. The schema language is identical to what `RubyLLM::Agent.schema` accepts; the difference is what wraps it.
+- **README retry framing** - `retry_policy escalate(...)` (model escalation on validation failure) is the marketed default. `retry_policy attempts: N` (same-model retry) stays in the API for backward compat and niche cases (subjective criteria, multi-step pipelines, weaker models) but is no longer marketed as a recommended default. Empirical basis: four small experiments across PDF quiz generation, GSM8K math (n=30 + n=120), and multi-constraint schedule generation found no useful lift for nano-class models on tasks with clear correctness criteria.
 
 ### Documentation
 
@@ -275,30 +275,30 @@ Narrative repositioning + small API additions. Internal architecture unchanged: 
 
 ### Issues closed
 
-- **#11** (Optimizer is blind to same-model attempts) — closed after empirical experiments. `attempts: N` retry stays in API; not marketed as a default.
-- **#6** (Production cost reporting) — already implemented in 0.7.x; close confirmed.
+- **#11** (Optimizer is blind to same-model attempts) - closed after empirical experiments. `attempts: N` retry stays in API; not marketed as a default.
+- **#6** (Production cost reporting) - already implemented in 0.7.x; close confirmed.
 
 ### Not in this release (deferred)
 
 - `output_schema` Proc form for runtime-input-aware schemas (parity with `Agent.schema` Proc form). Additive, low-risk; deferred to 0.9 to keep 0.8 scope tight.
-- H4 (Step composing `RubyLLM::Agent` internally as config holder) — verified feasible but ROI insufficient for current adopter base; trigger-based revisit, no calendar commitment.
+- H4 (Step composing `RubyLLM::Agent` internally as config holder) - verified feasible but ROI insufficient for current adopter base; trigger-based revisit, no calendar commitment.
 
 ## 0.7.3 (2026-04-24)
 
-Adoption-friction release. No runtime behavior changes — every delta is in `docs/`, `examples/`, or `spec/integration/` (plus the `version.rb` / Gemfile.lock bumps). Upgrading from 0.7.2 picks up the expanded guide set, the new runnable showcases, and one extra integration spec.
+Adoption-friction release. No runtime behavior changes - every delta is in `docs/`, `examples/`, or `spec/integration/` (plus the `version.rb` / Gemfile.lock bumps). Upgrading from 0.7.2 picks up the expanded guide set, the new runnable showcases, and one extra integration spec.
 
 ### Documentation
 
-- **New guide: `docs/guide/why.md`** — four production failure modes the gem exists for (schema-valid logically wrong, silent prompt regression, sampling variance on fixed-temperature models, runaway cost). Opens from a concrete incident each time; designed for readers who have not yet felt the pain the gem relieves.
-- **New guide: `docs/guide/rails_integration.md`** — seven Rails-specific FAQs with runnable snippets: where step classes live (`app/contracts/`), initializer setup, background jobs, `around_call` observability, RSpec/Minitest stubs, error handling in controllers, CI gate wiring.
-- **README adoption-friction pass** — added a short "Do I need this?" block after Install, a reading-order hint (`README → why.md → getting_started.md`), and outcome-based labels in the docs index ("Prevent silent prompt regressions" instead of "Eval-First", etc.).
-- **TL;DR box at the top of every guide** — single-sentence orientation for readers who land via search; "Skip if" clause added where real confusion exists (`eval_first.md`, `testing.md`, `migration.md`).
-- **API coverage gaps closed** — `estimate_cost` / `estimate_eval_cost`, `max_cost on_unknown_pricing: :warn`, `run_eval(..., concurrency:)`, `around_call` testing patterns now documented in `getting_started.md`, `eval_first.md`, `testing.md`.
-- **Industry-standard terminology** — `temperature-locked` → `fixed-temperature`, `variance-induced` → `sampling variance`, `severity signals` → `severity keywords`, `takeaway drift` → `tone/takeaways mismatch`.
-- **`docs/architecture.md` refresh** — diagram now reflects the current class layout: added `Step::RetryPolicy`, `Pipeline::Result`, `Eval::AggregatedReport`, `Eval::BaselineDiff`, `Eval::PromptDiffComparator`, `Eval::EvalHistory`, `Eval::RetryOptimizer`, `OptimizeRakeTask`. Replaced the outdated `Eval::TraitEvaluator` entry with `Eval::ExpectationEvaluator`.
-- **Business framing added to guides** — every guide opens with a concrete production scenario or "why it matters" hook before the API reference.
+- **New guide: `docs/guide/why.md`** - four production failure modes the gem exists for (schema-valid logically wrong, silent prompt regression, sampling variance on fixed-temperature models, runaway cost). Opens from a concrete incident each time; designed for readers who have not yet felt the pain the gem relieves.
+- **New guide: `docs/guide/rails_integration.md`** - seven Rails-specific FAQs with runnable snippets: where step classes live (`app/contracts/`), initializer setup, background jobs, `around_call` observability, RSpec/Minitest stubs, error handling in controllers, CI gate wiring.
+- **README adoption-friction pass** - added a short "Do I need this?" block after Install, a reading-order hint (`README → why.md → getting_started.md`), and outcome-based labels in the docs index ("Prevent silent prompt regressions" instead of "Eval-First", etc.).
+- **TL;DR box at the top of every guide** - single-sentence orientation for readers who land via search; "Skip if" clause added where real confusion exists (`eval_first.md`, `testing.md`, `migration.md`).
+- **API coverage gaps closed** - `estimate_cost` / `estimate_eval_cost`, `max_cost on_unknown_pricing: :warn`, `run_eval(..., concurrency:)`, `around_call` testing patterns now documented in `getting_started.md`, `eval_first.md`, `testing.md`.
+- **Industry-standard terminology** - `temperature-locked` → `fixed-temperature`, `variance-induced` → `sampling variance`, `severity signals` → `severity keywords`, `takeaway drift` → `tone/takeaways mismatch`.
+- **`docs/architecture.md` refresh** - diagram now reflects the current class layout: added `Step::RetryPolicy`, `Pipeline::Result`, `Eval::AggregatedReport`, `Eval::BaselineDiff`, `Eval::PromptDiffComparator`, `Eval::EvalHistory`, `Eval::RetryOptimizer`, `OptimizeRakeTask`. Replaced the outdated `Eval::TraitEvaluator` entry with `Eval::ExpectationEvaluator`.
+- **Business framing added to guides** - every guide opens with a concrete production scenario or "why it matters" hook before the API reference.
 
-### Examples — consolidated on `SummarizeArticle`, renumbered 00-06
+### Examples - consolidated on `SummarizeArticle`, renumbered 00-06
 
 The previous 12-file set mixed a private Reddit promo planner, customer support, meetings, keyword extraction, and translation. The new set is seven runnable files, each answering one adopter question on the README's `SummarizeArticle` case.
 
@@ -314,19 +314,19 @@ The previous 12-file set mixed a private Reddit promo planner, customer support,
 
 Every file carries an "Expected output" block in its header so readers see the result without running the script. The `docs/ideas/` directory is now fully untracked (already in `.gitignore`; one stray file removed from version control).
 
-### Examples — bug fixes carried along
+### Examples - bug fixes carried along
 
-- **Schema pitfall fixed in 5 files** — `array :x do; string :y; ...; end` silently produces `items: string` and drops every declaration after the first, matching the documented pitfall in `spec/ruby_llm/contract/nested_schema_spec.rb:71`. Every affected array block is now wrapped in `object do...end`.
-- **`examples/05_eval_dataset.rb` (pre-renumber: `09_eval_dataset.rb`) `result[:passed]` → `result.passed?`** — the previous code called `[]` on an `Eval::CaseResult` and raised `NoMethodError` at runtime.
+- **Schema pitfall fixed in 5 files** - `array :x do; string :y; ...; end` silently produces `items: string` and drops every declaration after the first, matching the documented pitfall in `spec/ruby_llm/contract/nested_schema_spec.rb:71`. Every affected array block is now wrapped in `object do...end`.
+- **`examples/05_eval_dataset.rb` (pre-renumber: `09_eval_dataset.rb`) `result[:passed]` → `result.passed?`** - the previous code called `[]` on an `Eval::CaseResult` and raised `NoMethodError` at runtime.
 
 ### Testing
 
-- **New `spec/integration/pipeline_eval_spec.rb`** — three cases guaranteeing pipeline-level `run_eval` stays functional: happy path, final-step mismatch, and fail-fast propagation when an intermediate `validate` rejects. Closes the "09 STEP 5 pipeline evaluation" known issue flagged in the 0.7.2 release. The fail-fast case asserts `step_status == :validation_failed` and the validate's label in `details`, so a regression that short-circuits on schema instead of validate would fail loudly.
+- **New `spec/integration/pipeline_eval_spec.rb`** - three cases guaranteeing pipeline-level `run_eval` stays functional: happy path, final-step mismatch, and fail-fast propagation when an intermediate `validate` rejects. Closes the "09 STEP 5 pipeline evaluation" known issue flagged in the 0.7.2 release. The fail-fast case asserts `step_status == :validation_failed` and the validate's label in `details`, so a regression that short-circuits on schema instead of validate would fail loudly.
 
 ### Deleted (private-project cleanup)
 
-- `examples/01_classify_threads.rb`, `02_generate_comment.rb`, `03_target_audience.rb`, `10_reddit_full_showcase.rb`, `spec/integration/reddit_pipeline_spec.rb` — Reddit Promo Planner was a separate private project; its examples do not belong in the gem's public repo.
-- `examples/02_output_schema.rb` — fully covered by `docs/guide/output_schema.md`; deleting avoids duplication.
+- `examples/01_classify_threads.rb`, `02_generate_comment.rb`, `03_target_audience.rb`, `10_reddit_full_showcase.rb`, `spec/integration/reddit_pipeline_spec.rb` - Reddit Promo Planner was a separate private project; its examples do not belong in the gem's public repo.
+- `examples/02_output_schema.rb` - fully covered by `docs/guide/output_schema.md`; deleting avoids duplication.
 
 ## 0.7.2 (2026-04-22)
 
@@ -336,24 +336,24 @@ Every file carries an "Expected output" block in its header so readers see the r
 
 ### Documentation
 
-- **`docs/guide/optimizing_retry_policy.md` rewritten** — 17.7k → 6.4k characters. Continues the `SummarizeArticle` narrative from README. Offline mode clearly positioned as wiring-check; real optimization runs via `LIVE=1 RUNS=3`. Output samples match actual `print_summary` format.
-- **`docs/guide/getting_started.md` rewritten** — 8.7k → 6.1k. Every example uses `SummarizeArticle`. Evals + CI gates section moved before Budget caps. Structured Prompts / Dynamic Prompts / "Already using ruby_llm?" / Reasoning effort sections removed; content delegated to `prompt_ast.md` and README.
-- **`docs/guide/eval_first.md` refined** — 6.3k → 5.0k. Switched to `SummarizeArticle` case. Team workflow section compressed with links back to `getting_started.md` for the matcher chain.
-- **`docs/guide/testing.md` refined** — 10.7k → 7.4k. Switched to `SummarizeArticle` case. Threshold gating / Rake task / baseline walkthrough / prompt A/B sections delegated back to `getting_started.md` and `eval_first.md`.
-- **`docs/guide/output_schema.md` DSL bug fix** — the Supported constraints table documented JSON Schema camelCase keys (`minLength`, `minItems`, `additionalProperties`) that are not valid DSL arguments. Every copy-paste from the previous table would have raised `ArgumentError`. Switched to snake_case (`min_length`, `min_items`, `additional_properties`) as the DSL actually expects; added a short note on the internal camelCase conversion.
-- **`docs/guide/best_practices.md`, `pipeline.md`, `migration.md` sanity pass** — terminology alignment (model escalation → model fallback where narrative; `escalate` DSL method unchanged) and `SummarizeArticle` case where the guide is not inherently multi-step.
+- **`docs/guide/optimizing_retry_policy.md` rewritten** - 17.7k → 6.4k characters. Continues the `SummarizeArticle` narrative from README. Offline mode clearly positioned as wiring-check; real optimization runs via `LIVE=1 RUNS=3`. Output samples match actual `print_summary` format.
+- **`docs/guide/getting_started.md` rewritten** - 8.7k → 6.1k. Every example uses `SummarizeArticle`. Evals + CI gates section moved before Budget caps. Structured Prompts / Dynamic Prompts / "Already using ruby_llm?" / Reasoning effort sections removed; content delegated to `prompt_ast.md` and README.
+- **`docs/guide/eval_first.md` refined** - 6.3k → 5.0k. Switched to `SummarizeArticle` case. Team workflow section compressed with links back to `getting_started.md` for the matcher chain.
+- **`docs/guide/testing.md` refined** - 10.7k → 7.4k. Switched to `SummarizeArticle` case. Threshold gating / Rake task / baseline walkthrough / prompt A/B sections delegated back to `getting_started.md` and `eval_first.md`.
+- **`docs/guide/output_schema.md` DSL bug fix** - the Supported constraints table documented JSON Schema camelCase keys (`minLength`, `minItems`, `additionalProperties`) that are not valid DSL arguments. Every copy-paste from the previous table would have raised `ArgumentError`. Switched to snake_case (`min_length`, `min_items`, `additional_properties`) as the DSL actually expects; added a short note on the internal camelCase conversion.
+- **`docs/guide/best_practices.md`, `pipeline.md`, `migration.md` sanity pass** - terminology alignment (model escalation → model fallback where narrative; `escalate` DSL method unchanged) and `SummarizeArticle` case where the guide is not inherently multi-step.
 
 ## 0.7.1 (2026-04-22)
 
 ### Changed (behavioral, follow-up to v0.7.0)
 
-- **`Step::Base#run_once` no longer swallows adapter-phase `ArgumentError` as `:input_error`.** The previous blanket `rescue ArgumentError` was there to convert DSL misconfiguration (e.g. missing `prompt`) into an `:input_error` Result. Side effect: programmer bugs in adapter code that raised `ArgumentError` (wrong arity, bad config argument) were silently coerced into `:input_error` and retried as if the user had given bad input. Now the rescue is narrowed to the Runner-construction phase only — DSL configuration errors still produce `:input_error` (the `prompt has not been set` case is regression-tested), but `ArgumentError` raised from adapter code during `Runner#call` propagates to the caller. Input-type validation failures continue to produce `:input_error` through `InputValidator`'s own scoped rescue, unchanged.
+- **`Step::Base#run_once` no longer swallows adapter-phase `ArgumentError` as `:input_error`.** The previous blanket `rescue ArgumentError` was there to convert DSL misconfiguration (e.g. missing `prompt`) into an `:input_error` Result. Side effect: programmer bugs in adapter code that raised `ArgumentError` (wrong arity, bad config argument) were silently coerced into `:input_error` and retried as if the user had given bad input. Now the rescue is narrowed to the Runner-construction phase only - DSL configuration errors still produce `:input_error` (the `prompt has not been set` case is regression-tested), but `ArgumentError` raised from adapter code during `Runner#call` propagates to the caller. Input-type validation failures continue to produce `:input_error` through `InputValidator`'s own scoped rescue, unchanged.
 
 ## 0.7.0 (2026-04-21)
 
 ### Breaking changes
 
-- **`:adapter_error` removed from `DEFAULT_RETRY_ON`.** New default: `[:validation_failed, :parse_error]`. `ruby_llm` already retries transport errors (`RateLimitError`, `ServerError`, `ServiceUnavailableError`, `OverloadedError`, timeouts) at the Faraday layer, so the previous default re-ran the same model on errors the HTTP middleware already retried with backoff. To restore pre-0.7 behavior: `retry_on :validation_failed, :parse_error, :adapter_error`. Recommended pattern: pair `:adapter_error` with `escalate "model_a", "model_b"` — a different model/provider can bypass what transport retry could not.
+- **`:adapter_error` removed from `DEFAULT_RETRY_ON`.** New default: `[:validation_failed, :parse_error]`. `ruby_llm` already retries transport errors (`RateLimitError`, `ServerError`, `ServiceUnavailableError`, `OverloadedError`, timeouts) at the Faraday layer, so the previous default re-ran the same model on errors the HTTP middleware already retried with backoff. To restore pre-0.7 behavior: `retry_on :validation_failed, :parse_error, :adapter_error`. Recommended pattern: pair `:adapter_error` with `escalate "model_a", "model_b"` - a different model/provider can bypass what transport retry could not.
 - **`AdapterCaller` narrows `rescue` from `StandardError` to `RubyLLM::Error` + `Faraday::Error`.** Provider errors and transport errors that escape ruby_llm's Faraday retry middleware (`Faraday::TimeoutError`, `Faraday::ConnectionFailed`) still produce `:adapter_error` as before. Programmer errors that are neither (`NoMethodError`, adapter code bugs) now propagate instead of being silently converted to `:adapter_error` and retried. **Known limitation:** adapter code raising `ArgumentError` is still coerced into `:input_error` by `Step::Base#run_once` (which rescues `ArgumentError` for input-type validation). Disambiguating adapter-ArgumentError vs input-validation-ArgumentError requires a `run_once` refactor and is tracked as a follow-up.
 
 ### Migration
@@ -380,43 +380,43 @@ end
 
 ### Features
 
-- **`production_mode:` on `compare_models` and `optimize_retry_policy`** — measures retry-aware, end-to-end cost per successful output. Pass `production_mode: { fallback: "gpt-5-mini" }` and each candidate runs with a runtime-injected `[candidate, fallback]` retry chain. The report exposes `escalation_rate`, `single_shot_cost`, and `effective_cost` so "the cheaper candidate" decision matches production cost rather than first-attempt cost.
-- **New Report metrics** — `escalation_rate`, `single_shot_cost`, `effective_cost`, `single_shot_latency_ms`, `effective_latency_ms`, `latency_percentiles` (p50/p95/max). `AggregatedReport` averages all of them across `runs:`.
-- **Extended `ModelComparison#table`** — when `production_mode:` is set, renders a `Chain` column (`candidate → fallback`) with `single-shot`, `escalation`, `effective cost`, `latency`, `score`. Edge case `candidate == fallback` renders as a single model and `—` in the escalation column, with retry injection skipped entirely so `effective == single-shot` by construction, not by coincidence.
-- **`context[:retry_policy_override]`** — new context key that nullifies or replaces class-level `retry_policy` for a single call. Used internally by production-mode injection; safe to use directly when you need a transient override that doesn't mutate the step class.
+- **`production_mode:` on `compare_models` and `optimize_retry_policy`** - measures retry-aware, end-to-end cost per successful output. Pass `production_mode: { fallback: "gpt-5-mini" }` and each candidate runs with a runtime-injected `[candidate, fallback]` retry chain. The report exposes `escalation_rate`, `single_shot_cost`, and `effective_cost` so "the cheaper candidate" decision matches production cost rather than first-attempt cost.
+- **New Report metrics** - `escalation_rate`, `single_shot_cost`, `effective_cost`, `single_shot_latency_ms`, `effective_latency_ms`, `latency_percentiles` (p50/p95/max). `AggregatedReport` averages all of them across `runs:`.
+- **Extended `ModelComparison#table`** - when `production_mode:` is set, renders a `Chain` column (`candidate → fallback`) with `single-shot`, `escalation`, `effective cost`, `latency`, `score`. Edge case `candidate == fallback` renders as a single model and `—` in the escalation column, with retry injection skipped entirely so `effective == single-shot` by construction, not by coincidence.
+- **`context[:retry_policy_override]`** - new context key that nullifies or replaces class-level `retry_policy` for a single call. Used internally by production-mode injection; safe to use directly when you need a transient override that doesn't mutate the step class.
 
 ### Scope
 
 - Single-fallback (2-tier) chains only. Multi-tier chains can be inspected post-hoc via `trace.attempts` but aren't summarized in the optimize table.
-- Costs with `runs: 3 + production_mode: { fallback: "gpt-5-mini" }` are ≈3× a single-shot eval plus the actual retry attempts — not 6×. Production-mode metrics come from a single pass.
-- **Step-only.** Calling `compare_models` with `production_mode:` on a `Pipeline::Base` subclass raises `ArgumentError` — retry injection is Step-level and pipeline-wide fallback semantics aren't defined yet. Benchmark individual steps.
+- Costs with `runs: 3 + production_mode: { fallback: "gpt-5-mini" }` are ≈3× a single-shot eval plus the actual retry attempts - not 6×. Production-mode metrics come from a single pass.
+- **Step-only.** Calling `compare_models` with `production_mode:` on a `Pipeline::Base` subclass raises `ArgumentError` - retry injection is Step-level and pipeline-wide fallback semantics aren't defined yet. Benchmark individual steps.
 
 ### Documentation
 
-- **Guide: [Production-mode cost measurement](docs/guide/optimizing_retry_policy.md#measure-effective-cost-before-shipping)** — API, metric interpretation, 2-tier scope note.
+- **Guide: [Production-mode cost measurement](docs/guide/optimizing_retry_policy.md#measure-effective-cost-before-shipping)** - API, metric interpretation, 2-tier scope note.
 
 ## 0.6.3 (2026-04-20)
 
 ### Features
 
-- **`runs:` parameter on `compare_models` and `optimize_retry_policy`** — runs each candidate N times per eval and aggregates the mean score, mean cost per run, and mean latency. Reduces sampling variance in live mode where LLM outputs are non-deterministic (gpt-5 family enforces `temperature=1.0` server-side, so a single unlucky sample can misclassify a viable candidate as "failing"). Default `runs: 1` — backward compatible.
-- **`RUNS=N` on `rake ruby_llm_contract:optimize`** — CLI flag for variance-aware optimization.
-- **`Eval::AggregatedReport`** — duck-type `Report` exposing `score` (mean), `score_min`/`score_max` (spread), `total_cost` (mean per run), `pass_rate` (clean-pass count x/N), and `clean_passes`.
-- **Guide: [Reducing variance with `runs:`](docs/guide/optimizing_retry_policy.md)** — when to use it and why.
+- **`runs:` parameter on `compare_models` and `optimize_retry_policy`** - runs each candidate N times per eval and aggregates the mean score, mean cost per run, and mean latency. Reduces sampling variance in live mode where LLM outputs are non-deterministic (gpt-5 family enforces `temperature=1.0` server-side, so a single unlucky sample can misclassify a viable candidate as "failing"). Default `runs: 1` - backward compatible.
+- **`RUNS=N` on `rake ruby_llm_contract:optimize`** - CLI flag for variance-aware optimization.
+- **`Eval::AggregatedReport`** - duck-type `Report` exposing `score` (mean), `score_min`/`score_max` (spread), `total_cost` (mean per run), `pass_rate` (clean-pass count x/N), and `clean_passes`.
+- **Guide: [Reducing variance with `runs:`](docs/guide/optimizing_retry_policy.md)** - when to use it and why.
 
 ## 0.6.2 (2026-04-18)
 
 ### Features
 
-- **`Step.optimize_retry_policy`** — runs `compare_models` on ALL evals for the step, builds a score matrix, identifies the constraining eval, and suggests a retry chain. Chain's last model always passes all evals (safe fallback).
-- **`rake ruby_llm_contract:optimize`** — one-command retry chain optimization. Prints score table, constraining eval, suggested chain, and copy-paste DSL.
-- **Offline by default** — `optimize` uses `sample_response` (zero API calls) unless `LIVE=1` or `PROVIDER=` is set.
-- **`EVAL_DIRS=` support** — non-Rails setups can specify eval file directories.
-- **Guide: [Optimizing retry_policy](docs/guide/optimizing_retry_policy.md)** — full procedure with prerequisites, troubleshooting, and real-world example.
+- **`Step.optimize_retry_policy`** - runs `compare_models` on ALL evals for the step, builds a score matrix, identifies the constraining eval, and suggests a retry chain. Chain's last model always passes all evals (safe fallback).
+- **`rake ruby_llm_contract:optimize`** - one-command retry chain optimization. Prints score table, constraining eval, suggested chain, and copy-paste DSL.
+- **Offline by default** - `optimize` uses `sample_response` (zero API calls) unless `LIVE=1` or `PROVIDER=` is set.
+- **`EVAL_DIRS=` support** - non-Rails setups can specify eval file directories.
+- **Guide: [Optimizing retry_policy](docs/guide/optimizing_retry_policy.md)** - full procedure with prerequisites, troubleshooting, and real-world example.
 
 ### Fixes
 
-- Chain semantics aligned with `retry_executor` — retry fires on `validation_failed`/`parse_error`, not on low eval score. Disjoint eval coverage (A passes e1, B passes e2, neither passes both) correctly returns empty chain.
+- Chain semantics aligned with `retry_executor` - retry fires on `validation_failed`/`parse_error`, not on low eval score. Disjoint eval coverage (A passes e1, B passes e2, neither passes both) correctly returns empty chain.
 - Removed ActiveSupport dependency from rake task (`.presence` → `.empty?`).
 - Added `require "set"` for non-Rails environments.
 
@@ -424,22 +424,22 @@ end
 
 ### Features
 
-- **Multi-provider operator tooling** — rake tasks support `PROVIDER=openai|anthropic|ollama` and `CANDIDATES=model@effort,...`.
-- **`rake ruby_llm_contract:recommend`** — wraps `Step.recommend` with CLI interface, prints best config, retry chain, DSL, rationale, and savings.
-- **Ollama support** — `PROVIDER=ollama` (base URL via `RubyLLM.configure { |c| c.ollama_api_base = ... }`).
+- **Multi-provider operator tooling** - rake tasks support `PROVIDER=openai|anthropic|ollama` and `CANDIDATES=model@effort,...`.
+- **`rake ruby_llm_contract:recommend`** - wraps `Step.recommend` with CLI interface, prints best config, retry chain, DSL, rationale, and savings.
+- **Ollama support** - `PROVIDER=ollama` (base URL via `RubyLLM.configure { |c| c.ollama_api_base = ... }`).
 
 ## 0.6.0 (2026-04-12)
 
-"What should I do?" — model + configuration recommendation.
+"What should I do?" - model + configuration recommendation.
 
 ### Features
 
-- **`Step.recommend`** — `ClassifyTicket.recommend("eval", candidates: [...], min_score: 0.95)` runs eval on all candidates and returns a `Recommendation` with optimal model, retry chain, rationale, savings vs current config, and `to_dsl` code output.
-- **Candidates as configurations** — `candidates:` accepts `{ model:, reasoning_effort: }` hashes, not just model name strings. `gpt-5-mini` with `reasoning_effort: "low"` is a different candidate than with `"high"`.
-- **`compare_models` extended** — new `candidates:` parameter alongside existing `models:` (backward compatible). Candidate labels include reasoning effort in output table.
-- **Per-attempt `reasoning_effort` in retry policies** — `escalate` accepts config hashes: `escalate({ model: "gpt-5-nano" }, { model: "gpt-5-mini", reasoning_effort: "high" })`. Each attempt gets its own reasoning_effort forwarded to the provider.
-- **`pass_rate_ratio`** — numeric float (0.0–1.0) on `Report` and `ReportStats`, complementing the string `pass_rate` (`"3/5"`).
-- **History entries enriched** — `save_history!` accepts `reasoning_effort:` and stores `model`, `reasoning_effort`, `pass_rate_ratio` in JSONL entries.
+- **`Step.recommend`** - `ClassifyTicket.recommend("eval", candidates: [...], min_score: 0.95)` runs eval on all candidates and returns a `Recommendation` with optimal model, retry chain, rationale, savings vs current config, and `to_dsl` code output.
+- **Candidates as configurations** - `candidates:` accepts `{ model:, reasoning_effort: }` hashes, not just model name strings. `gpt-5-mini` with `reasoning_effort: "low"` is a different candidate than with `"high"`.
+- **`compare_models` extended** - new `candidates:` parameter alongside existing `models:` (backward compatible). Candidate labels include reasoning effort in output table.
+- **Per-attempt `reasoning_effort` in retry policies** - `escalate` accepts config hashes: `escalate({ model: "gpt-5-nano" }, { model: "gpt-5-mini", reasoning_effort: "high" })`. Each attempt gets its own reasoning_effort forwarded to the provider.
+- **`pass_rate_ratio`** - numeric float (0.0–1.0) on `Report` and `ReportStats`, complementing the string `pass_rate` (`"3/5"`).
+- **History entries enriched** - `save_history!` accepts `reasoning_effort:` and stores `model`, `reasoning_effort`, `pass_rate_ratio` in JSONL entries.
 
 ### Game changer continuity
 
@@ -455,7 +455,7 @@ v0.6: "What should I do?"     → recommend (actionable advice)
 
 ### Features
 
-- **`reasoning_effort` forwarded to provider** — `context: { reasoning_effort: "low" }` now passed through `with_params` to the LLM. Previously accepted as a known context key but silently ignored by the RubyLLM adapter.
+- **`reasoning_effort` forwarded to provider** - `context: { reasoning_effort: "low" }` now passed through `with_params` to the LLM. Previously accepted as a known context key but silently ignored by the RubyLLM adapter.
 
 ## 0.5.0 (2026-03-25)
 
@@ -463,9 +463,9 @@ Data-Driven Prompt Engineering.
 
 ### Features
 
-- **`observe` DSL** — soft observations that log but never fail. `observe("scores differ") { |o| o[:a] != o[:b] }`. Results in `result.observations`. Logged via `Contract.logger` when they fail. Runs only when validation passes.
-- **`compare_with`** — prompt A/B testing. `StepV2.compare_with(StepV1, eval: "regression", model: "nano")` returns `PromptDiff` with `improvements`, `regressions`, `score_delta`, `safe_to_switch?`. Reuses `BaselineDiff` internally.
-- **RSpec `compared_with` chain** — `expect(StepV2).to pass_eval("x").compared_with(StepV1).without_regressions` blocks merge if new prompt regresses any case.
+- **`observe` DSL** - soft observations that log but never fail. `observe("scores differ") { |o| o[:a] != o[:b] }`. Results in `result.observations`. Logged via `Contract.logger` when they fail. Runs only when validation passes.
+- **`compare_with`** - prompt A/B testing. `StepV2.compare_with(StepV1, eval: "regression", model: "nano")` returns `PromptDiff` with `improvements`, `regressions`, `score_delta`, `safe_to_switch?`. Reuses `BaselineDiff` internally.
+- **RSpec `compared_with` chain** - `expect(StepV2).to pass_eval("x").compared_with(StepV1).without_regressions` blocks merge if new prompt regresses any case.
 
 ### Game changer continuity
 
@@ -478,25 +478,25 @@ v0.5: "Which prompt is better?" → compare_with (A/B testing)
 
 ## 0.4.5 (2026-03-24)
 
-Audit hardening — 18 bugs fixed across 4 audit rounds.
+Audit hardening - 18 bugs fixed across 4 audit rounds.
 
 ### Fixes
 
-- **RakeTask history before abort** — `track_history` now saves all reports (pass and fail) before gating, so failed runs appear in eval history.
-- **RSpec/Minitest stub scoping** — block form `stub_step` uses thread-local overrides with real cleanup. Non-block `stub_all_steps` auto-restored by RSpec `around(:each)` hook and Minitest `setup`/`teardown`.
-- **StepAdapterOverride** — handles `context: nil` and respects string key `"adapter"`. Moved to `contract.rb` so both test frameworks share one mechanism.
-- **max_cost fail closed output estimate** — preflight uses 1x input tokens as output estimate when `max_output` not set, preventing cost bypass for output-expensive models.
-- **reset_configuration! clears overrides** — `step_adapter_overrides` now cleared on reset.
-- **CostCalculator.register_model** — validates `Numeric`, `finite?`, non-negative. Rejects NaN, Infinity, strings, nil.
-- **Pipeline token_budget** — rejects negative and zero values (parity with `timeout_ms`).
-- **track_history model fallback** — uses step DSL `model`, then `default_model` when context has no model. Handles string key `"model"`.
-- **estimate_cost / estimate_eval_cost** — falls back to step DSL model when no explicit model arg given.
-- **stub_steps string keys** — both RSpec and Minitest normalize string-keyed options with `transform_keys(:to_sym)`.
-- **DSL `:default` reset** — `model(:default)`, `temperature(:default)`, `max_cost(:default)` reset inherited parent values.
+- **RakeTask history before abort** - `track_history` now saves all reports (pass and fail) before gating, so failed runs appear in eval history.
+- **RSpec/Minitest stub scoping** - block form `stub_step` uses thread-local overrides with real cleanup. Non-block `stub_all_steps` auto-restored by RSpec `around(:each)` hook and Minitest `setup`/`teardown`.
+- **StepAdapterOverride** - handles `context: nil` and respects string key `"adapter"`. Moved to `contract.rb` so both test frameworks share one mechanism.
+- **max_cost fail closed output estimate** - preflight uses 1x input tokens as output estimate when `max_output` not set, preventing cost bypass for output-expensive models.
+- **reset_configuration! clears overrides** - `step_adapter_overrides` now cleared on reset.
+- **CostCalculator.register_model** - validates `Numeric`, `finite?`, non-negative. Rejects NaN, Infinity, strings, nil.
+- **Pipeline token_budget** - rejects negative and zero values (parity with `timeout_ms`).
+- **track_history model fallback** - uses step DSL `model`, then `default_model` when context has no model. Handles string key `"model"`.
+- **estimate_cost / estimate_eval_cost** - falls back to step DSL model when no explicit model arg given.
+- **stub_steps string keys** - both RSpec and Minitest normalize string-keyed options with `transform_keys(:to_sym)`.
+- **DSL `:default` reset** - `model(:default)`, `temperature(:default)`, `max_cost(:default)` reset inherited parent values.
 
 ## 0.4.4 (2026-03-24)
 
-- **`stub_steps` (plural)** — stub multiple steps with different responses in one block. No nesting needed. Works in RSpec and Minitest:
+- **`stub_steps` (plural)** - stub multiple steps with different responses in one block. No nesting needed. Works in RSpec and Minitest:
   ```ruby
   stub_steps(
     ClassifyTicket => { response: { priority: "high" } },
@@ -510,33 +510,33 @@ Production feedback release.
 
 ### Features
 
-- **`stub_step` block form** — `stub_step(Step, response: x) { test }` auto-resets adapter after block. Works in RSpec and Minitest. Eliminates leaked test state.
-- **Minitest per-step routing** — `stub_step(StepA, ...)` now actually routes to StepA only (was setting global adapter, ignoring step class).
-- **`track_history` in RakeTask** — `t.track_history = true` auto-appends every eval run (pass and fail) to `.eval_history/`. Drift detection without manual `save_history!` calls.
-- **`max_cost` fail closed** — unknown model pricing now refuses the call instead of silently skipping. Set `on_unknown_pricing: :warn` for old behavior.
-- **`CostCalculator.register_model`** — register pricing for custom/fine-tuned models: `register_model("ft:gpt-4o", input_per_1m: 3.0, output_per_1m: 6.0)`.
+- **`stub_step` block form** - `stub_step(Step, response: x) { test }` auto-resets adapter after block. Works in RSpec and Minitest. Eliminates leaked test state.
+- **Minitest per-step routing** - `stub_step(StepA, ...)` now actually routes to StepA only (was setting global adapter, ignoring step class).
+- **`track_history` in RakeTask** - `t.track_history = true` auto-appends every eval run (pass and fail) to `.eval_history/`. Drift detection without manual `save_history!` calls.
+- **`max_cost` fail closed** - unknown model pricing now refuses the call instead of silently skipping. Set `on_unknown_pricing: :warn` for old behavior.
+- **`CostCalculator.register_model`** - register pricing for custom/fine-tuned models: `register_model("ft:gpt-4o", input_per_1m: 3.0, output_per_1m: 6.0)`.
 
 ## 0.4.2 (2026-03-24)
 
-- **RakeTask lazy context** — `t.context` now accepts a Proc, resolved at task runtime (after `:environment`). Fixes adapter not being available at Rake load time in Rails apps.
+- **RakeTask lazy context** - `t.context` now accepts a Proc, resolved at task runtime (after `:environment`). Fixes adapter not being available at Rake load time in Rails apps.
 
 ## 0.4.1 (2026-03-24)
 
-- **RakeTask `:environment` fix** — uses `defined?(::Rails)` instead of `Rake::Task.task_defined?(:environment)`. Works in Rails 8 without manual `Rake::Task.enhance`.
-- **Concurrent eval deterministic** — `clone_for_concurrency` protocol, `ContextHelpers` extracted.
-- **README** — added eval history, concurrency, quality tracking examples.
+- **RakeTask `:environment` fix** - uses `defined?(::Rails)` instead of `Rake::Task.task_defined?(:environment)`. Works in Rails 8 without manual `Rake::Task.enhance`.
+- **Concurrent eval deterministic** - `clone_for_concurrency` protocol, `ContextHelpers` extracted.
+- **README** - added eval history, concurrency, quality tracking examples.
 
 ## 0.4.0 (2026-03-24)
 
-Observability & Scale — see what changed, run it fast, debug it easily.
+Observability & Scale - see what changed, run it fast, debug it easily.
 
 ### Features
 
-- **Structured logging** — `Contract.configure { |c| c.logger = Rails.logger }`. Auto-logs model, status, latency, tokens, cost on every `step.run`.
-- **Batch eval concurrency** — `run_eval("regression", concurrency: 4)`. Parallel case execution via Concurrent::Future. 4x faster CI for large eval suites.
-- **Eval history & trending** — `report.save_history!` appends to JSONL. `report.eval_history` returns `EvalHistory` with `score_trend`, `drift?`, run-by-run scores.
-- **Pipeline per-step eval** — `add_case(..., step_expectations: { classify: { priority: "high" } })`. See which step in a pipeline regressed.
-- **Minitest support** — `assert_satisfies_contract`, `assert_eval_passes`, `stub_step` for Minitest users. `require "ruby_llm/contract/minitest"`.
+- **Structured logging** - `Contract.configure { |c| c.logger = Rails.logger }`. Auto-logs model, status, latency, tokens, cost on every `step.run`.
+- **Batch eval concurrency** - `run_eval("regression", concurrency: 4)`. Parallel case execution via Concurrent::Future. 4x faster CI for large eval suites.
+- **Eval history & trending** - `report.save_history!` appends to JSONL. `report.eval_history` returns `EvalHistory` with `score_trend`, `drift?`, run-by-run scores.
+- **Pipeline per-step eval** - `add_case(..., step_expectations: { classify: { priority: "high" } })`. See which step in a pipeline regressed.
+- **Minitest support** - `assert_satisfies_contract`, `assert_eval_passes`, `stub_step` for Minitest users. `require "ruby_llm/contract/minitest"`.
 
 ### Game changer continuity
 
@@ -550,71 +550,71 @@ v0.4: "Show me the trend"     → eval history (time series)
 
 ## 0.3.7 (2026-03-24)
 
-- **Trait missing key = error** — `expected_traits: { title: 0..5 }` on output `{}` now fails instead of silently passing.
-- **nil input in dynamic prompts** — `run(nil)` with `prompt { |input| ... }` correctly passes nil to block.
-- **Defensive sample pre-validation** — `sample_response` uses the same parser as runtime (handles code fences, BOM, prose around JSON).
-- **Baseline diff excludes skipped** — self-compare with skipped cases no longer shows artificial score delta.
-- **Zeitwerk eval/ ignore** — `eager_load_contract_dirs!` ignores `eval/` subdirs before eager load.
+- **Trait missing key = error** - `expected_traits: { title: 0..5 }` on output `{}` now fails instead of silently passing.
+- **nil input in dynamic prompts** - `run(nil)` with `prompt { |input| ... }` correctly passes nil to block.
+- **Defensive sample pre-validation** - `sample_response` uses the same parser as runtime (handles code fences, BOM, prose around JSON).
+- **Baseline diff excludes skipped** - self-compare with skipped cases no longer shows artificial score delta.
+- **Zeitwerk eval/ ignore** - `eager_load_contract_dirs!` ignores `eval/` subdirs before eager load.
 
 ## 0.3.6 (2026-03-24)
 
-- **Recursive array/object validation** — nested arrays (`array of array of string`) validated recursively. Object items validated even without `:properties` (e.g. `additionalProperties: false`).
-- **Deep symbolize in sample pre-validation** — array samples with string keys (`[{"name" => "Alice"}]`) correctly symbolized before schema validation.
+- **Recursive array/object validation** - nested arrays (`array of array of string`) validated recursively. Object items validated even without `:properties` (e.g. `additionalProperties: false`).
+- **Deep symbolize in sample pre-validation** - array samples with string keys (`[{"name" => "Alice"}]`) correctly symbolized before schema validation.
 
 ## 0.3.5 (2026-03-24)
 
-- **String constraints in SchemaValidator** — `minLength`/`maxLength` enforced for root and nested strings.
-- **Array item validation** — scalar items (string, integer) validated against items schema type and constraints.
-- **Non-JSON sample_response fails fast** — `sample_response("hello")` with object schema raises ArgumentError at definition time instead of silently passing.
-- **`max_tokens` in KNOWN_CONTEXT_KEYS** — no more spurious "Unknown context keys" warning.
-- **Duplicate models deduplicated** — `compare_models(models: ["m", "m"])` runs model once.
+- **String constraints in SchemaValidator** - `minLength`/`maxLength` enforced for root and nested strings.
+- **Array item validation** - scalar items (string, integer) validated against items schema type and constraints.
+- **Non-JSON sample_response fails fast** - `sample_response("hello")` with object schema raises ArgumentError at definition time instead of silently passing.
+- **`max_tokens` in KNOWN_CONTEXT_KEYS** - no more spurious "Unknown context keys" warning.
+- **Duplicate models deduplicated** - `compare_models(models: ["m", "m"])` runs model once.
 
 ## 0.3.4 (2026-03-24)
 
-- **SchemaValidator validates non-object roots** — boolean, integer, number, array root schemas now enforce type, min/max, enum, minItems/maxItems. Previously only object schemas were validated.
-- **Removed passing cases = regression** — `regressed?` returns true when baseline had passing cases that are now missing. Prevents gate bypass by deleting eval cases.
-- **JSON string sample_response fixed** — `sample_response('{"name":"Alice"}')` correctly parsed for pre-validation instead of double-encoding.
-- **`context[:max_tokens]` forwarded** — overrides step's `max_output` for adapter call AND budget precheck.
+- **SchemaValidator validates non-object roots** - boolean, integer, number, array root schemas now enforce type, min/max, enum, minItems/maxItems. Previously only object schemas were validated.
+- **Removed passing cases = regression** - `regressed?` returns true when baseline had passing cases that are now missing. Prevents gate bypass by deleting eval cases.
+- **JSON string sample_response fixed** - `sample_response('{"name":"Alice"}')` correctly parsed for pre-validation instead of double-encoding.
+- **`context[:max_tokens]` forwarded** - overrides step's `max_output` for adapter call AND budget precheck.
 
 ## 0.3.3 (2026-03-23)
 
-- **Skipped cases visible in regression diff** — baseline PASS → current SKIP now detected as regression by `without_regressions` and `fail_on_regression`.
-- **Skip only on missing adapter** — eval runner no longer masks evaluator errors as SKIP. Only "No adapter configured" triggers skip.
-- **Array/Hash sample pre-validation** — `sample_response([{...}])` correctly validated against schema instead of silently skipping.
-- **`assume_model_exists: false` forwarded** — boolean `false` no longer dropped by truthiness check in adapter options.
-- **Duplicate case names caught at definition** — `add_case`/`verify` with same name raises immediately, not at run time.
+- **Skipped cases visible in regression diff** - baseline PASS → current SKIP now detected as regression by `without_regressions` and `fail_on_regression`.
+- **Skip only on missing adapter** - eval runner no longer masks evaluator errors as SKIP. Only "No adapter configured" triggers skip.
+- **Array/Hash sample pre-validation** - `sample_response([{...}])` correctly validated against schema instead of silently skipping.
+- **`assume_model_exists: false` forwarded** - boolean `false` no longer dropped by truthiness check in adapter options.
+- **Duplicate case names caught at definition** - `add_case`/`verify` with same name raises immediately, not at run time.
 
 ## 0.3.2 (2026-03-23)
 
-- **Array response preserved** — `Adapters::RubyLLM` no longer stringifies Array content. Steps with `output_type Array` work correctly.
-- **Falsy prompt input** — `run(false)` and `build_messages(false)` pass `false` to dynamic prompt blocks instead of falling back to `instance_eval`.
-- **`retry_on` flatten** — `retry_on([:a, :b])` no longer wraps in nested array.
-- **Builder reset** — `Prompt::Builder` resets nodes on each build (no accumulation on reuse).
-- **Pipeline false output** — `output: false` no longer shows "(no output)" in pretty_print.
+- **Array response preserved** - `Adapters::RubyLLM` no longer stringifies Array content. Steps with `output_type Array` work correctly.
+- **Falsy prompt input** - `run(false)` and `build_messages(false)` pass `false` to dynamic prompt blocks instead of falling back to `instance_eval`.
+- **`retry_on` flatten** - `retry_on([:a, :b])` no longer wraps in nested array.
+- **Builder reset** - `Prompt::Builder` resets nodes on each build (no accumulation on reuse).
+- **Pipeline false output** - `output: false` no longer shows "(no output)" in pretty_print.
 
 ## 0.3.1 (2026-03-23)
 
 Fixes from persona_tool production deployment (4 services migrated).
 
-- **Proc/Lambda in `expected_traits`** — `expected_traits: { score: ->(v) { v > 3 } }` now works.
-- **Zeitwerk eager-load** — `load_evals!` eager-loads `app/contracts/` and `app/steps/` before loading eval files. Fixes uninitialized constant errors in Rake tasks.
-- **Falsy values** — `expected: false`, `input: false`, `sample_response(nil)` all handled correctly.
-- **Context key forwarding** — `provider:` and `assume_model_exists:` forwarded to adapter. `schema:` and `max_tokens:` are step-level only (no split-brain).
-- **Deep-freeze immutability** — constructors never mutate caller's data.
+- **Proc/Lambda in `expected_traits`** - `expected_traits: { score: ->(v) { v > 3 } }` now works.
+- **Zeitwerk eager-load** - `load_evals!` eager-loads `app/contracts/` and `app/steps/` before loading eval files. Fixes uninitialized constant errors in Rake tasks.
+- **Falsy values** - `expected: false`, `input: false`, `sample_response(nil)` all handled correctly.
+- **Context key forwarding** - `provider:` and `assume_model_exists:` forwarded to adapter. `schema:` and `max_tokens:` are step-level only (no split-brain).
+- **Deep-freeze immutability** - constructors never mutate caller's data.
 
 ## 0.3.0 (2026-03-23)
 
-Baseline regression detection — know when quality drops before users do.
+Baseline regression detection - know when quality drops before users do.
 
 ### Features
 
-- **`report.save_baseline!`** — serialize eval results to `.eval_baselines/` (JSON, git-tracked)
-- **`report.compare_with_baseline`** — returns `BaselineDiff` with regressions, improvements, score_delta, new/removed cases
-- **`diff.regressed?`** — true when any previously-passing case now fails
-- **`without_regressions` RSpec chain** — `expect(Step).to pass_eval("x").without_regressions`
-- **RakeTask `fail_on_regression`** — blocks CI when regressions detected
-- **RakeTask `save_baseline`** — auto-save after successful run
-- **Migration guide** — `docs/guide/migration.md` with 7 patterns for adopting the gem in existing Rails apps
+- **`report.save_baseline!`** - serialize eval results to `.eval_baselines/` (JSON, git-tracked)
+- **`report.compare_with_baseline`** - returns `BaselineDiff` with regressions, improvements, score_delta, new/removed cases
+- **`diff.regressed?`** - true when any previously-passing case now fails
+- **`without_regressions` RSpec chain** - `expect(Step).to pass_eval("x").without_regressions`
+- **RakeTask `fail_on_regression`** - blocks CI when regressions detected
+- **RakeTask `save_baseline`** - auto-save after successful run
+- **Migration guide** - `docs/guide/migration.md` with 7 patterns for adopting the gem in existing Rails apps
 
 ### Stats
 
@@ -624,21 +624,21 @@ Baseline regression detection — know when quality drops before users do.
 
 Production hardening from senior Rails review panel.
 
-- **`around_call` propagates exceptions** — no longer silently swallows DB errors, timeouts, etc. User who wants swallowing can rescue in their block.
-- **Nil section content skipped** — `section "X", nil` no longer renders `"null"` to the LLM. Section is omitted entirely.
-- **Range support in `expected:`** — `expected: { score: 1..5 }` works in `add_case`. Previously only Regexp was supported.
-- **`Trace#dig`** — `trace.dig(:usage, :input_tokens)` works on both Step and Pipeline traces.
+- **`around_call` propagates exceptions** - no longer silently swallows DB errors, timeouts, etc. User who wants swallowing can rescue in their block.
+- **Nil section content skipped** - `section "X", nil` no longer renders `"null"` to the LLM. Section is omitted entirely.
+- **Range support in `expected:`** - `expected: { score: 1..5 }` works in `add_case`. Previously only Regexp was supported.
+- **`Trace#dig`** - `trace.dig(:usage, :input_tokens)` works on both Step and Pipeline traces.
 
 ## 0.2.2 (2026-03-23)
 
 Fixes from first real-world integration (persona_tool).
 
-- **`around_call` fires per-run** — not per-attempt. With retry_policy, callback fires once with final result. Signature: `around_call { |step, input, result| ... }`
-- **`Result#trace` always `Trace` object** — never bare Hash. `result.trace.model` works on success AND failure.
-- **`around_call` exception safe** — warns and returns result instead of crashing.
-- **`model` DSL** — `model "gpt-4o-mini"` per-step. Priority: context > step DSL > global config.
-- **Test adapter `raw_output` always String** — Hash/Array normalized to `.to_json`.
-- **`Trace#dig`** — `trace.dig(:usage, :input_tokens)` works.
+- **`around_call` fires per-run** - not per-attempt. With retry_policy, callback fires once with final result. Signature: `around_call { |step, input, result| ... }`
+- **`Result#trace` always `Trace` object** - never bare Hash. `result.trace.model` works on success AND failure.
+- **`around_call` exception safe** - warns and returns result instead of crashing.
+- **`model` DSL** - `model "gpt-4o-mini"` per-step. Priority: context > step DSL > global config.
+- **Test adapter `raw_output` always String** - Hash/Array normalized to `.to_json`.
+- **`Trace#dig`** - `trace.dig(:usage, :input_tokens)` works.
 
 ## 0.2.1 (2026-03-23)
 
@@ -646,18 +646,18 @@ Production DX improvements from first real-world integration (persona_tool).
 
 ### Features
 
-- **`temperature` DSL** — `temperature 0.3` in step definition, overridable via `context: { temperature: 0.7 }`. RubyLLM handles per-model normalization natively.
-- **`around_call` hook** — callback for logging, metrics, observability. Replaces need for custom middleware.
-- **`build_messages` public** — inspect rendered prompt without running the step.
-- **`stub_step` RSpec helper** — `stub_step(MyStep, response: { ... })` reduces test boilerplate. Auto-included via `require "ruby_llm/contract/rspec"`.
-- **`estimate_cost` / `estimate_eval_cost`** — predict spend before API calls.
+- **`temperature` DSL** - `temperature 0.3` in step definition, overridable via `context: { temperature: 0.7 }`. RubyLLM handles per-model normalization natively.
+- **`around_call` hook** - callback for logging, metrics, observability. Replaces need for custom middleware.
+- **`build_messages` public** - inspect rendered prompt without running the step.
+- **`stub_step` RSpec helper** - `stub_step(MyStep, response: { ... })` reduces test boilerplate. Auto-included via `require "ruby_llm/contract/rspec"`.
+- **`estimate_cost` / `estimate_eval_cost`** - predict spend before API calls.
 
 ### Fixes
 
-- **Reload lifecycle** — `load_evals!` clears definitions before re-loading. Railtie hooks `config.to_prepare` for development reload. `define_eval` warns on duplicate name (suppressed during reload).
-- **Pipeline eval cost** — uses `Pipeline::Trace#total_cost` (all steps), not just last step.
-- **Adapter isolation** — `compare_models` and `run_all_own_evals` deep-dup context per run.
-- **Offline mode** — cases without adapter return `:skipped` instead of crashing. Skipped cases excluded from score.
+- **Reload lifecycle** - `load_evals!` clears definitions before re-loading. Railtie hooks `config.to_prepare` for development reload. `define_eval` warns on duplicate name (suppressed during reload).
+- **Pipeline eval cost** - uses `Pipeline::Trace#total_cost` (all steps), not just last step.
+- **Adapter isolation** - `compare_models` and `run_all_own_evals` deep-dup context per run.
+- **Offline mode** - cases without adapter return `:skipped` instead of crashing. Skipped cases excluded from score.
 - **`expected_traits`** reachable from `define_eval` DSL via `add_case`.
 - **`verify`** raises when both positional and `expect:` keyword provided.
 - **`best_for`** excludes zero-score models from recommendation.
@@ -687,28 +687,28 @@ Contracts for LLM quality. Know which model to use, what it costs, and when accu
 
 ### Features
 
-- **`add_case` in `define_eval`** — `add_case "billing", input: "...", expected: { priority: "high" }` with partial matching. Supports `expected_traits:` for regex/range matching.
-- **`CaseResult` value objects** — `result.name`, `result.passed?`, `result.output`, `result.expected`, `result.mismatches` (structured diff), `result.cost`, `result.duration_ms`.
-- **`report.failures`** — returns only failed cases. `report.skipped` counts skipped (offline) cases.
-- **Model comparison** — `Step.compare_models("eval", models: %w[nano mini full])` runs same eval across models. Returns table with score/cost/latency per model. `comparison.best_for(min_score: 0.95)` returns cheapest model meeting threshold.
-- **Cost tracking** — `report.total_cost`, `report.avg_latency_ms`, per-case `result.cost`. Pipeline eval uses total pipeline cost, not just last step.
-- **Cost prediction** — `Step.estimate_cost(input:, model:)` and `Step.estimate_eval_cost("eval", models: [...])` predict spend before API calls.
-- **CI gating** — `pass_eval("regression").with_minimum_score(0.8).with_maximum_cost(0.01)`. RakeTask with suite-level `minimum_score` and `maximum_cost`.
-- **`RubyLLM::Contract.run_all_evals`** — discovers all Steps/Pipelines with evals, runs them all. Includes inherited evals.
-- **`RubyLLM::Contract::RakeTask`** — `rake ruby_llm_contract:eval` with `minimum_score`, `maximum_cost`, `fail_on_empty`, `eval_dirs`.
-- **Rails Railtie** — auto-loads eval files via `config.after_initialize` + `config.to_prepare` (supports development reload).
-- **Offline mode** — cases without adapter return `:skipped` instead of crashing. Skipped cases excluded from score/passed.
-- **Safe `define_eval`** — warns on duplicate name; suppressed during reload.
+- **`add_case` in `define_eval`** - `add_case "billing", input: "...", expected: { priority: "high" }` with partial matching. Supports `expected_traits:` for regex/range matching.
+- **`CaseResult` value objects** - `result.name`, `result.passed?`, `result.output`, `result.expected`, `result.mismatches` (structured diff), `result.cost`, `result.duration_ms`.
+- **`report.failures`** - returns only failed cases. `report.skipped` counts skipped (offline) cases.
+- **Model comparison** - `Step.compare_models("eval", models: %w[nano mini full])` runs same eval across models. Returns table with score/cost/latency per model. `comparison.best_for(min_score: 0.95)` returns cheapest model meeting threshold.
+- **Cost tracking** - `report.total_cost`, `report.avg_latency_ms`, per-case `result.cost`. Pipeline eval uses total pipeline cost, not just last step.
+- **Cost prediction** - `Step.estimate_cost(input:, model:)` and `Step.estimate_eval_cost("eval", models: [...])` predict spend before API calls.
+- **CI gating** - `pass_eval("regression").with_minimum_score(0.8).with_maximum_cost(0.01)`. RakeTask with suite-level `minimum_score` and `maximum_cost`.
+- **`RubyLLM::Contract.run_all_evals`** - discovers all Steps/Pipelines with evals, runs them all. Includes inherited evals.
+- **`RubyLLM::Contract::RakeTask`** - `rake ruby_llm_contract:eval` with `minimum_score`, `maximum_cost`, `fail_on_empty`, `eval_dirs`.
+- **Rails Railtie** - auto-loads eval files via `config.after_initialize` + `config.to_prepare` (supports development reload).
+- **Offline mode** - cases without adapter return `:skipped` instead of crashing. Skipped cases excluded from score/passed.
+- **Safe `define_eval`** - warns on duplicate name; suppressed during reload.
 
 ### Fixes
 
-- **P1: Eval files not autoloaded by Rails** — Railtie uses `load` (not Zeitwerk). Hooks into reloader for dev.
-- **P2: report.results returns raw Hashes** — now returns `CaseResult` objects.
-- **P3: No way to run all evals at once** — `Contract.run_all_evals` + Rake task.
-- **P4: String vs symbol key mismatch** — warns when `validate` or `verify` proc returns nil.
-- **Pipeline eval cost** — uses `Pipeline::Trace#total_cost` (all steps), not just last step.
-- **Reload lifecycle** — `load_evals!` clears definitions before re-loading. Registry filters stale hosts.
-- **Adapter isolation** — `compare_models` and `run_all_own_evals` deep-dup context per run.
+- **P1: Eval files not autoloaded by Rails** - Railtie uses `load` (not Zeitwerk). Hooks into reloader for dev.
+- **P2: report.results returns raw Hashes** - now returns `CaseResult` objects.
+- **P3: No way to run all evals at once** - `Contract.run_all_evals` + Rake task.
+- **P4: String vs symbol key mismatch** - warns when `validate` or `verify` proc returns nil.
+- **Pipeline eval cost** - uses `Pipeline::Trace#total_cost` (all steps), not just last step.
+- **Reload lifecycle** - `load_evals!` clears definitions before re-loading. Registry filters stale hosts.
+- **Adapter isolation** - `compare_models` and `run_all_own_evals` deep-dup context per run.
 
 ### Verified with real API
 
@@ -731,16 +731,16 @@ Initial release.
 
 ### Features
 
-- **Step abstraction** — `RubyLLM::Contract::Step::Base` with prompt DSL, typed input/output
-- **Output schema** — declarative structure via ruby_llm-schema, sent to provider for enforcement
-- **Validate** — business logic checks (1-arity and 2-arity with input cross-validation)
-- **Retry with model escalation** — start cheap, auto-escalate on contract failure or network error
-- **Preflight limits** — `max_input`, `max_cost`, `max_output` refuse before calling the LLM
-- **Pipeline** — multi-step composition with fail-fast, timeout, token budget
-- **Eval** — offline contract verification with `define_eval`, `run_eval`, zero-verify auto-case
-- **Adapters** — RubyLLM (production), Test (deterministic specs)
-- **RSpec matchers** — `satisfy_contract`, `pass_eval`
-- **Structured trace** — model, latency, tokens, cost, attempt log per step
+- **Step abstraction** - `RubyLLM::Contract::Step::Base` with prompt DSL, typed input/output
+- **Output schema** - declarative structure via ruby_llm-schema, sent to provider for enforcement
+- **Validate** - business logic checks (1-arity and 2-arity with input cross-validation)
+- **Retry with model escalation** - start cheap, auto-escalate on contract failure or network error
+- **Preflight limits** - `max_input`, `max_cost`, `max_output` refuse before calling the LLM
+- **Pipeline** - multi-step composition with fail-fast, timeout, token budget
+- **Eval** - offline contract verification with `define_eval`, `run_eval`, zero-verify auto-case
+- **Adapters** - RubyLLM (production), Test (deterministic specs)
+- **RSpec matchers** - `satisfy_contract`, `pass_eval`
+- **Structured trace** - model, latency, tokens, cost, attempt log per step
 
 ### Robustness
 
