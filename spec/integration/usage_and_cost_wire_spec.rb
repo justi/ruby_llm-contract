@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require "webmock"
+require "webmock/rspec/matchers"
 
 # Token counts and cost come from a real RubyLLM response parsed from a real
 # OpenAI Responses payload, with HTTP intercepted - so the cache split, the
@@ -8,6 +9,7 @@ require "webmock"
 # through doubles that only return what the test put in.
 RSpec.describe "Usage and cost through the RubyLLM adapter (HTTP intercepted)" do
   include WebMock::API
+  include WebMock::Matchers
 
   let(:step) do
     Class.new(RubyLLM::Contract::Step::Base) do
@@ -93,6 +95,59 @@ RSpec.describe "Usage and cost through the RubyLLM adapter (HTTP intercepted)" d
                  incomplete_details: { reason: "max_output_tokens" }, text: '{"label":')
 
     expect(run_step.trace.finish_reason).to eq(:max_tokens)
+  end
+
+  describe "why the provider stopped" do
+    let(:step) do
+      Class.new(RubyLLM::Contract::Step::Base) do
+        prompt "Classify: {input}"
+        output_schema { string :label }
+        max_output 50
+        retry_policy attempts: 2
+      end
+    end
+
+    def stop_early(reason, text)
+      respond_with(usage: { input_tokens: 10, output_tokens: 50 }, status: "incomplete",
+                   incomplete_details: { reason: reason }, text: text)
+    end
+
+    it "explains a token-limit stop on a failed result, keeping status and retries" do
+      stub = stop_early("max_output_tokens", '{"label":')
+
+      result = run_step
+
+      expect(result.status).to eq(:parse_error)
+      expect(result.validation_errors.last)
+        .to eq("provider reported token-limit termination; configured max_output: 50")
+      expect(stub).to have_been_requested.twice
+      expect(result.trace.attempts.map { |a| a[:finish_reason] }).to eq(%i[max_tokens max_tokens])
+    end
+
+    it "names the limit the call ran with when the context overrides max_output" do
+      stop_early("max_output_tokens", '{"label":')
+
+      result = step.run("refund please", context: { adapter: RubyLLM::Contract::Adapters::RubyLLM.new,
+                                                    model: "gpt-4.1-mini", max_tokens: 30 })
+
+      expect(result.validation_errors.last).to end_with("configured max_output: 30")
+    end
+
+    it "explains a content-filter stop" do
+      stop_early("content_filter", "")
+
+      expect(run_step.validation_errors.last).to eq("provider reported content filtering or refusal")
+    end
+
+    it "leaves a result that passed validation ok, with the reason only in the trace" do
+      stop_early("max_output_tokens", '{"label":"refund"}')
+
+      result = run_step
+
+      expect(result.status).to eq(:ok)
+      expect(result.validation_errors).to be_empty
+      expect(result.trace.finish_reason).to eq(:max_tokens)
+    end
   end
 
   describe "a cost the provider reported" do

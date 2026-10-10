@@ -4,12 +4,21 @@ module RubyLLM
   module Contract
     module Step
       class ResultBuilder
-        def initialize(contract_definition:, output_type:, output_schema:, model:, observers:)
+        # Why the provider stopped, worded for a failed result. Anthropic also
+        # reports an exhausted context window as :max_tokens, so the message
+        # does not claim max_output was the limit hit.
+        FINISH_REASON_ERRORS = {
+          max_tokens: "provider reported token-limit termination",
+          content_filter: "provider reported content filtering or refusal"
+        }.freeze
+
+        def initialize(contract_definition:, output_type:, output_schema:, model:, observers:, max_output: nil)
           @contract_definition = contract_definition
           @output_type = output_type
           @output_schema = output_schema
           @model = model
           @observers = observers
+          @max_output = max_output
         end
 
         def error_result(error_result:, messages:)
@@ -32,13 +41,27 @@ module RubyLLM
             status: validation_result[:status],
             raw_output: raw_output,
             parsed_output: validation_result[:parsed_output],
-            validation_errors: validation_result[:errors],
+            validation_errors: validation_errors(validation_result, response),
             trace: trace,
             observations: observations_for(validation_result, input)
           )
         end
 
         private
+
+        # Only a failed result says why the provider stopped; a result that
+        # passed validation keeps finish_reason in its trace alone.
+        def validation_errors(validation_result, response)
+          errors = validation_result[:errors]
+          return errors if validation_result[:status] == :ok
+
+          reason = response.respond_to?(:finish_reason) ? response.finish_reason : nil
+          message = FINISH_REASON_ERRORS[reason]
+          return errors unless message
+
+          message += "; configured max_output: #{@max_output}" if reason == :max_tokens && @max_output
+          [*errors, message]
+        end
 
         # Custom adapters may return any object with `content` and `usage`.
         def response_accounting(response)
