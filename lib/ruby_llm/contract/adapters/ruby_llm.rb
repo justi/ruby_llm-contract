@@ -6,20 +6,22 @@ module RubyLLM
   module Contract
     module Adapters
       class RubyLLM < Base
+        # `with: nil` adds no attachment. The text is never nil (`fetch(:content, "")`),
+        # and RubyLLM raises only when both text and attachments are nil.
         def call(messages:, **options)
-          system_contents, conversation = partition_messages(messages)
-          conversation = fallback_conversation(system_contents, conversation)
-
-          chat = build_chat(options, system_contents)
-          add_history(chat, conversation[0..-2])
-
-          # `with: nil` adds no attachment. The text is never nil (`fetch(:content, "")`),
-          # and RubyLLM raises only when both text and attachments are nil.
-          response = chat.ask(
-            conversation.last&.fetch(:content, ""),
-            with: options[:attachment]
-          )
+          chat, text = prepared_chat(messages, options)
+          response = chat.ask(text, with: options[:attachment])
           build_response(response, options[:model])
+        end
+
+        # Input tokens of the request `call` would send, counted by the
+        # provider (`chat.count_tokens`), attachments included. `ask` is
+        # `ask_later` plus `complete` in RubyLLM, so the staged message is the
+        # one `call` sends. RubyLLM leaves provider_options out of the count.
+        # Raises RubyLLM::Error where the provider has no counting endpoint.
+        def count_tokens(messages:, **options)
+          chat, text = prepared_chat(messages, options)
+          chat.ask_later(text, with: options[:attachment]).count_tokens
         end
 
         CHAT_OPTION_METHODS = {
@@ -40,6 +42,17 @@ module RubyLLM
         end
 
         private
+
+        # The configured chat with the history added, and the text of the last
+        # message, which sending and counting both stage themselves.
+        def prepared_chat(messages, options)
+          system_contents, conversation = partition_messages(messages)
+          conversation = fallback_conversation(system_contents, conversation)
+
+          chat = build_chat(options, system_contents)
+          add_history(chat, conversation[0..-2])
+          [chat, conversation.last&.fetch(:content, "")]
+        end
 
         # When prompt has only system/section/rule nodes and no user message,
         # pop the last system message and use it as the user ask.

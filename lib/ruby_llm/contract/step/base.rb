@@ -284,7 +284,8 @@ module RubyLLM
               temperature: context_temperature || temperature,
               extra_options: extra_options,
               observers: class_observers,
-              on_incomplete_output: on_incomplete_output
+              on_incomplete_output: on_incomplete_output,
+              token_count: token_count
             )
           end
 

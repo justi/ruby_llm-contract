@@ -43,6 +43,12 @@ module RubyLLM
           end
         end
 
+        # There is no provider to ask, so `token_count :exact` steps measure
+        # their input with the same heuristic as `:estimate` under this adapter.
+        def count_tokens(messages:, **_options)
+          TokenEstimator.estimate(messages)
+        end
+
         def call(messages:, **_options) # rubocop:disable Lint/UnusedMethodArgument
           content = if @responses
                       c = @responses[@index] || @responses.last

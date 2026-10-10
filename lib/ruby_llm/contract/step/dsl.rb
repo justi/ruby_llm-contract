@@ -185,6 +185,26 @@ module RubyLLM
           inherited_value(:on_unknown_attachment_size) || UnknownPolicy::DEFAULT
         end
 
+        TOKEN_COUNT_MODES = %i[estimate exact].freeze
+        TOKEN_COUNT_DEFAULT = :estimate
+
+        # How max_input and max_cost measure the input before a call.
+        # `:estimate` (default) is the local chars/4 heuristic. `:exact` asks
+        # the provider (`chat.count_tokens`): one extra request per attempt,
+        # attachments included, no attachment_token_estimate needed. A provider
+        # or adapter that cannot count refuses the call (:limit_exceeded).
+        def token_count(mode = nil)
+          if mode
+            unless TOKEN_COUNT_MODES.include?(mode)
+              raise ArgumentError, "token_count must be one of #{TOKEN_COUNT_MODES.inspect}, got #{mode.inspect}"
+            end
+
+            return @token_count = mode
+          end
+
+          inherited_value(:token_count) || TOKEN_COUNT_DEFAULT
+        end
+
         INCOMPLETE_OUTPUT_MODES = %i[accept refuse].freeze
         INCOMPLETE_OUTPUT_DEFAULT = :accept
 

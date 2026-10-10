@@ -20,7 +20,8 @@ module RubyLLM
         :temperature,
         :extra_options,
         :observers,
-        :on_incomplete_output
+        :on_incomplete_output,
+        :token_count
       ) do
         # Factory with sensible defaults for optional fields. Lets callers
         # (Step::Base#run_once and tests) construct a RunnerConfig without
@@ -32,7 +33,7 @@ module RubyLLM
                        max_input: nil, max_cost: nil, on_unknown_pricing: UnknownPolicy::DEFAULT,
                        attachment_token_estimate: nil, on_unknown_attachment_size: UnknownPolicy::DEFAULT,
                        temperature: nil, extra_options: {}, observers: [],
-                       on_incomplete_output: Dsl::INCOMPLETE_OUTPUT_DEFAULT)
+                       on_incomplete_output: Dsl::INCOMPLETE_OUTPUT_DEFAULT, token_count: Dsl::TOKEN_COUNT_DEFAULT)
           new(
             input_type: input_type, output_type: output_type,
             prompt_block: prompt_block, contract_definition: contract_definition,
@@ -43,7 +44,7 @@ module RubyLLM
             attachment_token_estimate: attachment_token_estimate,
             on_unknown_attachment_size: on_unknown_attachment_size,
             temperature: temperature, extra_options: extra_options,
-            observers: observers, on_incomplete_output: on_incomplete_output
+            observers: observers, on_incomplete_output: on_incomplete_output, token_count: token_count
           )
         end
 

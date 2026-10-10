@@ -85,6 +85,18 @@ module RubyLLM
           @config.attachment_token_estimate
         end
 
+        def exact_token_count?
+          @config.token_count == :exact
+        end
+
+        def count_adapter
+          @config.adapter
+        end
+
+        def count_options
+          @config.adapter_options
+        end
+
         def on_unknown_attachment_size
           @config.on_unknown_attachment_size
         end

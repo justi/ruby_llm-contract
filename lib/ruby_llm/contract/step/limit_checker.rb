@@ -8,6 +8,7 @@ module RubyLLM
 
         def check_limits(messages)
           return nil unless max_input || max_cost
+          return check_counted_limits(messages) if exact_token_count?
 
           text_tokens = TokenEstimator.estimate(messages)
           attachment_tokens, attachment_error = resolve_attachment_tokens
@@ -21,6 +22,28 @@ module RubyLLM
           return nil if errors.empty?
 
           build_limit_result(messages, estimated, errors)
+        end
+
+        # `token_count :exact`: the provider counts the input, attachments
+        # included. A count that cannot be had refuses the call rather than
+        # falling back to the heuristic under the name "exact".
+        def check_counted_limits(messages)
+          counted, count_error = count_input_tokens(messages)
+          return build_limit_result(messages, nil, [count_error], method: :exact) if count_error
+
+          errors = collect_limit_errors(counted, method: :exact)
+          errors.empty? ? nil : build_limit_result(messages, counted, errors, method: :exact)
+        end
+
+        def count_input_tokens(messages)
+          unless count_adapter.respond_to?(:count_tokens)
+            return [nil, "token_count :exact needs an adapter that counts tokens; " \
+                         "#{count_adapter.class} does not"]
+          end
+
+          [count_adapter.count_tokens(messages: messages, **count_options), nil]
+        rescue ::RubyLLM::Error, ::Faraday::Error => e
+          [nil, "token_count :exact: the provider could not count the input tokens (#{e.message})"]
         end
 
         # Fail-closed: when an attachment is passed via context but no
@@ -50,12 +73,17 @@ module RubyLLM
           [estimate, nil]
         end
 
-        def collect_limit_errors(estimated)
+        def collect_limit_errors(estimated, method: :heuristic)
           errors = []
           if max_input && estimated > max_input
-            errors << "Input token limit exceeded: estimated #{estimated} tokens (heuristic ±30%), max #{max_input}"
+            measured = if method == :exact
+                         "#{estimated} tokens (counted by the provider)"
+                       else
+                         "estimated #{estimated} tokens (heuristic ±30%)"
+                       end
+            errors << "Input token limit exceeded: #{measured}, max #{max_input}"
           end
-          append_cost_error(estimated, errors) if max_cost
+          append_cost_error(estimated, errors, method) if max_cost
           errors
         end
 
@@ -66,7 +94,7 @@ module RubyLLM
         # for models expensive on completion side.
         DEFAULT_OUTPUT_RATIO = 1
 
-        def append_cost_error(estimated, errors)
+        def append_cost_error(estimated, errors, method = :heuristic)
           estimated_output = effective_max_output || (estimated * DEFAULT_OUTPUT_RATIO)
           estimated_cost = CostCalculator.calculate(
             model_name: model_name,
@@ -77,8 +105,12 @@ module RubyLLM
           if estimated_cost.nil?
             handle_unknown_pricing(errors)
           elsif estimated_cost > max_cost
-            errors << "Cost limit exceeded: estimated $#{format("%.6f", estimated_cost)} " \
-                      "(#{estimated} input + #{estimated_output} output tokens, heuristic ±30%), " \
+            tokens = if method == :exact
+                       "#{estimated} input tokens counted by the provider + #{estimated_output} output"
+                     else
+                       "#{estimated} input + #{estimated_output} output tokens, heuristic ±30%"
+                     end
+            errors << "Cost limit exceeded: estimated $#{format("%.6f", estimated_cost)} (#{tokens}), " \
                       "max $#{format("%.6f", max_cost)}"
           end
         end
@@ -94,17 +126,16 @@ module RubyLLM
           end
         end
 
-        def build_limit_result(messages, estimated, errors)
+        # No request was sent, so usage is zero; the measured input goes
+        # alongside, and is left out when it could not be measured.
+        def build_limit_result(messages, estimated, errors, method: :heuristic)
+          usage = { input_tokens: 0, output_tokens: 0, estimated_input_tokens: estimated, estimate_method: method }
           Result.new(
             status: :limit_exceeded,
             raw_output: nil,
             parsed_output: nil,
             validation_errors: errors,
-            trace: Trace.new(
-              messages: messages, model: model_name,
-              usage: { input_tokens: 0, output_tokens: 0, estimated_input_tokens: estimated,
-                       estimate_method: :heuristic }
-            )
+            trace: Trace.new(messages: messages, model: model_name, usage: usage.compact)
           )
         end
       end
