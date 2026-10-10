@@ -84,6 +84,13 @@ RSpec.describe "Accounting state on Response and Trace" do
       end
     end
 
+    it "compares a merged trace equal to the one it came from" do
+      trace = trace_class.new(model: "no-pricing-model-xyz", usage: tokens)
+
+      expect(trace.merge).to eq(trace)
+      expect(trace.merge.to_h).to eq(trace.to_h)
+    end
+
     it "serializes a trace without accounting state exactly as before" do
       expect(trace_class.new(model: priced_model, usage: tokens).to_h.keys)
         .to contain_exactly(:model, :usage, :cost)

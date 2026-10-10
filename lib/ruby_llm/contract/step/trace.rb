@@ -28,8 +28,8 @@ module RubyLLM
           @usage_complete = usage_complete
           @cost_complete = cost_complete
           @finish_reason = finish_reason
-          @cost_given = !cost.equal?(COST_UNSET)
           @cost = resolve_cost(cost)
+          @keep_nil_cost = keep_nil_cost?(cost)
           freeze
         end
 
@@ -84,13 +84,11 @@ module RubyLLM
           ((usage[:input_tokens] || 0) + (usage[:output_tokens] || 0)).positive?
         end
 
-        # A given nil cost is kept as `cost: nil`; dropping it would make
-        # `Trace.new(**to_h)` price the usage from the registry instead.
         def to_h
           hash = { messages: @messages, model: @model, latency_ms: @latency_ms,
                    usage: @usage, attempts: @attempts, cost: @cost, usage_complete: @usage_complete,
                    cost_complete: @cost_complete, finish_reason: @finish_reason }.compact
-          hash[:cost] = nil if @cost.nil? && @cost_given && @cost_complete.nil?
+          hash[:cost] = nil if @keep_nil_cost
           hash
         end
 
@@ -99,6 +97,15 @@ module RubyLLM
         end
 
         private
+
+        # A given nil cost that the registry would price must stay `cost: nil` in
+        # to_h, or `Trace.new(**to_h)` would come back priced. Otherwise it is
+        # left out, so a merged trace compares equal to the one it came from.
+        def keep_nil_cost?(cost)
+          return false unless cost.nil? && @cost_complete.nil?
+
+          !CostCalculator.calculate(model_name: @model, usage: @usage).nil?
+        end
 
         def resolve_cost(cost)
           return cost unless cost.equal?(COST_UNSET)
