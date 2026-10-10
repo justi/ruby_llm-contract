@@ -23,9 +23,21 @@ module RubyLLM
         end
 
         CHAT_OPTION_METHODS = {
-          temperature: :with_temperature,
           schema: :with_schema
         }.freeze
+
+        @dropped_temperature_models = Set.new
+        @dropped_temperature_lock = Mutex.new
+
+        # Warns once per provider and model, across threads.
+        def self.warn_dropped_temperature(model)
+          key = "#{model.provider}:#{model.id}"
+          first = @dropped_temperature_lock.synchronize { @dropped_temperature_models.add?(key) }
+          return unless first
+
+          warn "[ruby_llm-contract] #{model.id} (#{model.provider}) does not accept temperature " \
+               "according to RubyLLM's model registry; the step's temperature is not sent"
+        end
 
         private
 
@@ -56,6 +68,7 @@ module RubyLLM
           CHAT_OPTION_METHODS.each do |key, method_name|
             chat.public_send(method_name, options[key]) if options[key]
           end
+          apply_temperature(chat, options[:temperature]) unless options[:temperature].nil?
 
           # Resolve thinking config from BOTH sources, with `:reasoning_effort`
           # taking precedence over `:thinking[:effort]`. This is the per-attempt
@@ -69,6 +82,20 @@ module RubyLLM
           # replacement for this one passthrough. `reasoning_effort` is not
           # forwarded here — it goes through `with_thinking` above.
           chat.with_max_output_tokens(options[:max_tokens]) if options[:max_tokens]
+        end
+
+        # RubyLLM 1.x set temperature to 1.0 for OpenAI reasoning models, which
+        # reject any other value; 2.x sends it as given. A step escalating from
+        # a sampling model to one of those would fail, so a temperature is left
+        # out where the registry says the model takes none. A model RubyLLM does
+        # not know (assume_model_exists) gets it as before.
+        def apply_temperature(chat, temperature)
+          model = chat.respond_to?(:model) ? chat.model : nil
+          if model.respond_to?(:metadata) && model.metadata.is_a?(Hash) && model.metadata[:temperature] == false
+            self.class.warn_dropped_temperature(model)
+          else
+            chat.with_temperature(temperature)
+          end
         end
 
         # Returns merged `{ effort:, budget: }` or nil. `options[:reasoning_effort]`
