@@ -2,7 +2,7 @@
 
 ## 1.2.0 (2026-10-10)
 
-Everything new is opt-in, except the temperature fix below.
+Everything new is opt-in. Two changes under "Changed" can affect existing steps: the temperature fix and `retry_on` rejecting conditions it cannot match.
 
 ### Added
 
