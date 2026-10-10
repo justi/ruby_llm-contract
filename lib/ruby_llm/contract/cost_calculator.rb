@@ -97,10 +97,11 @@ module RubyLLM
       # moved provider pricing into a nested value object and dropped those flat
       # readers, so it has to be walked: pricing -> text_tokens -> standard.
       #
-      # nil means "unknown pricing", which `max_cost` fails closed on. The guards
-      # keep the two known shapes explicit, but `calculate` rescues StandardError,
-      # so a future shape this walk cannot read still degrades to nil rather than
-      # surfacing - every budgeted call would be refused with no error.
+      # nil means "unknown pricing". The guards keep the two known shapes
+      # explicit, but `calculate` rescues StandardError, so a future shape this
+      # walk cannot read also degrades to nil: `max_cost` then refuses the call
+      # citing "no pricing data" rather than the real cause, and paths that floor
+      # unknown cost to 0.0 (eval cost estimates, report totals) undercount.
       def self.prices_for(model_info)
         if model_info.respond_to?(:input_price_per_million)
           return { input: model_info.input_price_per_million,
