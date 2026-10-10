@@ -19,7 +19,8 @@ module RubyLLM
             details: evaluation.details,
             duration_ms: trace_metric(trace, :total_latency_ms, :latency_ms),
             cost: trace_metric(trace, :total_cost, :cost),
-            attempts: trace_attempts(trace)
+            attempts: trace_attempts(trace),
+            cost_unknown: trace.respond_to?(:cost_unknown?) && trace.cost_unknown?
           )
         end
 

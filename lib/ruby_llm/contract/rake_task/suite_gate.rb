@@ -4,8 +4,9 @@ module RubyLLM
   module Contract
     class RakeTask < ::Rake::TaskLib
       # Gate ordering (preserved from pre-refactor behaviour):
-      #   1. cost gate runs FIRST — if `maximum_cost` set and exceeded, the
-      #      suite aborts before any score check; passed_reports is empty.
+      #   1. cost gate runs FIRST — if `maximum_cost` set and exceeded, or any
+      #      case has unknown cost under on_unknown_pricing :refuse, the suite
+      #      aborts before any score check; passed_reports is empty.
       #   2. score gate runs per-report; a report passes if
       #      `report_meets_score?` AND `!check_regression`.
       #   3. overall passed = ALL reports passed AND cost gate not tripped.
@@ -16,20 +17,24 @@ module RubyLLM
           end
         end
 
-        def self.evaluate(host_reports:, minimum_score:, maximum_cost:, fail_on_regression:)
+        def self.evaluate(host_reports:, minimum_score:, maximum_cost:, fail_on_regression:,
+                          on_unknown_pricing: :refuse)
           new(host_reports: host_reports,
               minimum_score: minimum_score,
               maximum_cost: maximum_cost,
-              fail_on_regression: fail_on_regression).verdict
+              fail_on_regression: fail_on_regression,
+              on_unknown_pricing: on_unknown_pricing).verdict
         end
 
         attr_reader :verdict
 
-        def initialize(host_reports:, minimum_score:, maximum_cost:, fail_on_regression:)
+        def initialize(host_reports:, minimum_score:, maximum_cost:, fail_on_regression:,
+                       on_unknown_pricing: :refuse)
           @host_reports = host_reports
           @minimum_score = minimum_score
           @maximum_cost = maximum_cost
           @fail_on_regression = fail_on_regression
+          @on_unknown_pricing = Eval::UnknownCostGate.validate!(on_unknown_pricing)
           @verdict = build_verdict
         end
 
@@ -37,11 +42,12 @@ module RubyLLM
 
         def build_verdict
           suite_cost = compute_suite_cost
+          cost_failure = cost_failure_message(suite_cost)
 
-          if cost_exceeded?(suite_cost)
+          if cost_failure
             return Verdict.new(
               passed: false,
-              abort_reason: cost_abort_message(suite_cost),
+              abort_reason: cost_failure,
               passed_reports: [],
               suite_cost: suite_cost
             )
@@ -60,8 +66,11 @@ module RubyLLM
           @host_reports.sum { |_host, report| report.total_cost }
         end
 
-        def cost_exceeded?(suite_cost)
-          @maximum_cost && suite_cost > @maximum_cost
+        def cost_failure_message(suite_cost)
+          return nil unless @maximum_cost
+          return cost_abort_message(suite_cost) if suite_cost > @maximum_cost
+
+          Eval::UnknownCostGate.check(@host_reports.map(&:last), mode: @on_unknown_pricing)
         end
 
         def cost_abort_message(suite_cost)

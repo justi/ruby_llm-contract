@@ -160,7 +160,7 @@ end
 
 - `.with_context(model: "gpt-4.1-mini")` — pick model / pass adapter
 - `.with_minimum_score(0.8)` — gate on average score
-- `.with_maximum_cost(0.01)` — gate on total cost
+- `.with_maximum_cost(0.01)` — gate on total cost; fails when a case's model has no pricing data unless you add `.on_unknown_pricing(:warn)`
 - `.without_regressions` — block any previously-passing case that now fails (reads the baseline)
 - `.compared_with(SummarizeArticleV1)` — A/B against another step; implies regression check
 

@@ -15,8 +15,9 @@ module RubyLLM
         attr_reader :name, :input, :output, :expected, :step_status,
                     :score, :details, :duration_ms, :cost, :attempts
 
-        def initialize(name:, input:, output:, expected:, step_status:,
-                       score:, passed:, label: nil, details: nil, duration_ms: nil, cost: nil, attempts: nil)
+        def initialize(name:, input:, output:, expected:, step_status:, # rubocop:disable Metrics/ParameterLists
+                       score:, passed:, label: nil, details: nil, duration_ms: nil, cost: nil, attempts: nil,
+                       cost_unknown: false)
           @name = name
           @input = input
           @output = output
@@ -29,6 +30,7 @@ module RubyLLM
           @duration_ms = duration_ms
           @cost = cost
           @attempts = attempts
+          @cost_unknown = cost_unknown
           freeze
         end
 
@@ -38,6 +40,10 @@ module RubyLLM
 
         def failed?
           !@passed
+        end
+
+        def cost_unknown?
+          @cost_unknown
         end
 
         def label
@@ -69,7 +75,7 @@ module RubyLLM
             duration_ms: @duration_ms,
             cost: @cost,
             attempts: @attempts
-          }
+          }.tap { |hash| hash[:cost_unknown] = true if @cost_unknown }
         end
 
         private

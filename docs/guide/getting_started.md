@@ -145,7 +145,7 @@ report.save_baseline!
 expect(SummarizeArticle).to pass_eval("regression").without_regressions
 ```
 
-`without_regressions` fails the build only if a previously-passing case now fails — a new model version, a prompt tweak, or an upstream change that silently lowered quality.
+`without_regressions` fails the build only if a previously-passing case now fails — a new model version, a prompt tweak, or an upstream change that silently lowered quality. A previously-passing case that was skipped this run (no adapter configured) also fails the gate, listed as `SKIPPED` rather than as a regression.
 
 ## Budget caps
 
@@ -172,6 +172,8 @@ max_cost 0.01, on_unknown_pricing: :warn
 ```
 
 Default is `:refuse`. Use `:warn` only when you accept running without a cost ceiling (fine-tuned models you trust, private endpoints).
+
+The eval-level gates - `with_maximum_cost` on `pass_eval`, `maximum_cost` on the rake task, and `maximum_cost:` on `assert_eval_passes` - follow the same rule since 1.1.0. A report's total counts a case it cannot price as $0, so when any case ran on a model without pricing data the gate fails and names the cases instead of comparing an undercounted total. Opt out with `.on_unknown_pricing(:warn)`, `t.on_unknown_pricing = :warn` or `on_unknown_pricing: :warn`, which checks the budget against the priced cases and prints a warning. Offline runs (`sample_response`, a `Test` adapter without `usage:`) report zero tokens, cost $0 with or without pricing, and are never flagged. The check sees only reported tokens: an adapter that returns no token counts looks like a zero-token run.
 
 ### Preflight cost estimates
 

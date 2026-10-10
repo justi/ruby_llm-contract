@@ -1,5 +1,38 @@
 # Changelog
 
+## 1.1.0 (2026-10-10)
+
+### Changed - may turn a green CI red
+
+- **Eval cost gates now fail closed on unknown pricing.** `pass_eval(...).with_maximum_cost`,
+  `RakeTask#maximum_cost` and `assert_eval_passes(maximum_cost:)` compared the report's
+  `total_cost`, which counts a case it cannot price as $0. An eval running on a model
+  without pricing data (a local or fine-tuned model) therefore passed any budget. The
+  gates now fail and name the unpriced cases, matching what step-level `max_cost`
+  already did. Opt out with `.on_unknown_pricing(:warn)`, `t.on_unknown_pricing = :warn`
+  or `on_unknown_pricing: :warn`: the budget is then checked against the priced cases
+  and a warning lists the rest. Offline runs (`sample_response`, a `Test` adapter
+  without `usage:`) report zero tokens and are never flagged. Only gates with a
+  maximum cost set are affected.
+
+### Added
+
+- `Report#unknown_cost_results` (also on `AggregatedReport`), `CaseResult#cost_unknown?`,
+  and `cost_unknown?` on step and pipeline traces. A retried step is judged per attempt,
+  so a priced subtotal no longer hides an unpriced attempt. `CaseResult#to_h` gains a
+  `cost_unknown: true` key only for flagged cases; baseline files are unchanged.
+
+### Fixed
+
+- **A previously passing case that was skipped (no adapter) is reported as `SKIPPED`,
+  not `REGRESSED`.** The regression gate still fails on it - a skip is no evidence the
+  case still passes - but the report no longer showed an unchanged score next to a
+  "regression". Applies to `BaselineDiff#to_s` (rake task output) and the
+  `without_regressions` failure message; new `BaselineDiff#skipped_passing_cases`.
+- A code comment in `CostCalculator` claimed an unreadable pricing shape refuses budgeted
+  calls "with no error"; the refusal does carry an error, it just names missing pricing
+  as the cause.
+
 ## 1.0.0 (2026-10-10)
 
 **Requires `ruby_llm ~> 2.0`.** This is the only breaking change: it is a

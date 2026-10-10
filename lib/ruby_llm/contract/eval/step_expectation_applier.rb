@@ -58,7 +58,8 @@ module RubyLLM
             label: "FAIL",
             details: "step expectations failed: #{failure_details}",
             duration_ms: result.duration_ms,
-            cost: result.cost
+            cost: result.cost,
+            cost_unknown: result.cost_unknown?
           )
         end
       end

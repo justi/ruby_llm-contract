@@ -50,6 +50,25 @@ module RubyLLM
           )
         end
 
+        # True when a call ran on a named model, used tokens, and still got no
+        # cost, so any total built from this trace undercounts. A zero-token call
+        # (Test adapter, sample_response) costs 0 whatever the pricing. A retried
+        # step is judged per attempt: a priced subtotal must not hide an unpriced
+        # attempt, and the merged trace may have re-priced on the last model.
+        def cost_unknown?
+          if @attempts.is_a?(Array) && !@attempts.empty?
+            @attempts.any? { |attempt| self.class.unpriced?(attempt[:model], attempt[:usage], attempt[:cost]) }
+          else
+            self.class.unpriced?(@model, @usage, @cost)
+          end
+        end
+
+        def self.unpriced?(model, usage, cost)
+          return false unless model && cost.nil? && usage.is_a?(Hash)
+
+          ((usage[:input_tokens] || 0) + (usage[:output_tokens] || 0)).positive?
+        end
+
         def to_h
           { messages: @messages, model: @model, latency_ms: @latency_ms,
             usage: @usage, attempts: @attempts, cost: @cost }.compact

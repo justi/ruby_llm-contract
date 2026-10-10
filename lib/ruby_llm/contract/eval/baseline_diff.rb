@@ -19,6 +19,7 @@ module RubyLLM
             current = @current[name]
             next unless current
             next unless baseline[:passed] && !current[:passed]
+            next if skipped?(current)
 
             {
               case: name,
@@ -47,8 +48,19 @@ module RubyLLM
           (current_score - baseline_score).round(4)
         end
 
+        # Passed in the baseline, not run now (no adapter): not evidence of a
+        # regression, but not evidence it still passes either, so the gate fails.
+        def skipped_passing_cases
+          @baseline.filter_map do |name, baseline|
+            current = @current[name]
+            next unless current && baseline[:passed] && skipped?(current)
+
+            { case: name, detail: current[:details] }
+          end
+        end
+
         def regressed?
-          regressions.any? || removed_passing_cases.any?
+          regressions.any? || removed_passing_cases.any? || skipped_passing_cases.any?
         end
 
         def removed_passing_cases
@@ -70,6 +82,7 @@ module RubyLLM
         def to_s
           lines = ["Score: #{baseline_score.round(2)} → #{current_score.round(2)} (#{format_delta})"]
           regressions.each { |r| lines << "  REGRESSED  #{r[:case]}: #{r[:detail]}" }
+          skipped_passing_cases.each { |s| lines << "  SKIPPED    #{s[:case]}: #{s[:detail]}" }
           improvements.each { |r| lines << "  IMPROVED   #{r[:case]}" }
           new_cases.each { |c| lines << "  NEW        #{c}" }
           removed_cases.each { |c| lines << "  REMOVED    #{c}" }
@@ -82,10 +95,14 @@ module RubyLLM
           # Asymmetric on purpose: the baseline side arrives already filtered by
           # ReportStats#evaluated_results, the current side does not, so this
           # string check is the only skip filter on one of the two sides.
-          evaluated = cases.reject { |c| c[:details]&.start_with?(CaseResult::SKIPPED_DETAILS_PREFIX) }
+          evaluated = cases.reject { |c| skipped?(c) }
           return 0.0 if evaluated.empty?
 
           evaluated.sum { |c| c[:score] } / evaluated.length
+        end
+
+        def skipped?(serialized_case)
+          serialized_case[:details]&.start_with?(CaseResult::SKIPPED_DETAILS_PREFIX)
         end
 
         def index_by_name(cases)

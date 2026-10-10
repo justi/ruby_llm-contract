@@ -44,6 +44,10 @@ module RubyLLM
           @runs.sum(&:total_cost) / @runs.length.to_f
         end
 
+        def unknown_cost_results
+          @runs.flat_map(&:unknown_cost_results)
+        end
+
         def avg_latency_ms
           latencies = @runs.filter_map(&:avg_latency_ms)
           return nil if latencies.empty?

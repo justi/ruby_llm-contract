@@ -44,6 +44,11 @@ module RubyLLM
           @results.sum { |result| result.cost || 0.0 }
         end
 
+        # Cases total_cost could not price; it counts them as 0.0.
+        def unknown_cost_results
+          evaluated_results.select(&:cost_unknown?)
+        end
+
         def avg_latency_ms
           latencies = @results.filter_map(&:duration_ms)
           return nil if latencies.empty?

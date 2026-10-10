@@ -168,7 +168,7 @@ Different layers, complementary. [`ruby_llm-tribunal`](https://github.com/Alqemi
 
 ## Status & versioning
 
-Stable at **1.0.0**. Semver tracked; breaking changes flagged in [CHANGELOG](CHANGELOG.md). Pin `~> 1.0`.
+Stable since **1.0.0**. Semver tracked; breaking changes flagged in [CHANGELOG](CHANGELOG.md). Pin `~> 1.0`.
 
 What 1.0 promises not to break inside the 1.x line: the documented DSL
 (`prompt`, `output_schema`, `validate`, `retry_policy`, `max_cost`, `define_eval`,

@@ -33,6 +33,13 @@ module RubyLLM
           value.dig(*rest)
         end
 
+        # total_cost sums only the steps that could be priced.
+        def cost_unknown?
+          return false unless @step_traces.is_a?(Array)
+
+          @step_traces.any? { |step_trace| step_trace.respond_to?(:cost_unknown?) && step_trace.cost_unknown? }
+        end
+
         def to_h
           { trace_id: @trace_id, total_latency_ms: @total_latency_ms,
             total_usage: @total_usage, step_traces: @step_traces,

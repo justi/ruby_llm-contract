@@ -2,13 +2,15 @@
 
 require "rake"
 require "rake/tasklib"
+require_relative "eval/unknown_cost_gate"
 require_relative "rake_task/suite_gate"
 
 module RubyLLM
   module Contract
     class RakeTask < ::Rake::TaskLib
       attr_accessor :name, :context, :fail_on_empty, :minimum_score, :maximum_cost,
-                    :eval_dirs, :save_baseline, :fail_on_regression, :track_history
+                    :eval_dirs, :save_baseline, :fail_on_regression, :track_history,
+                    :on_unknown_pricing
 
       def initialize(name = :"ruby_llm_contract:eval", &block)
         super()
@@ -18,10 +20,13 @@ module RubyLLM
         @minimum_score = nil # nil = require 100%; float = threshold
         @maximum_cost = nil  # nil = no cost limit; float = budget cap (suite-level)
         @eval_dirs = []      # directories to load eval files from (non-Rails)
+        # With maximum_cost: :refuse fails on cases the budget cannot price; :warn gates priced cases only
+        @on_unknown_pricing = :refuse
         @save_baseline = false
         @fail_on_regression = false
         @track_history = false
         block&.call(self)
+        Eval::UnknownCostGate.validate!(@on_unknown_pricing)
         define_task
       end
 
@@ -44,7 +49,8 @@ module RubyLLM
             host_reports: host_reports,
             minimum_score: @minimum_score,
             maximum_cost: @maximum_cost,
-            fail_on_regression: @fail_on_regression
+            fail_on_regression: @fail_on_regression,
+            on_unknown_pricing: @on_unknown_pricing
           )
 
           abort "\nEval suite FAILED: #{verdict.abort_reason}" unless verdict.passed?
