@@ -65,6 +65,32 @@ result.trace[:attempts]
 
 If the whole chain exhausts, `result.status` is the status of the last attempt (`:validation_failed` or `:parse_error`) and `result.parsed_output` is the last attempt's output. The caller decides what to do — ship it anyway, fall back to a template, or raise.
 
+### Retrying provider errors by class
+
+A provider error that RubyLLM's own retries could not get past ends as `:adapter_error`, with the exception class in `trace[:error_class]` (e.g. `"RubyLLM::RateLimitError"`). Adapter errors are not retried by default. List exception classes in `retry_on` to retry only those, typically together with `escalate` so the next attempt goes to another model:
+
+```ruby
+retry_policy do
+  escalate "gpt-4.1-mini", "claude-haiku-4-5"
+  retry_on :validation_failed, :parse_error, RubyLLM::RateLimitError, RubyLLM::OverloadedError
+end
+```
+
+A class matches its subclasses; `:adapter_error` in the list retries every adapter error. As with statuses, the list replaces the defaults. Switching to a fallback model on transport errors inside one call is RubyLLM's `chat.with_fallbacks`; the contract's adapter does not call it, so fallbacks across models belong in `escalate`.
+
+### Responses cut off by a token limit
+
+When a provider stops at a token limit or a content filter, `trace[:finish_reason]` says so (`:max_tokens`, `:content_filter`), and a failed result gets a last validation error naming it. A cut-off answer that still parses and validates stays `:ok` unless the step refuses it:
+
+```ruby
+class SummarizeArticle < RubyLLM::Contract::Step::Base
+  max_output 400
+  on_incomplete_output :refuse   # default :accept
+end
+```
+
+With `:refuse`, such a response fails before validation as `:output_truncated` (token limit) or `:content_filtered`, so `validate` blocks and observers never see it. Raw output, usage and cost stay on the result. Neither status is retried by default; `retry_on :output_truncated` opts in (useful when a later attempt has a larger `max_output`). Anthropic reports an exhausted context window as a token-limit stop too, so `:output_truncated` means "stopped on tokens", not necessarily "hit max_output".
+
 ### Per-attempt reasoning effort
 
 `models:` accepts config hashes as well as model-name strings, so a fallback can "try harder" (more reasoning) on retry, not just switch model:
@@ -191,6 +217,31 @@ When a cost does not cover the whole call, `result.trace.cost_unknown?` is true 
 
 A custom adapter returning `Response.new(content:, usage:)` is priced from `usage` as before. To report its own cost, pass `cost:` - `nil` means unknown - with `cost_complete:` and `usage_complete:`.
 
+### Counting input tokens exactly
+
+`max_input` and `max_cost` measure the input with a chars/4 heuristic (±30%). With `token_count :exact` they ask the provider instead:
+
+```ruby
+class SummarizeArticle < RubyLLM::Contract::Step::Base
+  token_count :exact   # default :estimate
+  max_input 20_000
+end
+```
+
+The count comes from RubyLLM's `chat.count_tokens` (OpenAI Responses, Anthropic, Gemini, Vertex AI, Bedrock Converse) and covers the prompt, the schema and attachments, so `attachment_token_estimate` is not needed. It costs one extra request per attempt, and RubyLLM leaves `provider_options` out of it. Where no count can be had - a provider without the endpoint (Ollama, for one), a failed request, or an adapter without `count_tokens` - the call is refused as `:limit_exceeded` with the reason, never measured with the heuristic under the name "exact". The `Test` adapter counts with the heuristic, since it has no provider to ask. The output side of `max_cost` is still an estimate (`max_output`, or the input size without one).
+
+### Local and custom models
+
+A local model (Ollama) or a fine-tuned one has no price in RubyLLM's registry, so its cost is unknown and the eval cost gates refuse. Register a price - zero for a model that costs nothing per token:
+
+```ruby
+RubyLLM::Contract::CostCalculator.register_model("gemma-fast:latest", input_per_1m: 0, output_per_1m: 0)
+RubyLLM::Contract::CostCalculator.register_model("ft:gpt-4o-custom",
+  input_per_1m: 3.0, output_per_1m: 6.0, cache_read_per_1m: 1.5, cache_write_per_1m: 3.75)
+```
+
+`register_model` sets a price for a model id, not a model RubyLLM can call: the step still needs `provider:` (and `assume_model_exists: true` for an id RubyLLM does not list). Cache prices are optional; without them cache reads are charged at the input price and a call that wrote to the cache has no price. A price does not make up for missing counts: a provider that sends no token counts still leaves the cost unknown.
+
 ### Preflight cost estimates
 
 Check what a call is likely to cost before invoking it:
@@ -210,6 +261,24 @@ SummarizeArticle.estimate_eval_cost("regression",
 ```
 
 `estimate_cost` returns `nil` when pricing isn't registered. `estimate_eval_cost` silently treats unknown-pricing cases as `$0.00` and sums the rest — it does **not** fail closed the way `max_cost` does. Treat its output as a floor, not a guarantee; register pricing via `CostCalculator.register_model` before relying on it for budget decisions.
+
+## Provider options
+
+Settings RubyLLM has no method for go to the provider as-is through `provider_options`, on the step or per call:
+
+```ruby
+class SummarizeArticle < RubyLLM::Contract::Step::Base
+  provider_options service_tier: "flex"
+end
+
+SummarizeArticle.run(text, context: { provider_options: { service_tier: "priority", seed: 7 } })
+```
+
+The call's keys win over the step's; a subclass replaces its parent's hash, and `provider_options :default` stops inheriting it. Keys the step itself sets (`model`, `temperature`, the max-token keys, the messages, and on a step with `output_schema` the structured-output keys `response_format` and `text`) raise `ArgumentError`, so a call cannot differ from what its limits and schema were checked against. Only top-level keys are checked. `compare_models` and `optimize_retry_policy` candidates do not carry provider options.
+
+## Temperature on reasoning models
+
+RubyLLM 1.x sent temperature 1.0 to OpenAI reasoning models (o-series, gpt-5), which reject other values; RubyLLM 2.x sends what it is given. A step with `temperature` therefore leaves it out for a model RubyLLM's registry marks as taking none, and warns once per model - so `temperature 0` with `escalate "gpt-4.1-mini", "gpt-5-mini"` still works. A model the registry does not know gets the temperature as set.
 
 ## `output_schema` vs `with_schema`
 

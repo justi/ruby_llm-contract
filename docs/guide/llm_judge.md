@@ -195,6 +195,20 @@ What to do operationally:
 
 The drop is your signal to refine the judge's prompt, not to lower the gate.
 
+## `RubyLLM::Judge` (RubyLLM 2.1)
+
+RubyLLM 2.1 adds `RubyLLM::Judge` for typed questions - `probability`, `choice` and `score` - answered by **decision models**: OpenAI's judgment models, TypeSafe, or local decision models through Ollama. It does not run on ordinary chat models; those raise that they do not support judgments. Where you have such a model, a judge class can stand in for the judge Step in step 1 above:
+
+```ruby
+class SummaryFaithfulness < RubyLLM::Judge
+  probability :faithful, "Is every claim in the summary supported by the article?"
+end
+
+SummaryFaithfulness.judge(article_and_summary).faithful.probability   # => 0.93
+```
+
+Calibrate it against human labels exactly as in step 2; the threshold is still yours to set. On an ordinary chat model, keep the judge as a Contract Step - the pattern this guide builds.
+
 ## When to reach for Tribunal instead
 
 [`ruby_llm-tribunal`](https://github.com/Alqemist-labs/ruby_llm-tribunal) ships an off-the-shelf catalog of common LLM-as-judge assertions (`assert_faithful`, `assert_hallucination`, `assert_refusal`, `assert_no_pii`, etc.) — a shortcut when your check matches one of those domain-general categories. The methodology in this guide still applies: calibrate the judge against your human-labeled production data **before** trusting Tribunal's `default_threshold = 0.8`, refine the prompt when it over-flags, watch for the anti-patterns above. See [Relation to Tribunal](relation_to_tribunal.md) for the full positioning — what each gem documents (and doesn't), a concrete decision tree on catalog-vs-custom-judge, and three working integration patterns.

@@ -1,5 +1,47 @@
 # Changelog
 
+## 1.2.0 (unreleased)
+
+Everything new is opt-in, except the temperature fix below.
+
+### Added
+
+- **`token_count :exact`** on a step: `max_input` and `max_cost` measure the input with
+  the provider's count (RubyLLM's `chat.count_tokens`: OpenAI Responses, Anthropic,
+  Gemini, Vertex AI, Bedrock Converse) instead of the chars/4 heuristic, attachments
+  included, so `attachment_token_estimate` is not needed. One extra request per attempt.
+  A provider without the endpoint, a failed count or an adapter without `count_tokens`
+  refuses the call (`:limit_exceeded`) rather than falling back to the heuristic; the
+  `Test` adapter counts with the heuristic. `Adapters::RubyLLM#count_tokens`.
+- **`on_incomplete_output :refuse`** on a step: a response the provider stopped at a token
+  limit fails as `:output_truncated`, one stopped by a content filter as
+  `:content_filtered`, before validation, so it is never `:ok`. Both statuses are outside
+  the default `retry_on`. The default, `:accept`, keeps 1.1.2's behaviour.
+- **`retry_on` takes exception classes**: `retry_on :validation_failed,
+  RubyLLM::RateLimitError` retries an adapter error only of that class or a subclass;
+  `:adapter_error` still retries any. An adapter error's trace (and attempt) has
+  `error_class`.
+- **`provider_options`** on a step (inherited, `:default` resets) and per call
+  (`context: { provider_options: }`, merged over the step's), passed to RubyLLM's
+  `with_provider_options`. Keys the step controls raise `ArgumentError`.
+- **`workflow_instrumentation`** in `RubyLLM::Contract.configure`: a pipeline runs as one
+  `RubyLLM.workflow` with a `workflow.step` per alias, a step on its own as a workflow
+  named after its class, so RubyLLM's events and OpenTelemetry spans carry the step.
+- **`register_model` takes cache prices**: `cache_read_per_1m:` and `cache_write_per_1m:`,
+  both optional.
+- Guides: retry by error class, cut-off responses, exact token counts, local and custom
+  models (Ollama), provider options, workflow instrumentation, and `RubyLLM::Judge` (2.1)
+  in the LLM-judge guide. The README lists the new options and answers how to run local
+  models.
+
+### Changed
+
+- **A temperature is no longer sent to a model RubyLLM's registry marks as taking none**
+  (OpenAI's o-series and gpt-5 family). RubyLLM 1.x quietly sent 1.0 to those models;
+  2.x sends the value as given, so a step with `temperature` that escalated to one failed
+  with an adapter error. The adapter now leaves it out and warns once per model; a model
+  the registry does not know still gets it.
+
 ## 1.1.2 (2026-10-10)
 
 ### Changed - costs and gates may move

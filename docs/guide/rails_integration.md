@@ -125,6 +125,14 @@ end
 
 Trace inspection in an admin UI: `result.trace[:attempts]` gives you per-attempt model, status, cost, latency — render it in a partial to debug production failures without re-running.
 
+RubyLLM 2.1 emits its own events and OpenTelemetry spans for every call. To group them by step, turn on workflow instrumentation in the initializer:
+
+```ruby
+RubyLLM::Contract.configure { |c| c.workflow_instrumentation = true }
+```
+
+A pipeline then runs as one `RubyLLM.workflow` named after its class, with each step as `workflow.step(alias)`; a step run on its own is a workflow named after its class. RubyLLM's events carry `workflow_name` and `workflow_step_name`, and a workflow your code opened around the call becomes the parent. Off by default. In a Rails app RubyLLM also records each call in its usage ledger when configured; that figure and `trace[:cost]` are the same RubyLLM price, unless `CostCalculator.register_model` overrides it for the model.
+
 ## 5. Testing — RSpec and Minitest
 
 Add to `spec/spec_helper.rb` (or `test_helper.rb`):

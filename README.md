@@ -131,6 +131,10 @@ Everything below is optional — the example above is a complete step. Reach for
 - **[A/B test prompts](docs/guide/eval_first.md)** — measure whether a new prompt is safe to ship before merging.
 - **[Budget caps](docs/guide/getting_started.md)** — refuse the request pre-flight when an estimate exceeds the limit.
 - **[Cost tracking](docs/guide/getting_started.md#what-a-traces-usage-and-cost-count)** - per-call cost with prompt-cache and per-provider prices; eval cost gates fail closed when a cost is unknown.
+- **[Exact token counts](docs/guide/getting_started.md#counting-input-tokens-exactly)** - `token_count :exact` checks `max_input` / `max_cost` against the provider's own count instead of a heuristic.
+- **[Cut-off responses](docs/guide/getting_started.md#responses-cut-off-by-a-token-limit)** - `on_incomplete_output :refuse` fails an answer the provider stopped at a token limit, even one that would validate.
+- **[Retry by error class](docs/guide/getting_started.md#retrying-provider-errors-by-class)** - `retry_on RubyLLM::RateLimitError` retries a rate limit without retrying an exhausted balance.
+- **[Provider options](docs/guide/getting_started.md#provider-options)** - send `service_tier`, `seed` and other provider settings from the step or per call.
 - **[Reasoning effort / thinking config](docs/guide/optimizing_retry_policy.md)** — Anthropic / OpenAI thinking configuration on the Step class.
 
 Also supports [multi-step pipelines](docs/guide/pipeline.md) with fail-fast and per-step models.
@@ -193,6 +197,8 @@ what 1.0.0 itself was.
 **Where in a Rails app?** Default `app/contracts/`. The Railtie reloads `app/contracts/eval/` and `app/steps/eval/` in development; any autoloaded directory also works. See [Rails integration](docs/guide/rails_integration.md).
 
 **Costs went up, or an eval cost gate turned red, after upgrading to 1.1.2?** Earlier versions left prompt-cache tokens out of `input_tokens` and the cost, priced every model at its default provider, counted a missing price as $0, and treated a call without token counts as free. The [CHANGELOG](CHANGELOG.md) lists each change; `on_unknown_pricing: :warn` turns the unknown-cost refusal into a warning.
+
+**Local models (Ollama)?** Point RubyLLM at the server (`c.ollama_api_base = "http://localhost:11434/v1"`) and run steps with `context: { provider: :ollama, model: "...", assume_model_exists: true }`. Local models have no price in RubyLLM's registry, so register one (`CostCalculator.register_model("gemma-fast:latest", input_per_1m: 0, output_per_1m: 0)`) or the eval cost gates treat their cost as unknown. Ollama has no token-counting endpoint, so leave `token_count` at `:estimate`. See [local and custom models](docs/guide/getting_started.md#local-and-custom-models).
 
 **Upgraded from pre-0.10.0 and getting `:limit_exceeded` with attachments?** Multimodal contracts with `max_cost`/`max_input` need `attachment_token_estimate`. See [multimodal input guide](docs/guide/multimodal_input.md#cost-attachment_token_estimate-is-required) for setup, fail-closed behaviour, and `on_unknown_attachment_size :warn` opt-out.
 
