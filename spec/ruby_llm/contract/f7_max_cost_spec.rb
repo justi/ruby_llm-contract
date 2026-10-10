@@ -68,7 +68,7 @@ RSpec.describe "F7: max_cost fail closed + CostCalculator.register_model" do
       end
 
       # warn is dispatched on the Runner instance (private Kernel method)
-      expect_any_instance_of(RubyLLM::Contract::Step::Runner).to receive(:warn) # rubocop:disable RSpec/AnyInstance
+      expect_any_instance_of(RubyLLM::Contract::Step::Runner).to receive(:warn)
         .with(/no pricing data/)
       step.run("hello", context: { adapter: test_adapter, model: "ft:custom-unknown-model" })
     end
