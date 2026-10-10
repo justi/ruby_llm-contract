@@ -4,6 +4,10 @@ module RubyLLM
   module Contract
     module Concerns
       module UsageAggregator
+        # Breakdown keys an adapter may add next to input/output. They are parts
+        # of input_tokens/output_tokens, not extra tokens, so sum_tokens skips them.
+        USAGE_DETAIL_KEYS = %i[cache_read_tokens cache_write_tokens thinking_tokens].freeze
+
         private
 
         def extract_usage(trace_entry)
@@ -24,18 +28,17 @@ module RubyLLM
         end
 
         def aggregate_usage(traces)
-          input_total = 0
-          output_total = 0
+          totals = Hash.new(0)
 
           traces.each do |trace_entry|
             usage = extract_usage(trace_entry)
             next unless usage.is_a?(Hash)
 
-            input_total += usage[:input_tokens] || 0
-            output_total += usage[:output_tokens] || 0
+            [:input_tokens, :output_tokens, *USAGE_DETAIL_KEYS].each { |key| totals[key] += usage[key] || 0 }
           end
 
-          { input_tokens: input_total, output_tokens: output_total }
+          { input_tokens: totals[:input_tokens], output_tokens: totals[:output_tokens] }
+            .merge(totals.slice(*USAGE_DETAIL_KEYS).select { |_, count| count.positive? })
         end
       end
     end

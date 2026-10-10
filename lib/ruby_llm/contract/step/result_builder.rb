@@ -25,7 +25,8 @@ module RubyLLM
         def success_result(response:, messages:, latency_ms:, input:)
           raw_output = response.content
           validation_result = validate_output(raw_output, input)
-          trace = Trace.new(messages: messages, model: @model, latency_ms: latency_ms, usage: response.usage)
+          trace = Trace.new(messages: messages, model: @model, latency_ms: latency_ms, usage: response.usage,
+                            **response_accounting(response))
 
           Result.new(
             status: validation_result[:status],
@@ -38,6 +39,11 @@ module RubyLLM
         end
 
         private
+
+        # Custom adapters may return any object with `content` and `usage`.
+        def response_accounting(response)
+          response.respond_to?(:trace_accounting) ? response.trace_accounting : {}
+        end
 
         def observations_for(validation_result, input)
           return [] unless validation_result[:status] == :ok && @observers.any?

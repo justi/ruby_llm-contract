@@ -7,19 +7,33 @@ module RubyLLM
         include Concerns::TraceEquality
         include Concerns::DeepFreeze
 
-        attr_reader :messages, :model, :latency_ms, :usage, :attempts, :cost
+        attr_reader :messages, :model, :latency_ms, :usage, :attempts, :cost,
+                    :usage_complete, :cost_complete, :finish_reason
 
-        def initialize(messages: nil, model: nil, latency_ms: nil, usage: nil, attempts: nil, cost: nil)
+        # Marks `cost:` as not given, as distinct from an explicit nil. Only an
+        # omitted cost is priced from the registry; nil from an adapter that
+        # reports its own cost means "unknown" and must stay unknown.
+        COST_UNSET = Object.new.freeze
+
+        # usage_complete / cost_complete are nil for traces that carry no
+        # accounting state (Test adapter, older adapters, hand-built traces);
+        # those keep the token-count rule in `unpriced?`.
+        def initialize(messages: nil, model: nil, latency_ms: nil, usage: nil, attempts: nil, cost: COST_UNSET,
+                       usage_complete: nil, cost_complete: nil, finish_reason: nil)
           @messages = deep_dup_freeze(messages)
           @model = model.frozen? ? model : model&.dup&.freeze
           @latency_ms = latency_ms
           @usage = deep_dup_freeze(usage)
           @attempts = deep_dup_freeze(attempts)
-          @cost = cost || CostCalculator.calculate(model_name: model, usage: usage)
+          @usage_complete = usage_complete
+          @cost_complete = cost_complete
+          @finish_reason = finish_reason
+          @cost = resolve_cost(cost)
           freeze
         end
 
-        KNOWN_KEYS = %i[messages model latency_ms usage attempts cost].freeze
+        KNOWN_KEYS = %i[messages model latency_ms usage attempts cost
+                        usage_complete cost_complete finish_reason].freeze
 
         def [](key)
           return nil unless KNOWN_KEYS.include?(key.to_sym)
@@ -39,27 +53,27 @@ module RubyLLM
         end
         alias has_key? key?
 
+        # Never re-prices: a retry merges a subtotal and an aggregate usage that
+        # no single model's pricing describes.
         def merge(**overrides)
-          self.class.new(
-            messages: overrides.fetch(:messages, @messages),
-            model: overrides.fetch(:model, @model),
-            latency_ms: overrides.fetch(:latency_ms, @latency_ms),
-            usage: overrides.fetch(:usage, @usage),
-            attempts: overrides.fetch(:attempts, @attempts),
-            cost: overrides.fetch(:cost, @cost)
-          )
+          self.class.new(**KNOWN_KEYS.to_h { |key| [key, overrides.fetch(key) { public_send(key) }] })
         end
 
-        # True when a call ran on a named model, used tokens, and still got no
-        # cost, so any total built from this trace undercounts. A zero-token call
+        # True when a total built from this trace undercounts: the adapter said
+        # its cost does not cover the call, or (no accounting state) a call ran
+        # on a named model, used tokens, and still got no cost. A zero-token call
         # (Test adapter, sample_response) costs 0 whatever the pricing. A retried
         # step is judged per attempt: a priced subtotal must not hide an unpriced
-        # attempt, and the merged trace may have re-priced on the last model.
+        # attempt.
         def cost_unknown?
+          return true if @cost_complete == false
+
           if @attempts.is_a?(Array) && !@attempts.empty?
-            @attempts.any? { |attempt| self.class.unpriced?(attempt[:model], attempt[:usage], attempt[:cost]) }
+            @attempts.any? do |attempt|
+              attempt[:cost_unknown] || self.class.unpriced?(attempt[:model], attempt[:usage], attempt[:cost])
+            end
           else
-            self.class.unpriced?(@model, @usage, @cost)
+            @cost_complete.nil? && self.class.unpriced?(@model, @usage, @cost)
           end
         end
 
@@ -71,7 +85,8 @@ module RubyLLM
 
         def to_h
           { messages: @messages, model: @model, latency_ms: @latency_ms,
-            usage: @usage, attempts: @attempts, cost: @cost }.compact
+            usage: @usage, attempts: @attempts, cost: @cost, usage_complete: @usage_complete,
+            cost_complete: @cost_complete, finish_reason: @finish_reason }.compact
         end
 
         def to_s
@@ -79,6 +94,13 @@ module RubyLLM
         end
 
         private
+
+        def resolve_cost(cost)
+          return cost unless cost.equal?(COST_UNSET)
+          return nil unless @cost_complete.nil?
+
+          CostCalculator.calculate(model_name: @model, usage: @usage)
+        end
 
         def build_summary_parts
           parts = [@model || "no-model"]

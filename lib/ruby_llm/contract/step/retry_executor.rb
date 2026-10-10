@@ -6,6 +6,9 @@ module RubyLLM
       module RetryExecutor
         include Concerns::UsageAggregator
 
+        # Copied from each attempt's trace into its attempts entry when present.
+        ATTEMPT_TRACE_FIELDS = %i[usage latency_ms cost finish_reason].freeze
+
         private
 
         def run_with_retry(input, adapter:, default_model:, policy:, context_temperature: nil, extra_options: {})
@@ -39,7 +42,9 @@ module RubyLLM
             observations: last.observations,
             trace: last.trace.merge(
               attempts: attempt_log, usage: aggregated_usage,
-              cost: total_cost, latency_ms: total_latency
+              cost: total_cost, latency_ms: total_latency,
+              usage_complete: aggregate_flag(all_attempts, :usage_complete),
+              cost_complete: aggregate_cost_complete(all_attempts)
             )
           )
         end
@@ -53,10 +58,36 @@ module RubyLLM
         end
 
         def append_trace_fields(entry, trace)
-          entry[:usage] = trace.usage if trace.respond_to?(:usage) && trace.usage
-          entry[:latency_ms] = trace.latency_ms if trace.respond_to?(:latency_ms) && trace.latency_ms
-          entry[:cost] = trace.cost if trace.respond_to?(:cost) && trace.cost
+          ATTEMPT_TRACE_FIELDS.each do |field|
+            value = trace_value(trace, field)
+            entry[field] = value if value
+          end
+          entry[:cost_unknown] = true if trace_value(trace, :cost_unknown?)
+          entry[:usage_complete] = false if trace_value(trace, :usage_complete) == false
           entry
+        end
+
+        def trace_value(trace, method)
+          trace.public_send(method) if trace.respond_to?(method)
+        end
+
+        # The subtotal is complete only if every attempt was; the last attempt's
+        # flag must not speak for it. nil when no attempt reported accounting
+        # state, so a retried Test-adapter step serializes exactly as before.
+        def aggregate_cost_complete(all_attempts)
+          traces = all_attempts.map { |a| a[:result].trace }
+          return false if traces.any? { |trace| trace.respond_to?(:cost_unknown?) && trace.cost_unknown? }
+
+          aggregate_flag(all_attempts, :cost_complete)
+        end
+
+        def aggregate_flag(all_attempts, flag)
+          flags = all_attempts.map { |a| a[:result].trace }
+                              .select { |trace| trace.respond_to?(flag) }
+                              .map { |trace| trace.public_send(flag) }.compact
+          return nil if flags.empty?
+
+          flags.all?
         end
 
         def sum_attempt_costs(all_attempts)
