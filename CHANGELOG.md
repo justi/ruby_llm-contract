@@ -1,5 +1,35 @@
 # Changelog
 
+## 1.1.1 (2026-10-10)
+
+### Fixed
+
+- **A failed rake eval gate printed "Eval suite FAILED: Eval suite FAILED".** The
+  message now reads "Eval suite FAILED: one or more evals did not pass".
+
+### Changed (internal, no API change)
+
+- Values that two or more places must agree on now have one owner, so one side can no
+  longer drift alone: the `:refuse`/`:warn` modes and their default for every
+  `on_unknown_*` option (`UnknownPolicy`), the Rails contract and eval dirs that the
+  Railtie ignores and `load_evals!` loads, the reload flag, the `:skipped` step status
+  (`CaseResult::SKIPPED_STATUS`), baseline and history file extensions, the context keys
+  forwarded to the adapter, the generic "passed"/"not passed" details the report hides,
+  and the optimize task's `MIN_SCORE` default, which now reads `Eval::DEFAULT_MIN_SCORE`.
+  The unknown-context-key warning lists the known keys in a different order, and in a
+  Rails app `load_evals!` now loads `app/contracts/eval` before `app/steps/eval` (the order
+  the Railtie and eager loading already used); this matters only if both dirs define an
+  eval of the same name on the same class, where the later file wins.
+
+### Tests
+
+- A real attachment through the RubyLLM 2.x adapter with HTTP intercepted (webmock):
+  pins the `input_image` part on the wire and the usage read back.
+- A minimal Rails app booted in a child process: pins that Zeitwerk ignores the
+  `eval/` dirs, that evals register after boot, and that the rake tasks appear.
+- `rubocop` is pinned to `~> 1.92.0`: CI resolves without a lockfile, so a floating
+  version let new cops land on CI before they ran locally.
+
 ## 1.1.0 (2026-10-10)
 
 ### Changed - may turn a green CI red
