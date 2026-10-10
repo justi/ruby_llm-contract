@@ -30,7 +30,8 @@ module RubyLLM
             status: :adapter_error,
             raw_output: nil,
             parsed_output: nil,
-            validation_errors: [e.message]
+            validation_errors: [e.message],
+            trace: Trace.new(error_class: e.class.name, error_type: e.class)
           )
           [result, 0]
         end

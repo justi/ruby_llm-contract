@@ -27,7 +27,7 @@ module RubyLLM
             raw_output: error_result.raw_output,
             parsed_output: error_result.parsed_output,
             validation_errors: error_result.validation_errors,
-            trace: Trace.new(messages: messages, model: @model)
+            trace: Trace.new(messages: messages, model: @model, **error_fields(error_result.trace))
           )
         end
 
@@ -48,6 +48,12 @@ module RubyLLM
         end
 
         private
+
+        def error_fields(trace)
+          return {} unless trace.respond_to?(:error_class) && trace.error_class
+
+          { error_class: trace.error_class, error_type: trace.error_type }
+        end
 
         # Only a failed result says why the provider stopped; a result that
         # passed validation keeps finish_reason in its trace alone.

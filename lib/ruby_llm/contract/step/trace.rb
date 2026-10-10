@@ -8,7 +8,7 @@ module RubyLLM
         include Concerns::DeepFreeze
 
         attr_reader :messages, :model, :latency_ms, :usage, :attempts, :cost,
-                    :usage_complete, :cost_complete, :finish_reason
+                    :usage_complete, :cost_complete, :finish_reason, :error_class, :error_type
 
         # Marks `cost:` as not given, as distinct from an explicit nil. Only an
         # omitted cost is priced from the registry; nil from an adapter that
@@ -18,8 +18,12 @@ module RubyLLM
         # usage_complete / cost_complete are nil for traces that carry no
         # accounting state (Test adapter, older adapters, hand-built traces);
         # those keep the token-count rule in `unpriced?`.
+        # error_class names the exception behind an :adapter_error and is part
+        # of to_h; error_type is the class itself, kept in memory only so
+        # `retry_on SomeError` can match subclasses. A trace rebuilt from a
+        # hash has the name but not the class.
         def initialize(messages: nil, model: nil, latency_ms: nil, usage: nil, attempts: nil, cost: COST_UNSET,
-                       usage_complete: nil, cost_complete: nil, finish_reason: nil)
+                       usage_complete: nil, cost_complete: nil, finish_reason: nil, error_class: nil, error_type: nil)
           @messages = deep_dup_freeze(messages)
           @model = model.frozen? ? model : model&.dup&.freeze
           @latency_ms = latency_ms
@@ -28,13 +32,15 @@ module RubyLLM
           @usage_complete = usage_complete
           @cost_complete = cost_complete
           @finish_reason = finish_reason
+          @error_class = error_class
+          @error_type = error_type
           @cost = resolve_cost(cost)
           @keep_nil_cost = keep_nil_cost?(cost)
           freeze
         end
 
         KNOWN_KEYS = %i[messages model latency_ms usage attempts cost
-                        usage_complete cost_complete finish_reason].freeze
+                        usage_complete cost_complete finish_reason error_class].freeze
 
         def [](key)
           return nil unless KNOWN_KEYS.include?(key.to_sym)
@@ -57,7 +63,8 @@ module RubyLLM
         # Never re-prices: a retry merges a subtotal and an aggregate usage that
         # no single model's pricing describes.
         def merge(**overrides)
-          self.class.new(**KNOWN_KEYS.to_h { |key| [key, overrides.fetch(key) { public_send(key) }] })
+          self.class.new(**KNOWN_KEYS.to_h { |key| [key, overrides.fetch(key) { public_send(key) }] },
+                         error_type: overrides.fetch(:error_type, @error_type))
         end
 
         # True when a total built from this trace undercounts: the adapter said
@@ -87,7 +94,7 @@ module RubyLLM
         def to_h
           hash = { messages: @messages, model: @model, latency_ms: @latency_ms,
                    usage: @usage, attempts: @attempts, cost: @cost, usage_complete: @usage_complete,
-                   cost_complete: @cost_complete, finish_reason: @finish_reason }.compact
+                   cost_complete: @cost_complete, finish_reason: @finish_reason, error_class: @error_class }.compact
           hash[:cost] = nil if @keep_nil_cost
           hash
         end

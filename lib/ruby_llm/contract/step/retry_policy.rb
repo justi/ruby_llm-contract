@@ -4,7 +4,7 @@ module RubyLLM
   module Contract
     module Step
       class RetryPolicy
-        attr_reader :max_attempts, :retryable_statuses
+        attr_reader :max_attempts, :retryable_statuses, :retryable_errors
 
         # Breaking (0.7.0): :adapter_error removed from defaults. ruby_llm's Faraday
         # middleware already retries transport errors (RateLimitError, ServerError,
@@ -18,6 +18,7 @@ module RubyLLM
         def initialize(models: nil, attempts: nil, retry_on: nil, &block)
           @configs = []
           @retryable_statuses = DEFAULT_RETRY_ON.dup
+          @retryable_errors = []
 
           if block
             @max_attempts = 1
@@ -49,12 +50,20 @@ module RubyLLM
           @configs
         end
 
-        def retry_on(*statuses)
-          @retryable_statuses = statuses.flatten
+        # Statuses, and exception classes for adapter errors:
+        # `retry_on :validation_failed, RubyLLM::RateLimitError` retries an
+        # adapter error only when it was a RateLimitError (or a subclass), while
+        # `:adapter_error` retries any. Replaces the defaults, as before.
+        def retry_on(*conditions)
+          @retryable_statuses, @retryable_errors = split_conditions(conditions.flatten)
         end
 
         def retryable?(result)
-          retryable_statuses.include?(result.status)
+          return true if retryable_statuses.include?(result.status)
+          return false unless result.status == :adapter_error && retryable_errors.any?
+
+          error_type = result.trace.respond_to?(:error_type) ? result.trace.error_type : nil
+          !error_type.nil? && retryable_errors.any? { |klass| error_type <= klass }
         end
 
         def config_for_attempt(attempt, default_config)
@@ -78,7 +87,17 @@ module RubyLLM
           else
             @max_attempts = attempts || 1
           end
-          @retryable_statuses = Array(retry_on).dup if retry_on
+          @retryable_statuses, @retryable_errors = split_conditions(Array(retry_on)) if retry_on
+        end
+
+        def split_conditions(conditions)
+          classes, statuses = conditions.partition { |condition| condition.is_a?(Class) }
+          non_errors = classes.reject { |klass| klass <= Exception }
+          unless non_errors.empty?
+            raise ArgumentError, "retry_on takes statuses and exception classes, got #{non_errors.join(", ")}"
+          end
+
+          [statuses, classes]
         end
 
         def normalize_config(entry)

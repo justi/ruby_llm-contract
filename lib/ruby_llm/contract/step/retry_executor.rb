@@ -7,7 +7,7 @@ module RubyLLM
         include Concerns::UsageAggregator
 
         # Copied from each attempt's trace into its attempts entry when present.
-        ATTEMPT_TRACE_FIELDS = %i[usage latency_ms cost finish_reason].freeze
+        ATTEMPT_TRACE_FIELDS = %i[usage latency_ms cost finish_reason error_class].freeze
 
         private
 
