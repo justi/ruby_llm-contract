@@ -60,7 +60,8 @@ module RubyLLM
             output_schema: @config.output_schema,
             model: @config.model,
             observers: @config.observers,
-            max_output: @config.effective_max_output
+            max_output: @config.effective_max_output,
+            on_incomplete_output: @config.on_incomplete_output
           )
         end
 

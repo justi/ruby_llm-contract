@@ -185,6 +185,26 @@ module RubyLLM
           inherited_value(:on_unknown_attachment_size) || UnknownPolicy::DEFAULT
         end
 
+        INCOMPLETE_OUTPUT_MODES = %i[accept refuse].freeze
+        INCOMPLETE_OUTPUT_DEFAULT = :accept
+
+        # `:refuse` fails a response the provider cut off at a token limit
+        # (:output_truncated) or stopped with a content filter
+        # (:content_filtered), before validation, so it is never :ok.
+        # `:accept` (default) validates it like any other response.
+        def on_incomplete_output(mode = nil)
+          if mode
+            unless INCOMPLETE_OUTPUT_MODES.include?(mode)
+              raise ArgumentError, "on_incomplete_output must be one of #{INCOMPLETE_OUTPUT_MODES.inspect}, " \
+                                   "got #{mode.inspect}"
+            end
+
+            return @on_incomplete_output = mode
+          end
+
+          inherited_value(:on_incomplete_output) || INCOMPLETE_OUTPUT_DEFAULT
+        end
+
         def model(name = nil)
           if name == :default
             @model = UNSET

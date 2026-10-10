@@ -150,6 +150,74 @@ RSpec.describe "Usage and cost through the RubyLLM adapter (HTTP intercepted)" d
     end
   end
 
+  describe "on_incomplete_output :refuse" do
+    let(:validated) { [] }
+    let(:step) do
+      seen = validated
+      Class.new(RubyLLM::Contract::Step::Base) do
+        prompt "Classify: {input}"
+        output_schema { string :label }
+        max_output 50
+        on_incomplete_output :refuse
+        retry_policy attempts: 2
+        validate("seen") { |o, _| seen << o }
+      end
+    end
+
+    def stop_early(reason, text)
+      respond_with(usage: { input_tokens: 10, output_tokens: 50 }, status: "incomplete",
+                   incomplete_details: { reason: reason }, text: text)
+    end
+
+    it "fails a cut-off response before validation, even one that would pass, without retrying it" do
+      stub = stop_early("max_output_tokens", '{"label":"refund"}')
+
+      result = run_step
+
+      expect(result.status).to eq(:output_truncated)
+      expect(result.raw_output).to eq('{"label":"refund"}')
+      expect(result.parsed_output).to be_nil
+      expect(result.validation_errors).to eq(["provider reported token-limit termination; configured max_output: 50"])
+      expect(validated).to be_empty
+      expect(result.trace.cost).to be_positive
+      expect(stub).to have_been_requested.once
+    end
+
+    it "fails a filtered response as content_filtered" do
+      stop_early("content_filter", "")
+
+      expect(run_step.status).to eq(:content_filtered)
+    end
+
+    it "retries when the policy lists the status" do
+      retrying = Class.new(step) do
+        retry_policy do
+          attempts 2
+          retry_on :output_truncated
+        end
+      end
+      stub = stop_early("max_output_tokens", '{"label":')
+
+      result = retrying.run("x", context: { adapter: RubyLLM::Contract::Adapters::RubyLLM.new, model: "gpt-4.1-mini" })
+
+      expect(result.status).to eq(:output_truncated)
+      expect(stub).to have_been_requested.twice
+    end
+
+    it "lets a complete response through to validation" do
+      respond_with(usage: { input_tokens: 10, output_tokens: 5 })
+
+      expect(run_step.status).to eq(:ok)
+      expect(validated).to eq([{ label: "refund" }])
+    end
+
+    it "is inherited and checked" do
+      expect(Class.new(step).on_incomplete_output).to eq(:refuse)
+      expect { Class.new(RubyLLM::Contract::Step::Base) { on_incomplete_output :warn } }
+        .to raise_error(ArgumentError, /on_incomplete_output must be one of \[:accept, :refuse\]/)
+    end
+  end
+
   describe "a cost the provider reported" do
     let(:chat) { instance_double("RubyLLM::Chat", ask: message).tap { |c| allow(c).to receive(:with_schema).and_return(c) } }
     let(:message) do

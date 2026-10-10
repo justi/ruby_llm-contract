@@ -283,7 +283,8 @@ module RubyLLM
               on_unknown_attachment_size: on_unknown_attachment_size,
               temperature: context_temperature || temperature,
               extra_options: extra_options,
-              observers: class_observers
+              observers: class_observers,
+              on_incomplete_output: on_incomplete_output
             )
           end
 
