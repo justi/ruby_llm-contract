@@ -70,7 +70,8 @@ module RubyLLM
           estimated_output = effective_max_output || (estimated * DEFAULT_OUTPUT_RATIO)
           estimated_cost = CostCalculator.calculate(
             model_name: model_name,
-            usage: { input_tokens: estimated, output_tokens: estimated_output }
+            usage: { input_tokens: estimated, output_tokens: estimated_output },
+            provider: pricing_provider
           )
 
           if estimated_cost.nil?

@@ -87,6 +87,11 @@ module RubyLLM
           @config.on_unknown_attachment_size
         end
 
+        # The provider the adapter will call, so the estimate uses its price.
+        def pricing_provider
+          @config.extra_options&.dig(:provider)
+        end
+
         def attachment_present?
           opts = @config.extra_options
           !opts.nil? && !opts[:attachment].nil?

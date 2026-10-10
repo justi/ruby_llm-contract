@@ -26,9 +26,9 @@ module RubyLLM
                              context: context).results.first
           end
 
-          def estimate_cost(input:, model: nil, attachment: nil)
+          def estimate_cost(input:, model: nil, attachment: nil, provider: nil)
             model_name = estimated_model_name(model)
-            model_info = CostCalculator.find_model(model_name)
+            model_info = CostCalculator.find_model(model_name, provider: provider)
             return nil unless model_info
 
             text_tokens = TokenEstimator.estimate(build_messages(input))
@@ -48,12 +48,13 @@ module RubyLLM
               output_tokens_estimate: output_tokens,
               estimated_cost: CostCalculator.calculate(
                 model_name: model_name,
-                usage: { input_tokens: input_tokens, output_tokens: output_tokens }
+                usage: { input_tokens: input_tokens, output_tokens: output_tokens },
+                provider: provider
               )
             }
           end
 
-          def estimate_eval_cost(eval_name, models: nil)
+          def estimate_eval_cost(eval_name, models: nil, provider: nil)
             defn = send(:all_eval_definitions)[eval_name.to_s]
             raise ArgumentError, "No eval '#{eval_name}' defined" unless defn
 
@@ -61,7 +62,7 @@ module RubyLLM
             cases = defn.build_dataset.cases
 
             model_list.each_with_object({}) do |model_name, result|
-              result[model_name] = estimate_eval_cost_for_model(cases, model_name)
+              result[model_name] = estimate_eval_cost_for_model(cases, model_name, provider)
             end
           end
 
@@ -145,9 +146,9 @@ module RubyLLM
             [0, true]
           end
 
-          def estimate_eval_cost_for_model(cases, model_name)
+          def estimate_eval_cost_for_model(cases, model_name, provider)
             cases.sum do |test_case|
-              estimate = estimate_cost(input: test_case.input, model: model_name)
+              estimate = estimate_cost(input: test_case.input, model: model_name, provider: provider)
               # Two misses floor to 0.0, not one: model absent from the registry
               # (nil estimate), or present with unreadable pricing (hash whose
               # estimated_cost is nil). Documented as a floor, not a fail-closed.
