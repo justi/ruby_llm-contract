@@ -82,6 +82,15 @@ module RubyLLM
           # replacement for this one passthrough. `reasoning_effort` is not
           # forwarded here — it goes through `with_thinking` above.
           chat.with_max_output_tokens(options[:max_tokens]) if options[:max_tokens]
+          apply_provider_options(chat, options)
+        end
+
+        def apply_provider_options(chat, options)
+          provider_options = options[:provider_options]
+          return if provider_options.nil? || provider_options.empty?
+
+          ProviderOptions.validate!(provider_options, schema: !options[:schema].nil?)
+          chat.with_provider_options(provider_options)
         end
 
         # RubyLLM 1.x set temperature to 1.0 for OpenAI reasoning models, which

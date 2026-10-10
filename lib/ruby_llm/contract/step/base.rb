@@ -93,7 +93,8 @@ module RubyLLM
 
           # Forwarded to the adapter as-is. A key known but not forwarded would be
           # silently dropped, so the known list is built from this one.
-          ADAPTER_CONTEXT_KEYS = %i[provider assume_model_exists max_tokens reasoning_effort attachment].freeze
+          ADAPTER_CONTEXT_KEYS = %i[provider assume_model_exists max_tokens reasoning_effort attachment
+                                    provider_options].freeze
           KNOWN_CONTEXT_KEYS = (%i[adapter model temperature retry_policy_override] + ADAPTER_CONTEXT_KEYS).freeze
 
           include Concerns::ContextHelpers
@@ -196,7 +197,7 @@ module RubyLLM
 
           def runtime_settings(context)
             policy = context.key?(:retry_policy_override) ? context[:retry_policy_override] : retry_policy
-            extra = context.slice(*ADAPTER_CONTEXT_KEYS)
+            extra = context.slice(*ADAPTER_CONTEXT_KEYS).merge(merged_provider_options(context))
 
             # Always pass the class-level `thinking` config to the adapter when
             # set, so fields like `budget` survive a per-call `reasoning_effort`
@@ -219,6 +220,13 @@ module RubyLLM
               extra_options: extra,
               policy: policy
             }
+          end
+
+          # Class-level provider_options with the call's merged over them; a
+          # one-key hash so `merge` drops it entirely when neither is set.
+          def merged_provider_options(context)
+            merged = ProviderOptions.merge(provider_options, context[:provider_options])
+            merged ? { provider_options: merged } : {}
           end
 
           def current_model_config

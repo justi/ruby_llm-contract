@@ -215,6 +215,20 @@ module RubyLLM
           inherited_value_with_reset(:temperature)
         end
 
+        # Request options in the provider's vocabulary, e.g.
+        # `provider_options service_tier: "flex"`. Replaces an inherited hash;
+        # `provider_options :default` stops inheriting. `context: { provider_options: }`
+        # is merged over it per call.
+        def provider_options(options = nil)
+          if options == :default
+            @provider_options = UNSET
+            return nil
+          end
+          return @provider_options = ProviderOptions.frozen_copy(ProviderOptions.validate!(options)) if options
+
+          inherited_value_with_reset(:provider_options)
+        end
+
         def thinking(effort: nil, budget: nil)
           if effort == :default
             @thinking = UNSET
