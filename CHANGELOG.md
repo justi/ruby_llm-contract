@@ -1,5 +1,56 @@
 # Changelog
 
+## 1.1.2 (unreleased)
+
+### Changed - costs and gates may move
+
+- **Costs now count the prompt cache, and may go up.** RubyLLM 2.x reports cached prompt
+  tokens apart from `tokens.input`, and the adapter read only input and output: 1,000
+  uncached + 9,000 cached + 200 output tokens on gpt-4.1-mini came out at $0.00072
+  instead of $0.00162. `trace[:usage][:input_tokens]` is now the whole prompt and
+  `trace[:cost]` is the cost RubyLLM puts on the response: the price of the provider the
+  call went to, cache and long-context prices, the amount the provider reported when it
+  reports one, and RubyLLM's own retries of the request. Eval totals, history and
+  `compare_models` figures can rise against older baselines; baselines compare scores,
+  not costs, so they do not regress on this.
+- **A call without token counts is no longer free.** When the provider sends no usage,
+  the counts still read 0 but `trace[:usage_complete]` is `false` and the cost is
+  unknown, so the eval cost gates refuse (opt out with `on_unknown_pricing: :warn`).
+- **A missing price is unknown, not $0.** A model priced for input but not output (or
+  without a cache-write price, after writing to the cache) has no cost instead of a
+  partial one, so `max_cost` refuses it pre-flight.
+
+### Fixed
+
+- `CostCalculator` prices RubyLLM's models through `Model#cost_for`, so pre-flight
+  estimates use cache and long-context prices, and the price of the provider the call
+  goes to (12 model ids carry different prices per provider). `register_model` keeps
+  overriding the price for its id; cache reads are charged at its input price, cache
+  writes have no price.
+- `compare_models` no longer names a model with unpriced cases the cheapest
+  (`best_for`), gives it an infinite `cost_per_point`, and `recommend` neither ranks it
+  on cost nor promises savings against it.
+- `single_shot_cost` reported a later attempt's cost when the first attempt was unpriced.
+- The step log printed an unknown cost as `$0.000000`; it now prints `cost=unknown`.
+- Docs no longer say RubyLLM has no evaluation framework: `relation_to_agent.md` now
+  places `RubyLLM::Evaluation` (2.1) next to `define_eval`.
+
+### Added
+
+- `trace[:usage]` breakdown keys when reported: `cache_read_tokens`, `cache_write_tokens`,
+  `thinking_tokens` (parts of `input_tokens` / `output_tokens`, not extra tokens).
+- `trace[:finish_reason]`, also on each retry attempt. A failed result whose response
+  stopped at a token limit or a content filter gets a last validation error saying so,
+  with the `max_output` the call ran with. Statuses and retries are unchanged.
+- An adapter may report its own cost: `Adapters::Response.new(content:, usage:, cost:,
+  cost_complete:, usage_complete:, finish_reason:)`, where `cost: nil` means unknown.
+  A response without `cost:` is priced from `usage` as before.
+- `provider:` on `CostCalculator.calculate`, `CostCalculator.find_model`,
+  `estimate_cost` and `estimate_eval_cost`.
+- Baselines and history mark unpriced cases and runs with `cost_unknown: true`.
+- A pipeline with a `token_budget` warns when a step's provider left out token counts;
+  `Pipeline::Trace#usage_complete?`.
+
 ## 1.1.1 (2026-10-10)
 
 ### Fixed

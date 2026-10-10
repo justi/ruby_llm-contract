@@ -11,9 +11,11 @@ module RubyLLM
     #   - Worse for non-English text, code, structured data, and unusual scripts
     #   - Useless for models with very different tokenizers (e.g. some open-source models)
     #
-    # RubyLLM 1.14 ships no pre-flight tokenizer either; once the API call
-    # returns, `RubyLLM::Tokens` provides accurate counts from provider usage
-    # data. This estimator is for the *pre-flight refusal* path only — its job
+    # RubyLLM 2.x can count tokens exactly before a call (`chat.count_tokens`),
+    # but only on some providers and at the price of an extra request, so this
+    # local estimate stays the default; once the API call returns,
+    # `RubyLLM::Tokens` provides accurate counts from provider usage data.
+    # This estimator is for the *pre-flight refusal* path only - its job
     # is to answer "is this call almost certainly within budget?" with enough
     # accuracy that runaway prompts get caught, while accepting that the
     # boundary cases will be wrong.

@@ -173,7 +173,23 @@ max_cost 0.01, on_unknown_pricing: :warn
 
 Default is `:refuse`. Use `:warn` only when you accept running without a cost ceiling (fine-tuned models you trust, private endpoints).
 
-The eval-level gates - `with_maximum_cost` on `pass_eval`, `maximum_cost` on the rake task, and `maximum_cost:` on `assert_eval_passes` - follow the same rule since 1.1.0. A report's total counts a case it cannot price as $0, so when any case ran on a model without pricing data the gate fails and names the cases instead of comparing an undercounted total. Opt out with `.on_unknown_pricing(:warn)`, `t.on_unknown_pricing = :warn` or `on_unknown_pricing: :warn`, which checks the budget against the priced cases and prints a warning. Offline runs (`sample_response`, a `Test` adapter without `usage:`) report zero tokens, cost $0 with or without pricing, and are never flagged. The check sees only reported tokens: an adapter that returns no token counts looks like a zero-token run.
+The eval-level gates - `with_maximum_cost` on `pass_eval`, `maximum_cost` on the rake task, and `maximum_cost:` on `assert_eval_passes` - follow the same rule since 1.1.0. A report's total counts a case it cannot price as $0, so when any case ran on a model without pricing data the gate fails and names the cases instead of comparing an undercounted total. Opt out with `.on_unknown_pricing(:warn)`, `t.on_unknown_pricing = :warn` or `on_unknown_pricing: :warn`, which checks the budget against the priced cases and prints a warning. Offline runs (`sample_response`, a `Test` adapter without `usage:`) report zero tokens, cost $0 with or without pricing, and are never flagged. Since 1.1.2 a real call whose provider sent no token counts is flagged too, instead of passing as a free zero-token run.
+
+### What a trace's usage and cost count
+
+`trace[:usage][:input_tokens]` is the whole prompt the model took in, including tokens served from or written to the provider's prompt cache. When the provider reports them, the trace adds a breakdown: `cache_read_tokens`, `cache_write_tokens` and `thinking_tokens`. These are parts of `input_tokens` / `output_tokens`, not extra tokens; reasoning tokens are already in `output_tokens` when the provider bills them as output.
+
+```ruby
+result.trace[:usage]
+# => { input_tokens: 10_000, output_tokens: 200, cache_read_tokens: 9_000 }
+result.trace[:cost]    # => 0.00162  (gpt-4.1-mini: cache reads at the cache price)
+```
+
+With the RubyLLM adapter, `trace[:cost]` is the cost RubyLLM puts on the response (`response.cost.total`): the price of the provider the call went to, cache and long-context prices, and the amount the provider reported when it reports one (OpenRouter, for example). A price set with `CostCalculator.register_model` still overrides it for that model id, unless the provider reported what it billed; there, cache reads are charged at the input price and a call that wrote to the cache has no price, since cache writes can cost more than input.
+
+When a cost does not cover the whole call, `result.trace.cost_unknown?` is true and the eval gates above refuse. That happens when pricing is missing for a token category the call used, or when the provider sent no token counts (`trace[:usage_complete]` is then `false` and the counts read as 0). On a retried step `trace[:cost]` is the sum of the attempts that could be priced, and `cost_unknown?` is true if any attempt could not. `max_cost` itself is a pre-flight check on an estimate; it does not inspect the finished call.
+
+A custom adapter returning `Response.new(content:, usage:)` is priced from `usage` as before. To report its own cost, pass `cost:` - `nil` means unknown - with `cost_complete:` and `usage_complete:`.
 
 ### Preflight cost estimates
 

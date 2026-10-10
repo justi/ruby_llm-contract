@@ -136,7 +136,7 @@ Also supports [multi-step pipelines](docs/guide/pipeline.md) with fail-fast and 
 
 ## Relation to `RubyLLM::Agent`
 
-`Step::Base` and `RubyLLM::Agent` (since RubyLLM 1.12) are **siblings** targeting the same niche: reusable, class-based prompts. Both call into `RubyLLM::Chat` directly — Step does not wrap Agent. Step adds the contract layer: `validate` (business invariants), `retry_policy escalate(...)` (model escalation on validation failure), `max_cost` pre-flight refusal, regression-eval framework, pipeline composition. **[Full feature mapping →](docs/guide/relation_to_agent.md)**
+`Step::Base` and `RubyLLM::Agent` (since RubyLLM 1.12) are **siblings** targeting the same niche: reusable, class-based prompts. Both call into `RubyLLM::Chat` directly - Step does not wrap Agent. Step adds the contract layer: `validate` (business invariants), `retry_policy escalate(...)` (model escalation on validation failure), `max_cost` pre-flight refusal, regression-eval framework, pipeline composition. RubyLLM 2.1's `RubyLLM::Evaluation` grades answers; `define_eval` guards against regressions and cost in CI - the mapping covers both. **[Full feature mapping →](docs/guide/relation_to_agent.md)**
 
 ## Relation to `ruby_llm-tribunal`
 

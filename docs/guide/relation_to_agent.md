@@ -12,8 +12,8 @@
 | `validate :rule do ... end` business invariants on output | only in `ruby_llm-contract` |
 | `retry_policy escalate(...)` model escalation on validation failure | only here (different from RubyLLM's network-level retry) |
 | `max_cost` / `max_input` / `max_output` pre-flight refusal | only here |
-| `define_eval` + baseline regression + `compare_models` + `optimize_retry_policy` | only here (RubyLLM does not ship an evaluation framework) |
-| Pipeline composition with `step SomeStep, as: :alias` | only here (RubyLLM intentionally leaves workflows as plain Ruby) |
+| `define_eval` + baseline regression + `compare_models` + `optimize_retry_policy` | only here; RubyLLM 2.1's `RubyLLM::Evaluation` grades answers (see below) but keeps no baseline and has no cost gate |
+| Pipeline composition with `step SomeStep, as: :alias` | only here; `RubyLLM.workflow` (2.1) groups calls for tracing, without typed step outputs, fail-fast or budgets |
 | `around_call`, named `observe` hooks with pass/fail recorded in trace | only here |
 
 ## Runtime relationship
@@ -31,6 +31,12 @@ Step.run(input)
 `Agent` is a sibling abstraction calling into `RubyLLM::Chat` through its own `apply_configuration` path. Both end up at `Chat`. They do not share the macro-storage layer.
 
 This may change in a future release if upstream APIs make a layered design natural. The decision is not committed; it depends on adopter signal.
+
+## Relation to `RubyLLM::Evaluation`
+
+RubyLLM 2.1 ships `RubyLLM::Evaluation`: a dataset of cases run through your `perform` method, graded for correctness by an LLM or by your own criteria and Ruby assertions, with RSpec/Minitest integration and a report of verdicts, tokens and cost. Use it to answer "is this answer right?".
+
+`define_eval` answers a different question: did this prompt or model get worse than last time, and does it stay within budget? It keeps baselines and flags regressions, compares prompts (`compare_with`) and models (`compare_models`, `recommend`), runs offline with `sample_response`, and gates CI on score and cost. The two can share a project; an Evaluation's `perform` can call `Step.run`.
 
 ## Coexistence on the same project
 
