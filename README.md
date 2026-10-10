@@ -91,6 +91,8 @@ result.trace[:attempts]
 #    ]
 ```
 
+`usage[:input_tokens]` is the whole prompt, prompt-cache tokens included (broken out as `cache_read_tokens` / `cache_write_tokens` when the provider reports them), and `cost` is what RubyLLM prices the response at: the provider's price, cache and long-context rates, or the amount the provider reported. A cost the gem cannot fully price is marked unknown rather than counted as $0 - see [what a trace's usage and cost count](docs/guide/getting_started.md#what-a-traces-usage-and-cost-count).
+
 If the response is malformed, the TL;DR overflows the card, or the takeaway count is off, the gem moves to the next step. This is model **escalation**, not a fallback list — each step is an independent config (`model`, `reasoning_effort`), so the retry policy spends more compute only when the cheaper one couldn't satisfy the contract.
 
 ### Add a CI gate in 6 lines
@@ -128,6 +130,7 @@ Everything below is optional — the example above is a complete step. Reach for
 - **[Find the cheapest viable fallback list](docs/guide/optimizing_retry_policy.md)** — empirically pick the cheapest model chain that still passes your evals.
 - **[A/B test prompts](docs/guide/eval_first.md)** — measure whether a new prompt is safe to ship before merging.
 - **[Budget caps](docs/guide/getting_started.md)** — refuse the request pre-flight when an estimate exceeds the limit.
+- **[Cost tracking](docs/guide/getting_started.md#what-a-traces-usage-and-cost-count)** - per-call cost with prompt-cache and per-provider prices; eval cost gates fail closed when a cost is unknown.
 - **[Reasoning effort / thinking config](docs/guide/optimizing_retry_policy.md)** — Anthropic / OpenAI thinking configuration on the Step class.
 
 Also supports [multi-step pipelines](docs/guide/pipeline.md) with fail-fast and per-step models.
@@ -153,7 +156,7 @@ Different layers, complementary. [`ruby_llm-tribunal`](https://github.com/Alqemi
 | [Why contracts?](docs/guide/why.md) | Recognise the four production failures the gem exists for |
 | [Relation to RubyLLM::Agent](docs/guide/relation_to_agent.md) | Sibling abstractions; what each adds; runtime call path; coexistence patterns |
 | [Relation to ruby_llm-tribunal](docs/guide/relation_to_tribunal.md) | Different layers (test framework vs runtime contract); visual flows; integration recipes |
-| [Getting Started](docs/guide/getting_started.md) | Walk the full feature set on one concrete step |
+| [Getting Started](docs/guide/getting_started.md) | Walk the full feature set on one concrete step, including what usage and cost count |
 | [Rails integration](docs/guide/rails_integration.md) | Directory, initializer, jobs, logging, specs, CI gate — 7 FAQs for Rails devs |
 | [Adopt in an existing Rails app](docs/guide/migration.md) | Replace raw `LlmClient.call` with a contract, Before/After |
 | [Prevent silent prompt regressions](docs/guide/eval_first.md) | Evals, baselines, CI gates that block quality drift |
@@ -173,7 +176,11 @@ Stable since **1.0.0**. Semver tracked; breaking changes flagged in [CHANGELOG](
 What 1.0 promises not to break inside the 1.x line: the documented DSL
 (`prompt`, `output_schema`, `validate`, `retry_policy`, `max_cost`, `define_eval`,
 pipelines), the `Result` and `trace` shapes including `trace[:usage]`'s
-`{ input_tokens:, output_tokens: }` keys, and the adapter interface. A new major
+`{ input_tokens:, output_tokens: }` keys, and the adapter interface. New keys may be
+added to both (1.1.2 added `cache_read_tokens`, `cache_write_tokens` and
+`thinking_tokens` to `trace[:usage]`, and `usage_complete`, `cost_complete` and
+`finish_reason` to the trace), and a figure may change when it was wrong: since 1.1.2
+`input_tokens` counts prompt-cache tokens. A new major
 version of a runtime dependency may require a new major version here — that is
 what 1.0.0 itself was.
 
@@ -184,6 +191,8 @@ what 1.0.0 itself was.
 **How do I stub `Step.run` in specs?** Include `RubyLLM::Contract::RSpec::Helpers` and use `stub_step(MyStep, response: { ... })`. The block form scopes the stub to one `it`. See [testing guide](docs/guide/testing.md).
 
 **Where in a Rails app?** Default `app/contracts/`. The Railtie reloads `app/contracts/eval/` and `app/steps/eval/` in development; any autoloaded directory also works. See [Rails integration](docs/guide/rails_integration.md).
+
+**Costs went up, or an eval cost gate turned red, after upgrading to 1.1.2?** Earlier versions left prompt-cache tokens out of `input_tokens` and the cost, priced every model at its default provider, counted a missing price as $0, and treated a call without token counts as free. The [CHANGELOG](CHANGELOG.md) lists each change; `on_unknown_pricing: :warn` turns the unknown-cost refusal into a warning.
 
 **Upgraded from pre-0.10.0 and getting `:limit_exceeded` with attachments?** Multimodal contracts with `max_cost`/`max_input` need `attachment_token_estimate`. See [multimodal input guide](docs/guide/multimodal_input.md#cost-attachment_token_estimate-is-required) for setup, fail-closed behaviour, and `on_unknown_attachment_size :warn` opt-out.
 

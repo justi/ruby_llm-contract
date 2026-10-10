@@ -1,6 +1,6 @@
 # Changelog
 
-## 1.1.2 (unreleased)
+## 1.1.2 (2026-10-10)
 
 ### Changed - costs and gates may move
 
@@ -36,7 +36,9 @@
 - `single_shot_cost` reported a later attempt's cost when the first attempt was unpriced.
 - The step log printed an unknown cost as `$0.000000`; it now prints `cost=unknown`.
 - Docs no longer say RubyLLM has no evaluation framework: `relation_to_agent.md` now
-  places `RubyLLM::Evaluation` (2.1) next to `define_eval`.
+  places `RubyLLM::Evaluation` (2.1) next to `define_eval`. The README and the getting
+  started guide describe what a trace's usage and cost count, and the README's 1.x
+  promise now says new trace keys may be added.
 
 ### Added
 
