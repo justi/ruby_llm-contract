@@ -261,6 +261,7 @@ module RubyLLM
           # programmer bugs (NoMethodError, adapter-code ArgumentError) must propagate
           # instead of being silently masked as :input_error.
           def run_once(input, adapter:, model:, context_temperature: nil, extra_options: {})
+            extra_options = RubyLLM::Contract.without_default_effort(extra_options)
             runner =
               begin
                 Runner.new(config: build_runner_config(adapter, model, context_temperature, extra_options))

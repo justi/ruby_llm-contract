@@ -1,5 +1,34 @@
 # Changelog
 
+## 1.4.0 (2026-10-11)
+
+### Added
+
+- **`reasoning_effort: :default` sends no effort for one call, candidate or
+  retry-chain element.** A Step with `reasoning_effort "none"` sent that effort to
+  every model, also one given in the context, a `compare_models` candidate or a
+  retry-chain element without an effort of its own, and a model without reasoning
+  rejected the call (OpenAI: "Unsupported parameter: 'reasoning.effort'"). Nothing
+  could take the class effort out short of a subclass with `reasoning_effort :default`,
+  and `reasoning_effort: nil` was ignored. `:default` - the word the DSL already
+  uses - now works in `context:`, in candidates (`{ model: "gpt-4.1-mini",
+  reasoning_effort: :default }`), in a `production_mode:` fallback, in `escalate`
+  / `retry_policy models:` elements and as `CANDIDATES=gpt-4.1-mini@default` in
+  `rake ruby_llm_contract:optimize`. A `thinking budget:` stays. `nil` still means
+  "not set", and the gem does not drop an effort by itself based on the model.
+
+### Changed
+
+- **A retry attempt's `trace.attempts[n][:config]` shows the effort it was sent.**
+  It showed the chain element, so an element without an effort, which runs with the
+  call's or the class's, looked as if it had none. Such an attempt now has
+  `config: { model:, reasoning_effort: }`; an attempt sent no effort has no
+  `config`, as before. Code comparing these hashes may need the extra key.
+- **`production_mode:` skips a fallback that would send the candidate's own request.**
+  A fallback without an effort runs with the candidate's, so `{ model: "gpt-4.1-mini",
+  reasoning_effort: "low" }` with `fallback: "gpt-4.1-mini"` retried the same call.
+  It now runs single-shot, as a fallback equal to the candidate already did.
+
 ## 1.3.1 (2026-10-11)
 
 ### Fixed

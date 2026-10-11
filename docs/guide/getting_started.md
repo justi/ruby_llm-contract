@@ -102,7 +102,7 @@ retry_policy models: [
 ]
 ```
 
-`reasoning_effort` is a gpt-5 family feature (gpt-4.1 is not a reasoning model). The per-attempt value is forwarded via `with_thinking` (provider-agnostic — OpenAI `reasoning_effort` and Anthropic extended-thinking budget both supported). Passing it alongside a non-reasoning model is forwarded unchanged to the provider, which will either ignore it or reject the request — the gem does not guard against this.
+`reasoning_effort` is a gpt-5 family feature (gpt-4.1 is not a reasoning model). The per-attempt value is forwarded via `with_thinking` (provider-agnostic — OpenAI `reasoning_effort` and Anthropic extended-thinking budget both supported). Passing it alongside a non-reasoning model is forwarded unchanged to the provider, which will either ignore it or reject the request — the gem does not guard against this. An element without `reasoning_effort` inherits the call's or the step's; `{ model: "gpt-4.1-mini", reasoning_effort: :default }` sends none (see [thinking DSL note](optimizing_retry_policy.md#thinking-dsl-note)).
 
 ## Evals and CI gates
 

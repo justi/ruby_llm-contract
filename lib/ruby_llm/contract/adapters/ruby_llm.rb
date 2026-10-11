@@ -129,6 +129,7 @@ module RubyLLM
         # overrides any inherited `options[:thinking][:effort]`; budget is
         # taken from `options[:thinking][:budget]` only.
         def resolve_thinking_config(options)
+          options = ::RubyLLM::Contract.without_default_effort(options)
           base = options[:thinking].is_a?(Hash) ? options[:thinking].dup : {}
           base[:effort] = options[:reasoning_effort] if options[:reasoning_effort]
           base.empty? ? nil : base

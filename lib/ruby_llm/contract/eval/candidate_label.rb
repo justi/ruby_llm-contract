@@ -23,7 +23,7 @@ module RubyLLM
           match = PATTERN.match(label)
           return { model: label } unless match
 
-          { model: match.pre_match.strip, reasoning_effort: match[1] }
+          { model: match.pre_match.strip, reasoning_effort: RubyLLM::Contract.normalize_effort(match[1]) }
         end
       end
     end

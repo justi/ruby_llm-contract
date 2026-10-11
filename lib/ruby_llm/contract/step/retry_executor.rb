@@ -18,11 +18,12 @@ module RubyLLM
           policy.max_attempts.times do |attempt_index|
             config = policy.config_for_attempt(attempt_index, default_config)
             model = config[:model]
-            attempt_extra = extra_options.merge(config.except(:model))
+            attempt_extra = RubyLLM::Contract.without_default_effort(extra_options.merge(config.except(:model)))
 
             result = run_once(input, adapter: adapter, model: model,
                               context_temperature: context_temperature, extra_options: attempt_extra)
-            all_attempts << { attempt: attempt_index + 1, model: model, config: config, result: result }
+            all_attempts << { attempt: attempt_index + 1, model: model, config: sent_config(model, attempt_extra),
+                              result: result }
             break unless policy.retryable?(result)
           end
 
@@ -47,6 +48,14 @@ module RubyLLM
               cost_complete: aggregate_cost_complete(all_attempts)
             )
           )
+        end
+
+        # What the attempt was sent, not the chain element it came from: an
+        # element without an effort still gets the class or context one
+        # (runtime_settings copies the class effort into :reasoning_effort).
+        def sent_config(model, options)
+          effort = options[:reasoning_effort]
+          effort ? { model: model, reasoning_effort: effort } : { model: model }
         end
 
         def build_attempt_entry(attempt)

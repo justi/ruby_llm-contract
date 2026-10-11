@@ -108,6 +108,12 @@ RSpec.describe RubyLLM::Contract::OptimizeRakeTask do
       expect(result).to include({ model: "gpt-5-mini", reasoning_effort: "low" })
     end
 
+    it "parses @default as the DSL's :default, which sends no effort" do
+      result = task.send(:parse_candidates, "gpt-4.1-mini@default,gpt-6-luna@none")
+      expect(result).to eq([{ model: "gpt-4.1-mini", reasoning_effort: :default },
+                            { model: "gpt-6-luna", reasoning_effort: "none" }])
+    end
+
     it "parses JSON array format" do
       json = '[{"model":"gpt-5-mini","reasoning_effort":"low"}]'
       result = task.send(:parse_candidates, json)

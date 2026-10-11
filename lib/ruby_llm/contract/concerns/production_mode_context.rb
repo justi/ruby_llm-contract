@@ -26,8 +26,11 @@ module RubyLLM
           Step::RetryPolicy.new(models: [config, fallback_config])
         end
 
-        def same_candidate?(first, second)
-          first[:model] == second[:model] && first[:reasoning_effort] == second[:reasoning_effort]
+        # A fallback without an effort inherits the candidate's, so it would
+        # send the very same request.
+        def same_candidate?(candidate, fallback)
+          candidate[:model] == fallback[:model] &&
+            (fallback[:reasoning_effort].nil? || candidate[:reasoning_effort] == fallback[:reasoning_effort])
         end
       end
     end

@@ -91,6 +91,23 @@ module RubyLLM
         Thread.current[RELOADING_KEY] ? true : false
       end
 
+      # `reasoning_effort: :default`, the DSL's word for "no effort", leaves the
+      # class-level effort out of one call, candidate or retry-chain element.
+      # Rake and JSON give it as a String.
+      def normalize_effort(effort)
+        effort.to_s == "default" ? :default : effort
+      end
+
+      # The options as an adapter takes them: `reasoning_effort: :default` goes,
+      # and with it the effort in `thinking`; a thinking budget stays.
+      def without_default_effort(options)
+        return options unless normalize_effort(options[:reasoning_effort]) == :default
+
+        thinking = options[:thinking].is_a?(Hash) ? options[:thinking].except(:effort) : {}
+        resolved = options.except(:reasoning_effort, :thinking)
+        thinking.empty? ? resolved : resolved.merge(thinking: thinking)
+      end
+
       def normalize_candidate_config(entry)
         case entry
         when String
@@ -104,7 +121,7 @@ module RubyLLM
           end
 
           normalized = { model: model.strip }
-          effort = entry[:reasoning_effort] || entry["reasoning_effort"]
+          effort = normalize_effort(entry[:reasoning_effort] || entry["reasoning_effort"])
           normalized[:reasoning_effort] = effort if effort
           normalized
         else
