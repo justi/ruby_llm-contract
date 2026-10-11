@@ -105,6 +105,30 @@ RSpec.describe "Eval::Evaluator" do
       expect(result.passed).to be true
     end
 
+    it "keeps an EvaluationResult the proc returns, as a judge built on another gem does" do
+      judged = RubyLLM::Contract::Eval::EvaluationResult.new(score: 0.3, passed: false, details: "faithful: 0.3")
+      result = described_class.new(->(_o) { judged }).call(output: {})
+
+      expect(result).to be(judged)
+    end
+
+    it "scores the case of an eval with the EvaluationResult its evaluator returns" do
+      step = Class.new(RubyLLM::Contract::Step::Base) do
+        prompt "x {input}"
+        output_type Hash
+        define_eval("judged") do
+          add_case "one", input: "a", evaluator: lambda { |_o|
+            RubyLLM::Contract::Eval::EvaluationResult.new(score: 0.0, passed: false)
+          }
+        end
+      end
+      adapter = RubyLLM::Contract::Adapters::Test.new(response: { name: "x" })
+
+      report = step.run_eval("judged", context: { adapter: adapter })
+
+      expect([report.score, report.passed?]).to eq([0.0, false])
+    end
+
     it "handles numeric return as score" do
       evaluator = described_class.new(->(_o) { 0.75 })
       result = evaluator.call(output: {})

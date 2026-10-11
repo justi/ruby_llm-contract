@@ -161,6 +161,41 @@ RSpec.describe "reasoning_effort: :default (HTTP intercepted)" do
       expect(comparison.reports.keys).to eq(["gpt-4.1-mini (effort: default)"])
     end
 
+    it "runs each candidate alone on a Step with a retry chain, without escalating it" do
+      replies << "not json"
+      chained = Class.new(evaluated) { retry_policy models: %w[gpt-5-nano gpt-5-mini] }
+      low_mini = { model: "gpt-5-mini", reasoning_effort: "low" }
+      comparison = chained.compare_models("smoke", candidates: [no_effort_mini, low_mini],
+                                                   context: { adapter: adapter })
+
+      expect(sent).to eq([["gpt-4.1-mini", nil], ["gpt-5-mini", "low"]])
+      expect(comparison.best_for(min_score: 1.0)).to eq("gpt-5-mini (effort: low)")
+    end
+
+    it "keeps a retry policy the caller passes for the comparison" do
+      replies << "not json"
+      chained = Class.new(evaluated) { retry_policy models: %w[gpt-5-nano gpt-5-mini] }
+      same_model_retry = RubyLLM::Contract::Step::RetryPolicy.new(attempts: 2)
+      chained.compare_models("smoke", candidates: [no_effort_mini],
+                                      context: { adapter: adapter, retry_policy_override: same_model_retry })
+
+      expect(sent).to eq([["gpt-4.1-mini", nil], ["gpt-4.1-mini", nil]])
+    end
+
+    it "runs a Pipeline's chained Step on the candidate" do
+      chained = Class.new(evaluated) { retry_policy models: %w[gpt-5-nano gpt-5-mini] }
+      pipeline = Class.new(RubyLLM::Contract::Pipeline::Base) do
+        def self.name = "SummaryPipeline"
+
+        step chained, as: :summarize
+        define_eval("smoke") { add_case "one", input: "text" }
+      end
+
+      pipeline.compare_models("smoke", candidates: [no_effort_mini], context: { adapter: adapter })
+
+      expect(sent).to eq([["gpt-4.1-mini", nil]])
+    end
+
     it "takes the string from JSON or an optimizer label as the same candidate" do
       from_json = { "model" => "gpt-4.1-mini", "reasoning_effort" => "default" }
 

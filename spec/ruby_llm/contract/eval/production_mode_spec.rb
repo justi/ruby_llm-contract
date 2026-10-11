@@ -125,6 +125,21 @@ RSpec.describe "production_mode: cost measurement" do
       expect(comparison.table).not_to include("→")
     end
 
+    it "draws no chain for a candidate whose fallback would send the same request" do
+      adapter = RubyLLM::Contract::Adapters::Test.new(responses: [{ "name" => "Alice" }])
+
+      comparison = step.compare_models(
+        "basic",
+        candidates: [{ model: "gpt-5-mini", reasoning_effort: "low" }],
+        context: { adapter: adapter },
+        production_mode: { fallback: "gpt-5-mini" }
+      )
+
+      row = comparison.table.lines.find { |line| line.include?("gpt-5-mini (effort: low)") }
+      expect(row).not_to include("→")
+      expect(row).to include("—")
+    end
+
     it "renders arrow chain for distinct candidate/fallback" do
       adapter = RubyLLM::Contract::Adapters::Test.new(responses: [{ "name" => "Alice" }])
 

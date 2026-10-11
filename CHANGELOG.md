@@ -1,5 +1,29 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+- **`compare_models` runs each candidate on a Step with a retry chain.** The
+  Step's `retry_policy` chain picked the model of every attempt, so without
+  `production_mode:` each candidate ran the chain's first model (and escalated
+  through the chain) under its own label: the scores and costs were all the
+  same model's, and `best_for` and `recommend` could name a model never run.
+  A candidate now runs alone, as `optimize_retry_policy` already ran it. This
+  also holds for the Steps of a Pipeline compared with `compare_models`: a Step
+  with its own chain now runs the candidate once instead of its chain. A
+  `retry_policy_override` passed in `context:` is still used, as before.
+- **An `evaluator:` that returns an `EvaluationResult` keeps its score.** The
+  result was taken as a truthy value, so every case passed with 1.0 - also one
+  the evaluator scored 0.0 with `passed: false`, as a judge built on another gem
+  does (the RubyLLM::Tribunal example in the docs). It is now used as returned.
+- **The `production_mode:` table draws no chain for a candidate run alone.**
+  Since 1.4.0 a candidate whose fallback would send the same request runs
+  single-shot, but the table still showed `candidate → fallback` with `0%`
+  when the two labels differed (`gpt-5-mini (effort: low)` with fallback
+  `gpt-5-mini`). It now shows the candidate alone with `—`, as for a fallback
+  equal to the candidate.
+
 ## 1.4.0 (2026-10-11)
 
 ### Added

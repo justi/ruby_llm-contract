@@ -74,8 +74,8 @@ module RubyLLM
         def production_mode_table
           fallback_label = self.class.candidate_label(@fallback)
           rows = @reports.map do |label, report|
-            chain = chain_label(label, fallback_label)
-            { chain: chain, report: report, same: chain_same_as_fallback?(label, fallback_label) }
+            same = !report.production_mode?
+            { chain: same ? label : "#{label} → #{fallback_label}", report: report, same: same }
           end
 
           chain_width = [rows.map { |r| r[:chain].length }.max || 0, 20].max
@@ -91,14 +91,6 @@ module RubyLLM
         end
 
         private
-
-        def chain_label(label, fallback_label)
-          label == fallback_label ? label : "#{label} → #{fallback_label}"
-        end
-
-        def chain_same_as_fallback?(label, fallback_label)
-          label == fallback_label
-        end
 
         def format_production_row(row, chain_width)
           report = row[:report]

@@ -39,6 +39,8 @@ module RubyLLM
 
           def build_evaluation_result(result)
             case result
+            when EvaluationResult
+              result
             when true
               EvaluationResult.new(score: 1.0, passed: true, details: PASSED_DETAILS)
             when false
