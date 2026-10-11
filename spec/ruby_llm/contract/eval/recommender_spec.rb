@@ -331,6 +331,7 @@ RSpec.describe RubyLLM::Contract::Eval::Recommender do
                                 min_score: 0.95).recommend
 
       expect(rec.best).to eq(model: "gpt-4.1-nano")
+      expect(rec.retry_chain).to eq([{ model: "gpt-4.1-nano" }])
       expect(rec.cost_per_call).to eq(0.002)
     end
   end

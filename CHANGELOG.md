@@ -8,11 +8,12 @@
   comparison.** With `runs > 1` each report is an `AggregatedReport`: its results
   hold the cases of all N runs, while `total_cost` is the mean cost of one run. The
   cost per call divided one run's cost by the cases of every run, so with `runs: 3`
-  a $0.002 call showed as $0.0007. That skewed `best`, the retry chain, the rationale
-  and `savings`, and a candidate measured over more runs looked cheaper than one
-  measured once. Cases are now counted per run. `Step.recommend` always compares
-  with one run, so only a `Recommender` built by hand on a multi-run comparison
-  was affected.
+  a $0.002 call showed as $0.0007. Every candidate of one `compare_models` call runs
+  the same number of times, so the ranking held: `cost_per_call`, the rationale and
+  `savings` were wrong, `best` and the retry chain were not. Only a comparison put
+  together from reports with different run counts could pick the wrong model, since
+  a candidate measured over more runs looked cheaper. Cases are now counted per run.
+  `Step.recommend` always compares with one run and was not affected.
 
 ## 1.3.0 (2026-10-11)
 
