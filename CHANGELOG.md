@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.3.0 (2026-10-11)
 
 ### Changed - may turn a green CI red
 
