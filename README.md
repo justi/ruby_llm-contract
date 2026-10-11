@@ -15,12 +15,13 @@ gem "ruby_llm-contract"
 ```ruby
 RubyLLM.configure do |c|
   c.openai_api_key = ENV["OPENAI_API_KEY"]
-  c.default_model  = "gpt-4.1-mini"   # used when a Step has no explicit model
 end
 
 # Required: boots the gem so `Step.run` knows how to talk to your LLM.
-# Empty block is fine. Pass options here if you need them (e.g. `c.logger`).
-RubyLLM::Contract.configure { }
+# An empty block is fine; options such as `c.logger` go here too.
+RubyLLM::Contract.configure do |c|
+  c.default_model = "gpt-4.1-mini"   # used when a Step has no explicit model
+end
 ```
 
 Works with any `ruby_llm` provider (OpenAI, Anthropic, Gemini, etc). Requires `ruby_llm ~> 2.0` and Ruby ≥ 3.2.
@@ -60,7 +61,7 @@ end
 Three things to notice in the snippet above:
 
 - **`{input}` is a gem-specific prompt placeholder** — at call time `SummarizeArticle.run(article_text)` interpolates `article_text` into that slot. For `input_type Hash`, each top-level key becomes its own placeholder (e.g. `{title}`, `{body}`). Plain text in, plain text out — no ERB, no `String#%`.
-- **`validate("...") { |o, _| ... }`** — each block receives `(parsed_output, context)`; the convention `|o, _|` reads "output, ignore context". Use `o[:key]` to assert on any field your schema declared. Return false → status `:validation_failed`, retry fires.
+- **`validate("...") { |o, _| ... }`** — each block receives `(parsed_output, input)`; the convention `|o, _|` reads "output, ignore input". Use `o[:key]` to assert on any field your schema declared. Return false → status `:validation_failed`, retry fires.
 - **`retry_policy do escalate(...) end`** — block form for mixed configs (strings + hashes with per-attempt options). For uniform model lists you can use the shorthand `retry_policy models: %w[gpt-4.1-nano gpt-4.1-mini gpt-4.1]` (it's the same DSL — `models` is an alias for `escalate`).
 
 ```ruby
@@ -68,7 +69,7 @@ result = SummarizeArticle.run(article_text)
 result.status           # => :ok  (or :validation_failed if all steps fail)
 result.parsed_output    # => { tldr: "...", takeaways: [...], tone: "..." }
 result.trace[:model]    # => "gpt-4.1-mini"  (winning step)
-result.trace[:cost]     # => 0.000520        (total across all attempts)
+result.trace[:cost]     # => 0.000309        (total across all attempts)
 
 result.trace[:attempts]
 # => [
@@ -78,7 +79,7 @@ result.trace[:attempts]
 #        status: :validation_failed,
 #        usage: { input_tokens: 256, output_tokens: 84 },
 #        latency_ms: 45,
-#        cost: 0.000100
+#        cost: 0.000059
 #      },
 #      {
 #        attempt: 2,
@@ -86,7 +87,7 @@ result.trace[:attempts]
 #        status: :ok,
 #        usage: { input_tokens: 256, output_tokens: 92 },
 #        latency_ms: 92,
-#        cost: 0.000420
+#        cost: 0.000250
 #      }
 #    ]
 ```
@@ -114,7 +115,7 @@ end
 expect(SummarizeArticle).to pass_eval("regression").without_regressions
 ```
 
-A bad prompt edit or model swap that drops accuracy on the frozen dataset → red CI, blocked merge. The first CI run records a baseline; subsequent runs compare against it. Every production miss should become the next `add_case`. See [Prevent silent prompt regressions](docs/guide/eval_first.md) for the full flywheel.
+A bad prompt edit or model swap that drops accuracy on the frozen dataset → red CI, blocked merge. Save a baseline once (`report.save_baseline!`, or `t.save_baseline = true` in the rake task); until one exists, `without_regressions` has nothing to compare against and passes. Every production miss should become the next `add_case`. See [Prevent silent prompt regressions](docs/guide/eval_first.md) for the full flywheel.
 
 ## Do I need this?
 

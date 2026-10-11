@@ -62,18 +62,18 @@ Nano misclassifies the tone on the first attempt → contract rejects → mini g
 
 **See it in 30 seconds:** `ruby examples/01_fallback_showcase.rb` — zero API keys required. The Test adapter simulates a tone/takeaways mismatch on the first attempt and a consistent sample on the retry, then prints the per-attempt trace.
 
-`retry_policy` has three other shapes beyond cross-model escalation — same-model `attempts: 3` (absorbs sampling variance without paying for a stronger tier), `reasoning_effort` escalation (low → medium → high on one model), and cross-provider fallback (Ollama → Anthropic → OpenAI — local first because it costs nothing, hosted last because it is the most accurate). `examples/06_retry_variants.rb` runs all three through the Test adapter with the trace printed.
+`retry_policy` has three other shapes beyond cross-model escalation — same-model `attempts: 3` (absorbs sampling variance without paying for a stronger tier), `reasoning_effort` escalation (low → medium → high on one model), and cross-provider fallback (OpenAI → Anthropic — ruby_llm picks the provider from the model name; a local Ollama model needs `provider: :ollama` for the whole call, so it cannot be one tier of such a chain). `examples/06_retry_variants.rb` runs all three through the Test adapter with the trace printed.
 
 ## Failure 4 — Runaway cost and no fallback policy
 
-Someone pastes a 40-page PDF into the endpoint that calls `SummarizeArticle`. The prompt expands to 80k tokens. Your provider bill jumps. Meanwhile, a separate team uses `gpt-4.1` for every single call because "quality matters" — even though 80% of their traffic is trivially handled by `gpt-4.1-nano` at 1/30th the cost. Neither situation is visible until the invoice arrives.
+Someone pastes a 40-page PDF into the endpoint that calls `SummarizeArticle`. The prompt expands to 80k tokens. Your provider bill jumps. Meanwhile, a separate team uses `gpt-4.1` for every single call because "quality matters" — even though 80% of their traffic is trivially handled by `gpt-4.1-nano` at 1/20th the cost. Neither situation is visible until the invoice arrives.
 
 Contracts make cost a first-class concern:
 
 ```ruby
 max_input  2_000   # refuses before calling the API if tokens exceed budget
 max_output 4_000
-max_cost   0.01    # refuses if estimated cost exceeds cap
+max_cost   0.05    # refuses if estimated cost exceeds cap (checked per attempt)
 retry_policy models: %w[gpt-4.1-nano gpt-4.1-mini gpt-4.1]  # cheap first, escalate only on failure
 ```
 

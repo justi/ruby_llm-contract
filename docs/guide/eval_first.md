@@ -84,7 +84,8 @@ Compare two prompt versions on the same eval:
 diff = SummarizeArticleV2.compare_with(
   SummarizeArticleV1,
   eval: "regression",
-  model: "gpt-4.1-mini"
+  model: "gpt-4.1-mini",
+  context: { retry_policy_override: nil }   # run mini, not the step's retry chain
 )
 
 diff.safe_to_switch?  # => true if no cases regressed
@@ -103,7 +104,7 @@ end
 
 # Prompt iteration happens afterward
 diff = SummarizeArticleV2.compare_with(
-  SummarizeArticleV1, eval: "regression", model: "gpt-4.1-mini"
+  SummarizeArticleV1, eval: "regression", model: "gpt-4.1-mini", context: { retry_policy_override: nil }
 )
 ```
 
@@ -124,7 +125,7 @@ Good for: offline smoke tests, local development, testing evaluator wiring, chec
 
 Not enough for real prompt decisions. For those:
 
-- `run_eval(..., context: { model: "..." })` with a real model, or pass an explicit adapter via `context: { adapter: ... }`. An *adapter* here is the layer that actually executes the LLM call — `RubyLLM::Contract::Adapters::Test` returns canned data, the default RubyLlm adapter hits the real provider. `model:` chooses the model name; `adapter:` chooses whether the call goes live or stays canned.
+- `run_eval(..., context: { adapter: RubyLLM::Contract::Adapters::RubyLLM.new, model: "..." })` with a real model. An *adapter* here is the layer that actually executes the LLM call — `RubyLLM::Contract::Adapters::Test` returns canned data, the RubyLLM adapter hits the real provider. `model:` chooses the model name; `adapter:` chooses whether the call goes live or stays canned: an eval with `sample_response` stays canned until you pass an adapter, whatever `model:` says. On a step with a `retry_policy` chain, the chain picks each attempt's model, so add `retry_policy_override: nil` to measure the one you name.
 - `compare_with(...)` for prompt A/B.
 
 `compare_with` intentionally ignores `sample_response` — canned data would make both sides look the same.
@@ -135,11 +136,11 @@ For larger datasets, `run_eval` accepts a `concurrency:` argument — cases run 
 
 ```ruby
 report = SummarizeArticle.run_eval("regression",
-  context: { model: "gpt-4.1-mini" },
+  context: { model: "gpt-4.1-mini", retry_policy_override: nil },
   concurrency: 8)
 ```
 
-Same accepted by `compare_models` and `optimize_retry_policy`. Thread count is a ceiling — dataset order of results is preserved. Keep it low enough to respect the provider's rate limits.
+`compare_models` and `optimize_retry_policy` do not take `concurrency:`; they run cases one at a time. Thread count is a ceiling — dataset order of results is preserved. Keep it low enough to respect the provider's rate limits.
 
 ## Budgeting an eval before you run it
 
@@ -148,7 +149,7 @@ Same accepted by `compare_models` and `optimize_retry_policy`. Thread count is a
 ```ruby
 SummarizeArticle.estimate_eval_cost("regression",
   models: %w[gpt-4.1-nano gpt-4.1-mini gpt-4.1])
-# => { "gpt-4.1-nano" => 0.00041, "gpt-4.1-mini" => 0.0018, "gpt-4.1" => 0.0092 }
+# => { "gpt-4.1-nano" => 0.003207, "gpt-4.1-mini" => 0.012829, "gpt-4.1" => 0.064142 }
 ```
 
 Use it in CI to decide which models are worth running regression on, or to cap worst-case spend per build.

@@ -37,11 +37,11 @@ class SummarizeArticle < RubyLLM::Contract::Step::Base
   # 5. Refuse before calling the LLM if input is too large or estimated cost exceeds the cap
   max_input  2_000
   max_output 4_000
-  max_cost   0.01
+  max_cost   0.05
 end
 ```
 
-Each `validate` block receives `(parsed_output, context)` — the convention `|o, _|` reads "output, ignore context". Use `o[:key]` to assert on any field your `output_schema` declared. The block returns truthy/falsy: `false` → status `:validation_failed`, retry fires if `retry_policy` was set.
+Each `validate` block receives `(parsed_output, input)` — the convention `|o, _|` reads "output, ignore input". Use `o[:key]` to assert on any field your `output_schema` declared. The block returns truthy/falsy: `false` → status `:validation_failed`, retry fires if `retry_policy` was set.
 
 ## Validation and retry behavior
 
@@ -53,13 +53,13 @@ result = SummarizeArticle.run(article_text)
 result.status           # => :ok
 result.parsed_output    # => { tldr: "...", takeaways: [...], tone: "analytical" }
 result.trace[:model]    # => "gpt-4.1-mini"  (first model that passed)
-result.trace[:cost]     # => 0.00052  (sum of all attempts)
+result.trace[:cost]     # => 0.000309  (sum of all attempts)
 result.trace[:attempts]
 # => [
 #   { attempt: 1, model: "gpt-4.1-nano", status: :validation_failed,
-#     cost: 0.00010, latency_ms: 45, ... },
+#     cost: 0.000059, latency_ms: 45, ... },
 #   { attempt: 2, model: "gpt-4.1-mini", status: :ok,
-#     cost: 0.00042, latency_ms: 92, ... }
+#     cost: 0.000250, latency_ms: 92, ... }
 # ]
 ```
 
@@ -103,6 +103,8 @@ retry_policy models: [
 ```
 
 `reasoning_effort` is a gpt-5 family feature (gpt-4.1 is not a reasoning model). The per-attempt value is forwarded via `with_thinking` (provider-agnostic — OpenAI `reasoning_effort` and Anthropic extended-thinking budget both supported). Passing it alongside a non-reasoning model is forwarded unchanged to the provider, which will either ignore it or reject the request — the gem does not guard against this. An element without `reasoning_effort` inherits the call's or the step's; `{ model: "gpt-4.1-mini", reasoning_effort: :default }` sends none (see [thinking DSL note](optimizing_retry_policy.md#thinking-dsl-note)).
+
+On a step with a `retry_policy` chain, the chain picks the model of every attempt, so a `model:` in the context (of `run`, `run_eval`, `compare_with` or `pass_eval(...).with_context`) is not used. To measure or run one model, add `retry_policy_override: nil` to the context. `compare_models` does this for each candidate.
 
 ## Evals and CI gates
 
@@ -178,7 +180,7 @@ expect(SummarizeArticle).to pass_eval("regression").without_regressions
 `max_input`, `max_output`, and `max_cost` are preflight checks — the LLM is never called if an estimate exceeds the limit. Zero tokens spent, zero cost.
 
 ```ruby
-result = SummarizeArticle.run(giant_10mb_document)
+result = SummarizeArticle.run(forty_page_report)   # ~128k characters
 result.status            # => :limit_exceeded
 result.validation_errors
 # => ["Input token limit exceeded: estimated 32000 tokens (heuristic ±30%), max 2000"]
@@ -251,13 +253,13 @@ SummarizeArticle.estimate_cost(input: article_text)
 # => {
 #      model: "gpt-4.1-mini",
 #      input_tokens: 812, output_tokens_estimate: 4000,
-#      estimated_cost: 0.00243
+#      estimated_cost: 0.00672
 #    }
 
 # Estimate what a full eval would cost across candidate models
 SummarizeArticle.estimate_eval_cost("regression",
   models: %w[gpt-4.1-nano gpt-4.1-mini gpt-4.1])
-# => { "gpt-4.1-nano" => 0.00041, "gpt-4.1-mini" => 0.0018, "gpt-4.1" => 0.0092 }
+# => { "gpt-4.1-nano" => 0.003207, "gpt-4.1-mini" => 0.012829, "gpt-4.1" => 0.064142 }
 ```
 
 `estimate_cost` returns `nil` when pricing isn't registered. `estimate_eval_cost` silently treats unknown-pricing cases as `$0.00` and sums the rest — it does **not** fail closed the way `max_cost` does. Treat its output as a floor, not a guarantee; register pricing via `CostCalculator.register_model` before relying on it for budget decisions.

@@ -153,6 +153,12 @@ The gem handles single calls. You handle parallelism:
 
 ```ruby
 class SummarizeBatch < RubyLLM::Contract::Step::Base
+  prompt <<~PROMPT
+    Give a one-line TL;DR for each article below, keyed by its id.
+
+    {input}
+  PROMPT
+
   output_schema do
     array :summaries do
       object do

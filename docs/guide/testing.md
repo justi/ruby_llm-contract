@@ -33,7 +33,7 @@ result = SummarizeArticle.run("article text", context: { adapter: adapter })
 result.ok?  # => true
 ```
 
-Multi-step pipeline testing with per-step named responses (using `ArticleCardPipeline` from [Pipeline](pipeline.md)). The keys in `responses:` must match the step identifiers declared with `add_step :name, ...` in your pipeline definition — `:summarize`, `:tag`, `:card` here map to the three steps in that order.
+Multi-step pipeline testing with per-step named responses (using `ArticleCardPipeline` from [Pipeline](pipeline.md)). The keys in `responses:` must match the step identifiers declared with `step Klass, as: :name` in your pipeline definition — `:summarize`, `:tag`, `:card` here map to the three steps in that order.
 
 ```ruby
 result = ArticleCardPipeline.test("article text",
@@ -56,7 +56,7 @@ result.parsed_output[:tldr]     # => "..." ✓
 result.parsed_output["tldr"]    # => nil ✗
 ```
 
-The gem warns if a `validate` block (Step-level invariant check) or a `verify` block (eval-case evaluator declared via `verify(name) { |output| ... }` inside `define_eval`) returns `nil` — usually a sign of string-key access on symbol-keyed data.
+The gem warns if a `validate` block (Step-level invariant check) or a `verify` proc (eval-case evaluator declared via `verify "name", ->(output) { ... }` inside `define_eval`) returns `nil` — usually a sign of string-key access on symbol-keyed data.
 
 ## RSpec setup
 
@@ -128,7 +128,7 @@ In RSpec, non-block stubs auto-clean after each example. In Minitest, `teardown`
 
 ## Minitest
 
-Require `ruby_llm/contract/minitest` in your `test_helper.rb`. You get the same `satisfy_contract` / `pass_eval` assertions and `stub_step` helper, adapted for Minitest syntax.
+Require `ruby_llm/contract/minitest` in your `test_helper.rb` and `include RubyLLM::Contract::MinitestHelpers` in your test class (or `ActiveSupport::TestCase`). You get `assert_satisfies_contract` / `refute_satisfies_contract` and `assert_eval_passes` (the Minitest counterparts of `satisfy_contract` and `pass_eval`) and the same `stub_step` helper.
 
 ## RSpec matchers
 
@@ -158,7 +158,7 @@ end
 
 `pass_eval` supports a matcher chain — full reference lives in [Getting Started](getting_started.md) under Evals and CI gates. Quick summary:
 
-- `.with_context(model: "gpt-4.1-mini")` — pick model / pass adapter
+- `.with_context(model: "gpt-4.1-mini")` — pick model / pass adapter (on a step with a `retry_policy` chain, also pass `retry_policy_override: nil`, or the chain picks the model)
 - `.with_minimum_score(0.8)` — gate on average score
 - `.with_maximum_cost(0.01)` — gate on total cost; fails when a case's model has no pricing data unless you add `.on_unknown_pricing(:warn)`
 - `.without_regressions` — block any previously-passing case that now fails (reads the baseline)
@@ -168,18 +168,19 @@ end
 
 Evals run in one of two modes depending on how they're defined and what context is passed:
 
-| Has `sample_response`? | Context has adapter/model? | Mode | API calls |
+| Has `sample_response`? | `adapter:` in context? | Mode | API calls |
 |---|---|---|---|
-| Yes | No | **Offline** — uses `sample_response` as canned answer | Zero |
+| Yes | No | **Offline** — uses `sample_response` as canned answer (a `model:` alone does not change that) | Zero |
 | Yes | Yes | **Online** — ignores `sample_response`, calls real LLM | Real |
 | No | Yes | **Online** — calls real LLM | Real |
-| No | No | **Skipped** — returns `:skipped`, excluded from score | Zero |
+| No | No | **Online** with the default adapter, which `RubyLLM::Contract.configure` sets up; **Skipped** (`:skipped`, excluded from score) only when no adapter is configured | Real / Zero |
 
-Default is offline. To force online, pass adapter or model in context:
+Default is offline. To force online, pass an adapter in context:
 
 ```ruby
 # Online — real LLM call
-report = SummarizeArticle.run_eval("regression", context: { model: "gpt-4.1-nano" })
+report = SummarizeArticle.run_eval("regression",
+  context: { adapter: RubyLLM::Contract::Adapters::RubyLLM.new, model: "gpt-4.1-nano" })
 
 # Offline — uses sample_response
 report = SummarizeArticle.run_eval("smoke")
@@ -232,7 +233,7 @@ result.ok?           # => true (observe never fails the contract)
 result.observations  # => [{ description: "scores should differ", passed: false }]
 ```
 
-`observe` runs only after validation passes. Failed observations are logged via `RubyLLM::Contract.logger` — useful for "I want to know this happened without blocking the response".
+`observe` runs only after validation passes. Failed observations are logged via the logger set in `RubyLLM::Contract.configure` (`c.logger`) — useful for "I want to know this happened without blocking the response".
 
 > **Not the same as `Chat#on_end_message` / `on_tool_call`.** RubyLLM exposes anonymous, global callbacks attached to a chat instance — they receive the raw `Message` and have no inherent pass/fail concept. `Step.observe` is per-step, named with a description, runs against `parsed_output` (already JSON-parsed and schema-validated), and the pass/fail outcome is recorded in `result.observations`. The two can coexist: use Chat callbacks for transport/tool tracing, use `observe` for domain assertions you want captured in the step trace.
 
@@ -269,8 +270,8 @@ Baselines are JSON files in `.eval_baselines/` — commit them to git:
 ```
 .eval_baselines/
   SummarizeArticle/
-    regression_gpt-4_1-nano.json
-    regression_gpt-4_1-mini.json
+    regression.json                  # report.save_baseline!, the rake task, without_regressions
+    regression_gpt-4_1-mini.json     # report.save_baseline!(model: "gpt-4.1-mini"), one per model
 ```
 
 Each file contains dataset name, step name, score, and per-case results. No timestamps — re-saving an identical baseline produces no git diff. Baseline semantics (what counts as a regression, how `compare_with_baseline` works) are covered in [Getting Started](getting_started.md#evals-and-ci-gates) and [Eval-First](eval_first.md).

@@ -34,7 +34,7 @@ The judge is just another Step. The benefit of using `ruby_llm-contract`: you ge
 
 The judge takes **two** inputs in a single Hash: the SOURCE you want the answer to be faithful to (here: the article), and the ANSWER under review (here: the summary). Both are required — without the source, the judge has nothing to verify against.
 
-The `prompt do` DSL uses a small template syntax: `{key}` placeholders are interpolated from the input. With `input_type Hash`, every top-level key of the hash becomes available as `{key}` — here `{article}` and `{summary}` map to `input[:article]` and `input[:summary]` when you later call `AccuracyJudge.run(article: ..., summary: ...)`. With `input_type String`, you use the special `{input}` placeholder (one input, one slot). It is the gem's own syntax — not ERB, not `String#%`, not string interpolation — and it is what makes the judge inputs visible inside the prompt.
+The `prompt do` DSL uses a small template syntax: `{key}` placeholders are interpolated from the input. With `input_type Hash`, every top-level key of the hash becomes available as `{key}` — here `{article}` and `{summary}` map to `input[:article]` and `input[:summary]` when you later call `AccuracyJudge.run({ article: ..., summary: ... })` (one Hash argument, so the braces are needed). With `input_type String`, you use the special `{input}` placeholder (one input, one slot). It is the gem's own syntax — not ERB, not `String#%`, not string interpolation — and it is what makes the judge inputs visible inside the prompt.
 
 ```ruby
 # A cheap model reads the summary against its source and decides if the
@@ -66,11 +66,12 @@ class AccuracyJudge < RubyLLM::Contract::Step::Base
   end
 
   retry_policy models: %w[gpt-5-nano gpt-5-mini]
-  max_cost 0.001
+  max_output 2_000   # gpt-5 reasoning tokens count as output
+  max_cost   0.01
 end
 ```
 
-The `retry_policy` escalates to `gpt-5-mini` if the cheaper `gpt-5-nano` fails schema/validate (e.g., returns malformed JSON) — the judge stays reliable without paying for the bigger model on every call. `max_cost 0.001` bounds each call: the judge runs N× per eval suite (one call per case), so capping per-call cost prevents calibration runs from blowing the budget.
+The `retry_policy` escalates to `gpt-5-mini` if the cheaper `gpt-5-nano` fails schema/validate (e.g., returns malformed JSON) — the judge stays reliable without paying for the bigger model on every call. `max_cost 0.01` bounds each call (with `max_output 2_000`, up to roughly 24k input tokens on `gpt-5-mini`): the judge runs N× per eval suite (one call per case), so capping per-call cost prevents calibration runs from blowing the budget.
 
 This is small on purpose: one boolean, one reason. Easy to read, easy to disagree with.
 
@@ -148,7 +149,7 @@ Only now, after the judge has earned trust on real data, do you use it as the or
 
 The lambda must return a `Float` in `[0.0, 1.0]` — the eval framework averages per-case scores into the suite score. Map `true → 1.0`, `false → 0.0`, or use weighted partial scores if your judge returns gradations.
 
-> ⚠️ **Heads-up before you copy the snippet below.** Smoke evals on `SummarizeArticle` (per [Getting Started](getting_started.md)) typically run with `RubyLLM::Contract::Adapters::Test` for determinism — canned summaries, no API calls. **The `AccuracyJudge.run(...)` inside the evaluator does NOT inherit that Test adapter.** Each Step picks its adapter independently (from `RubyLLM::Contract.configure`, `context: { adapter: }`, or `LIVE=1` env). Run accuracy-regression evals as live (`LIVE=1` or explicit `context:`), and rely on `max_cost` on the judge to bound the bill.
+> ⚠️ **Heads-up before you copy the snippet below.** Smoke evals on `SummarizeArticle` (per [Getting Started](getting_started.md)) typically run with `RubyLLM::Contract::Adapters::Test` for determinism — canned summaries, no API calls. **The `AccuracyJudge.run(...)` inside the evaluator does NOT inherit that Test adapter.** Each Step picks its adapter independently (from `context: { adapter: }`, or the `default_adapter` set in `RubyLLM::Contract.configure`). Run accuracy-regression evals live (an explicit `context:` or a configured default adapter), and rely on `max_cost` on the judge to bound the bill.
 >
 > This is intentional: the judge IS the oracle, so faking its verdicts would defeat the purpose. Keep the Test-adapter smoke evals for schema/wiring checks only.
 
@@ -161,7 +162,7 @@ SummarizeArticle.define_eval("accuracy_regression") do
                summary: output[:tldr],
                article: input
              })
-             verdict.parsed_output[:accurate] ? 1.0 : 0.0
+             verdict.ok? && verdict.parsed_output[:accurate] ? 1.0 : 0.0
            }
 
   # ... one case per real production article you want to defend

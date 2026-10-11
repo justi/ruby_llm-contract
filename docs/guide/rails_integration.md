@@ -141,16 +141,22 @@ Add to `spec/spec_helper.rb` (or `test_helper.rb`):
 require "ruby_llm/contract/rspec"    # or ruby_llm/contract/minitest
 ```
 
+With Minitest, also `include RubyLLM::Contract::MinitestHelpers` in `ActiveSupport::TestCase`.
+
 Then in specs:
 
 ```ruby
 RSpec.describe ArticlesController do
+  include ActiveJob::TestHelper
+
   it "saves the summary when the step passes" do
     stub_step(SummarizeArticle, response: {
       tldr: "...", takeaways: %w[a b c], tone: "analytical"
     })
 
-    post :summarize, params: { id: article.id }
+    # `summarize` enqueues SummarizeArticleJob; run it here, on this thread,
+    # where the stub applies (stub_step is thread-local).
+    perform_enqueued_jobs { post :summarize, params: { id: article.id } }
 
     # NOTE: jsonb/json column round-trips as string keys on reload.
     expect(article.reload.summary["tldr"]).to eq("...")

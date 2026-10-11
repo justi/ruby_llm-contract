@@ -8,11 +8,11 @@ Pedagogical order: hook → activation → evolution → composition → quality
 |---|------|---------|
 | 00 | `00_basics.rb` | **"How do I start?"** — seven incremental layers: plain prompt → output_schema → validate → structured prompt → Hash input → cross-input validate → retry_policy → trace inspection, plus real-LLM swap pointer. |
 | 01 | `01_fallback_showcase.rb` | **"Show me the gem in 30 seconds."** — Part A: schema-only ships a flaky sample. Part B: full contract rejects it and retry_policy escalates to the next model. Per-attempt trace printed inline. |
-| 02 | `02_real_llm_minimal.rb` | **"How do I plug in a real LLM?"** — ~30 lines. `Adapters::RubyLLM.new` in context, same step. Also shows per-call provider switch (OpenAI → Anthropic → Ollama). |
+| 02 | `02_real_llm_minimal.rb` | **"How do I plug in a real LLM?"** — ~30 lines. `Adapters::RubyLLM.new` in context, same step. Also shows a per-call model switch (Anthropic, or a local Ollama model) with the step's retry chain turned off for that call. |
 | 03 | `03_summarize_with_keywords.rb` | **"How does the contract evolve when the product grows?"** — marketing wants a "topic pills" row, so `SummarizeArticle` gains a keywords field with probability and cross-validation. Prompt, schema, and validates stay in lockstep. |
 | 04 | `04_summarize_and_translate.rb` | **"How do steps compose into a pipeline?"** — 3 steps threaded by `Pipeline::Base`: English summary → translate to French → quality review. Fail-fast: a rejected summary means translate and review never run. |
 | 05 | `05_eval_dataset.rb` | **"How do I stop silent prompt regressions?"** — define_eval with real cases, baseline vs regressed adapter, regression detection signal, inline eval_case. |
-| 06 | `06_retry_variants.rb` | **"What retry shapes exist beyond cross-model?"** — `attempts: 3` (variance absorption), `reasoning_effort` escalation (low→medium→high), cross-provider fallback (Ollama → Anthropic → OpenAI). |
+| 06 | `06_retry_variants.rb` | **"What retry shapes exist beyond cross-model?"** — `attempts: 3` (variance absorption), `reasoning_effort` escalation (low→medium→high), cross-provider fallback (OpenAI → Anthropic). |
 
 Four of the seven carry an "Expected output" section in the file header (01, 03, 05, 06), so you can read what they print without running them. The other three differ: `00_basics.rb` prints nothing and annotates each result inline with `# =>`; `02_real_llm_minimal.rb` needs a live provider key, so its output is not deterministic; `04_summarize_and_translate.rb` prints but has no header block.
 

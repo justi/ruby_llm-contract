@@ -166,9 +166,14 @@ r.trace[:cost]       # => sum of per-attempt costs
 #   adapter = RubyLLM::Contract::Adapters::RubyLLM.new
 #   result  = SummarizeArticleWithRetry.run(article_text, context: { adapter: adapter })
 #
-# Switch provider per call — ruby_llm resolves the provider from the model name:
-#   SummarizeArticleWithRetry.run(article_text, context: { adapter: adapter, model: "claude-sonnet-4-6" })
-#   SummarizeArticleWithRetry.run(article_text, context: { adapter: adapter, model: "gemma3:4b" })  # local Ollama
+# Switch provider per call — ruby_llm resolves the provider from the model name.
+# The retry_policy chain picks the model of every attempt, so turn it off for
+# the call (retry_policy_override: nil) to run a model of your choice:
+#   SummarizeArticleWithRetry.run(article_text, context: { adapter: adapter, model: "claude-sonnet-4-6",
+#                                                          retry_policy_override: nil })
+#   SummarizeArticleWithRetry.run(article_text, context: { adapter: adapter, model: "gemma3:4b",
+#                                                          retry_policy_override: nil,
+#                                                          provider: :ollama, assume_model_exists: true })
 
 # =============================================================================
 # Where to go next

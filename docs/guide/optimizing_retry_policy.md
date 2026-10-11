@@ -2,13 +2,13 @@
 
 > Read this when you have 2+ evals and want to know empirically — not by guessing — which models belong in `retry_policy` and in what order.
 
-You defined `SummarizeArticle` in the [README](../../README.md) with `retry_policy models: %w[gpt-4.1-nano gpt-4.1-mini gpt-4.1]`. That list was a guess. `optimize_retry_policy` tells you which models your evals actually need, so you stop paying for the strong model when `nano` was enough — or stop shipping `nano` when the hardest eval proves it isn't.
+You defined `SummarizeArticle` in [Getting Started](getting_started.md) with `retry_policy models: %w[gpt-4.1-nano gpt-4.1-mini gpt-4.1]`. That list was a guess. `optimize_retry_policy` tells you which models your evals actually need, so you stop paying for the strong model when `nano` was enough — or stop shipping `nano` when the hardest eval proves it isn't.
 
 ## Requirements
 
 - **`SummarizeArticle` already has `retry_policy`.** If your step has none, add one first ([getting started](getting_started.md)).
 - **2–3 evals per step.** One eval optimizes for one scenario; with only `smoke`, you get a recommendation that passes smoke but may miss production edge cases. See [eval-first](eval_first.md).
-- **Rake task `ruby_llm_contract:optimize` is registered when `lib/ruby_llm/contract/rake_task.rb` is loaded.** In Rails apps on **0.10.4+** the railtie auto-loads it lazily during `rake` invocation — no manual setup needed. On older Rails versions or in non-Rails projects, add `require "ruby_llm/contract/rake_task"` to your `Rakefile` (or any file under `lib/tasks/`) and set `EVAL_DIRS=...` on the command line.
+- **Rake task `ruby_llm_contract:optimize` is registered when `lib/ruby_llm/contract/rake_task.rb` is loaded.** In Rails apps the railtie auto-loads it lazily during `rake` invocation — no manual setup needed. In non-Rails projects, add `require "ruby_llm/contract/rake_task"` to your `Rakefile` (or any file under `lib/tasks/`) and set `EVAL_DIRS=...` on the command line.
 
 > **Two orthogonal dimensions to a retry chain.** A chain element is `{ model:, reasoning_effort: }` — model identity AND thinking budget. `optimize_retry_policy` explores both. You can pin the default thinking config at class level too — see the `thinking` DSL note at the end.
 
@@ -27,10 +27,10 @@ Run once offline to verify the wiring:
 ```bash
 rake ruby_llm_contract:optimize \
   STEP=SummarizeArticle \
-  CANDIDATES=gpt-4.1-nano,gpt-4.1-mini@low,gpt-4.1-mini,gpt-4.1
+  CANDIDATES=gpt-5-nano,gpt-5-mini@low,gpt-5-mini,gpt-5
 ```
 
-The `@low` (or `@medium`, `@high`) suffix on a candidate is CLI shorthand for `{ model: "gpt-4.1-mini", reasoning_effort: :low }` — saves you constructing hash strings on the command line. Plain model names without `@` use the Step's default thinking config (or none). `@default` runs the candidate with no effort at all, which is what a model without reasoning needs when the Step sets one: `CANDIDATES=gpt-6-luna@none,gpt-4.1-mini@default`.
+The `@low` (or `@medium`, `@high`) suffix on a candidate is CLI shorthand for `{ model: "gpt-5-mini", reasoning_effort: "low" }` — saves you constructing hash strings on the command line. Plain model names without `@` use the Step's default thinking config (or none). `@default` runs the candidate with no effort at all, which is what a model without reasoning needs when the Step sets one: `CANDIDATES=gpt-6-luna@none,gpt-4.1-mini@default`.
 
 List candidates from the cheapest to the most expensive. The optimizer takes that order as the cost order: the suggested chain tries them in it, and the first candidate that passes every eval is the safe fallback. It does not sort by price.
 
@@ -41,7 +41,7 @@ Offline uses each eval's `sample_response` — zero API calls. **Every candidate
 ```bash
 LIVE=1 RUNS=3 rake ruby_llm_contract:optimize \
   STEP=SummarizeArticle \
-  CANDIDATES=gpt-4.1-nano,gpt-4.1-mini@low,gpt-4.1-mini,gpt-4.1
+  CANDIDATES=gpt-5-nano,gpt-5-mini@low,gpt-5-mini,gpt-5
 ```
 
 `LIVE=1` makes real API calls. `RUNS=3` averages each `(candidate, eval)` pair over three runs — necessary because OpenAI forces `temperature=1.0` on gpt-5 / o-series and the same pair can score `0.00` on one run and `1.00` on the next.
@@ -51,28 +51,35 @@ Output (illustrative):
 ```
 SummarizeArticle — fallback list optimization
 
-  eval             4.1-nano  4.1-mini@low  4.1-mini   4.1
-  ---------------------------------------------------------
-  smoke                1.00          1.00      1.00  1.00
-  dense_article        0.67 ←        1.00      1.00  1.00
-  critical_tone        0.50 ←        0.67 ←    1.00  1.00
+  eval               nano  mini@low      mini     gpt-5
+  -----------------------------------------------------
+  smoke            1.00      1.00      1.00      1.00
+  dense_article    0.67      1.00      1.00      1.00
+  critical_tone    0.50 ←    0.67 ←    1.00      1.00
 
   Hardest eval: critical_tone
 
   Suggested fallback list:
-    gpt-4.1-nano         — covers 1 eval(s)
-    gpt-4.1-mini         — passes all 3 evals
+    gpt-5-nano — covers 1 eval(s)
+    gpt-5-mini (effort: low) — covers 1 eval(s)
+    gpt-5-mini — passes all 3 evals
 
   DSL:
-    retry_policy models: %w[gpt-4.1-nano gpt-4.1-mini]
+    retry_policy do
+      escalate(
+        { model: "gpt-5-nano" },
+        { model: "gpt-5-mini", reasoning_effort: "low" },
+        { model: "gpt-5-mini" }
+      )
+    end
 ```
 
 Reading the table:
 - **`←` marks scores below threshold in the hardest eval.** Not a selection hint — just "this candidate fails the row that matters most".
-- **Hardest eval** = the one that forces the strong fallback. Here, `critical_tone` demands `gpt-4.1-mini`.
-- **Suggested fallback list** = the shortest chain where each step covers more evals, built greedy-cheapest-first. Stops when all evals pass. Order matters: `gpt-4.1-nano` is tried first; on validation failure, the gem falls back to `gpt-4.1-mini`.
+- **Hardest eval** = the one that forces the strong fallback. Here, `critical_tone` demands `gpt-5-mini` at its default effort.
+- **Suggested fallback list** = the shortest chain where each step covers more evals, built greedy-cheapest-first. Stops when all evals pass. Order matters: `gpt-5-nano` is tried first; on validation failure, the gem falls back to `gpt-5-mini` at low effort, then at its default.
 
-Copy the DSL, paste into your step, verify with `rake ruby_llm_contract:eval`. You just dropped `gpt-4.1` from the chain — most requests finish on nano, mini handles what nano misses, and the strong model was never needed.
+Copy the DSL, paste into your step, verify with `rake ruby_llm_contract:eval` (defined by `RubyLLM::Contract::RakeTask.new`, see [Rails integration](rails_integration.md#7-ci-gate--block-regressions-before-merge)). You just dropped `gpt-5` from the chain — most requests finish on nano, mini handles what nano misses, and the strong model was never needed.
 
 ## Measure effective cost before shipping
 
@@ -83,8 +90,8 @@ Copy the DSL, paste into your step, verify with `rake ruby_llm_contract:eval`. Y
 ```ruby
 SummarizeArticle.compare_models(
   "dense_article",
-  candidates: [{ model: "gpt-5-nano" }, { model: "gpt-5-mini", reasoning_effort: "low" }],
-  production_mode: { fallback: "gpt-5-mini" }
+  candidates: [{ model: "gpt-5-nano" }, { model: "gpt-5-mini", reasoning_effort: "low" }, { model: "gpt-5" }],
+  production_mode: { fallback: "gpt-5" }
 ).print_summary
 ```
 
@@ -93,17 +100,20 @@ Output (live mode, illustrative):
 ```
 dense_article — model comparison
 
-  Chain                                    first-attempt  fallback %  effective cost  latency   score
-  ---------------------------------------------------------------------------------------------------
-  gpt-5-nano → gpt-5-mini                  $0.0010        33%         $0.0018         164ms     1.00
-  gpt-5-mini (effort: low) → gpt-5-mini    $0.0015         5%         $0.0016         210ms     1.00
-  gpt-5-mini                               $0.0030         —          $0.0030         220ms     1.00
+  Chain                             first-attempt  fallback %  effective cost  latency    score
+  ----------------------------------------------------------------------------------------------
+  gpt-5-nano → gpt-5                $0.0010        33%         $0.0030         164ms        1.00
+  gpt-5-mini (effort: low) → gpt-5  $0.0015        5%          $0.0018         210ms        1.00
+  gpt-5                             $0.0060        —           $0.0060         450ms        1.00
+
+  Best overall: gpt-5-mini (effort: low)
+  Cheapest at 100%: gpt-5-mini (effort: low)
 ```
 
 - **first-attempt** — cost of the first run alone.
 - **fallback %** — fraction of cases where the validator rejected and the fallback ran.
 - **effective cost** — total per successful output including retries.
-- **`—`** — candidate equals fallback, no chain to observe.
+- **`—`** — the fallback would send the candidate's own request, so the candidate runs alone and there is no chain to observe.
 
 Run this before finalizing: a candidate saving 3× on first-attempt but falling back 60% of the time may save only 1.2× in production.
 
@@ -137,7 +147,7 @@ Forwarded to `Chat#with_thinking(**)` through the adapter — works provider-agn
 `reasoning_effort: :default` - the same word as in the DSL - sends no effort for one call, candidate or chain element, and keeps a `thinking budget:`. Use it to run a Step set up for a reasoning model on one that takes no effort, which a provider otherwise rejects (OpenAI: "Unsupported parameter: 'reasoning.effort'"):
 
 ```ruby
-SummarizeArticle.run(text, context: { model: "gpt-4.1-mini", reasoning_effort: :default })
+SummarizeArticle.run(text, context: { model: "gpt-4.1-mini", reasoning_effort: :default, retry_policy_override: nil })
 SummarizeArticle.compare_models("regression", candidates: [{ model: "gpt-6-luna" },
                                                            { model: "gpt-4.1-mini", reasoning_effort: :default }])
 retry_policy { escalate({ model: "gpt-6-luna" }, { model: "gpt-4.1-mini", reasoning_effort: :default }) }

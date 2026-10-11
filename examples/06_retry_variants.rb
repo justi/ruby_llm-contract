@@ -20,9 +20,9 @@
 #       attempt 1  effort=low     status=validation_failed
 #       attempt 3  effort=high    status=ok
 #
-#   C — cross-provider Ollama → Anthropic → OpenAI
-#       attempt 1  model=gemma3:4b          status=validation_failed
-#       attempt 3  model=gpt-5-nano         status=ok
+#   C — cross-provider OpenAI → Anthropic
+#       attempt 1  model=gpt-5-nano         status=validation_failed
+#       attempt 3  model=claude-haiku-4-5   status=ok
 # =============================================================================
 
 require_relative "../lib/ruby_llm/contract"
@@ -108,26 +108,30 @@ adapter = RubyLLM::Contract::Adapters::Test.new(responses: RESPONSES)
 print_trace("reasoning escalation", SummarizeArticleReasoningEscalation.run("article", context: { adapter: adapter }))
 
 # =============================================================================
-# VARIANT C — cross-provider fallback (Ollama → Anthropic → OpenAI)
+# VARIANT C — cross-provider fallback (OpenAI → Anthropic)
 #
-# When to use: you want to start on a local model (cheap, private, no quota)
-# and fall back to hosted providers only when the local one cannot satisfy
-# the contract. Each tier is a different provider — ruby_llm detects the
-# provider from the model name.
+# When to use: the cheap tiers live on one provider and the last resort on
+# another. ruby_llm detects the provider from the model name, so a chain of
+# models from its registry can cross providers.
 #
-# To run against real backends: configure ruby_llm for all three providers
-# (ollama_api_base + anthropic_api_key + openai_api_key) and swap the Test
-# adapter for Adapters::RubyLLM. The retry_policy itself is unchanged.
+# To run against real backends: configure ruby_llm for both providers
+# (openai_api_key + anthropic_api_key) and swap the Test adapter for
+# Adapters::RubyLLM. The retry_policy itself is unchanged.
 #
-# Order matters: local first (costs nothing); hosted last (most accurate).
+# A chain element carries only `model` and `reasoning_effort`. A local
+# Ollama model needs `provider: :ollama` (and `assume_model_exists: true`)
+# in the context, which applies to every attempt, so it cannot be one tier
+# of a chain that also reaches hosted providers.
+#
+# Order matters: cheapest first; the last tier is the safety net.
 # =============================================================================
 
 class SummarizeArticleCrossProvider < SummarizeArticle
-  retry_policy models: %w[gemma3:4b claude-haiku-4-5 gpt-5-nano]
+  retry_policy models: %w[gpt-5-nano gpt-5-mini claude-haiku-4-5]
 end
 
 puts "=" * 70
-puts "C — cross-provider fallback (Ollama → Anthropic → OpenAI)"
+puts "C — cross-provider fallback (OpenAI → Anthropic)"
 puts "=" * 70
 adapter = RubyLLM::Contract::Adapters::Test.new(responses: RESPONSES)
 print_trace("cross-provider", SummarizeArticleCrossProvider.run("article", context: { adapter: adapter }))
@@ -140,8 +144,8 @@ print_trace("cross-provider", SummarizeArticleCrossProvider.run("article", conte
 # 2. `reasoning_effort` escalation is cheaper than model escalation when the
 #    model is right but needs more thinking, not a stronger backbone.
 # 3. Cross-provider retry uses the same DSL — ruby_llm resolves the provider
-#    from the model name. Start cheapest (often a local Ollama model), end
-#    on the most accurate hosted provider.
+#    from the model name. Start cheapest, end on the most accurate model,
+#    whichever provider hosts it.
 # 4. The per-attempt trace (model, config, status, cost) is identical across
 #    variants — your logging does not care which retry shape you picked.
 # =============================================================================

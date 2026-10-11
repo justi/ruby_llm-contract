@@ -40,6 +40,10 @@ puts "Tokens:      #{result.trace[:usage]}"          # real usage
 puts "Cost:        $#{result.trace[:cost]}"          # sum across retries
 puts "TL;DR:       #{result.parsed_output[:tldr]}"
 
-# Switch provider per call — ruby_llm resolves the provider from the model name:
-#   SummarizeArticle.run(article, context: { adapter: adapter, model: "claude-sonnet-4-6" })
-#   SummarizeArticle.run(article, context: { adapter: adapter, model: "gemma3:4b" })  # local Ollama
+# Switch provider per call — ruby_llm resolves the provider from the model name.
+# The step's retry_policy chain picks the model of every attempt, so turn it off
+# for the call (retry_policy_override: nil) to run a model of your choice:
+#   SummarizeArticle.run(article, context: { adapter: adapter, model: "claude-sonnet-4-6",
+#                                            retry_policy_override: nil })
+#   SummarizeArticle.run(article, context: { adapter: adapter, model: "gemma3:4b", retry_policy_override: nil,
+#                                            provider: :ollama, assume_model_exists: true })  # local Ollama

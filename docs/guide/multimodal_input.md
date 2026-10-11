@@ -9,7 +9,7 @@
 ```ruby
 # app/contracts/extract_invoice_data.rb
 class ExtractInvoiceData < RubyLLM::Contract::Step::Base
-  prompt "Extract invoice fields from the attached PDF. Return JSON."
+  prompt "Extract invoice fields from the attached PDF. Return JSON. {input}"
 
   output_schema do
     string :vendor
@@ -24,7 +24,9 @@ class ExtractInvoiceData < RubyLLM::Contract::Step::Base
   # Conservative estimate of attachment input tokens (provider/model-specific).
   attachment_token_estimate 15_000   # ~12 PDF pages at ~1250 tokens/page
 
-  max_cost 0.10
+  max_output 4_000   # room for gpt-5's reasoning tokens, which count as output;
+                     # without it the cost check assumes an output as long as the input
+  max_cost   0.10
 
   retry_policy do
     escalate "gpt-4.1-mini",
@@ -64,7 +66,7 @@ end
 The same estimate applies to:
 
 - **Runtime** (`limit_checker`) — adds the estimate to `input_tokens` before checking `max_cost`/`max_input`. Refuses pre-flight if budget exceeded.
-- **Pre-flight** (`estimate_cost`) — accepts `attachment:` kwarg; same accounting. No drift between estimate and runtime decisions.
+- **Pre-flight** (`estimate_cost`) — accepts `attachment:` kwarg; same input accounting. The output side matches only when `max_output` is set: without it `estimate_cost` assumes 256 output tokens, while the runtime check assumes an output as long as the input.
 
 ### Fail-closed without estimate
 
@@ -78,7 +80,7 @@ end
 
 result = MyContract.run("text", context: { attachment: "doc.pdf" })
 result.status # => :limit_exceeded
-result.validation_errors # => ["attachment present but attachment_token_estimate not set; ..."]
+result.validation_errors # => ["attachment present but attachment_token_estimate not declared; cost cannot be bounded. ..."]
 ```
 
 ### Opting out per-step
@@ -104,12 +106,12 @@ ExtractInvoiceData.estimate_cost(
   attachment: "tmp/invoice.pdf"
 )
 # => { model: "gpt-4.1-mini",
-#      input_tokens: 15_320,
-#      output_tokens_estimate: 256,
-#      estimated_cost: 0.0123 }
+#      input_tokens: 15_022,
+#      output_tokens_estimate: 4000,
+#      estimated_cost: 0.012409 }
 ```
 
-The `input_tokens` figure includes both the text estimate (chars/4 heuristic) AND the declared `attachment_token_estimate`. Pre-flight refusal mirrors runtime: if `attachment` is passed and `attachment_token_estimate` is not declared, `estimate_cost` returns nil and emits the same fail-closed reason.
+The `input_tokens` figure includes both the text estimate (chars/4 heuristic) AND the declared `attachment_token_estimate`. Pre-flight refusal mirrors runtime: if `attachment` is passed and `attachment_token_estimate` is not declared, `estimate_cost` returns nil (with `on_unknown_attachment_size :warn` it warns and estimates without the attachment instead).
 
 **Note on output tokens.** `attachment_token_estimate` adds to `input_tokens` only — not to `output_tokens_estimate`. Vision-heavy responses (long image descriptions, transcribed paragraphs) may exceed the conservative `output_tokens_estimate` default. Treat `estimated_cost` as a floor for budget planning, not a precise predictor; inflate `max_output` or `max_cost` accordingly if your prompt routinely produces verbose descriptions.
 
@@ -130,7 +132,7 @@ Pick a value at or above the provider's worst-case. The estimate is a **floor fo
 
 ## Multi-turn caveat
 
-If your contract uses history (`add_history`), attachments from prior turns are **not** replayed (still true in 1.0.x). Single-turn multimodal works; follow-up questions on the same document require additional work that is deferred to a later release. The rationale is recorded in the project's internal ADR-0022, which is not shipped with the gem.
+A Step is single-turn: each `run` sends its prompt with the attachment and keeps no conversation history. A follow-up question on the same document is another `run` that passes the attachment again.
 
 ## Provider notes
 
@@ -149,8 +151,9 @@ RSpec.describe ExtractInvoiceData do
   it "forwards attachment to chat.ask" do
     expect_any_instance_of(RubyLLM::Chat).to receive(:ask)
       .with(anything, with: "fixtures/invoice.pdf")
-      .and_return(double(content: '{"vendor":"X",...}',
-                         tokens: RubyLLM::Tokens.new(input: 200, output: 50)))
+      .and_return(RubyLLM::Message.new(role: :assistant, content: '{"vendor":"X","invoice_number":"1","total_amount":10,"currency":"EUR"}',
+                                       model_id: "gpt-4.1-mini",
+                                       input_tokens: 200, output_tokens: 50))
 
     result = described_class.run("extract", context: { attachment: "fixtures/invoice.pdf" })
     expect(result.status).to eq(:ok)

@@ -29,7 +29,7 @@ The AST is immutable, diffable, and hashable. Useful for snapshot testing and au
 
 When input is a Hash, each key becomes a template variable. Concrete scenario: a multi-language newsletter product where the same article has to be summarised in Polish for EU subscribers, English for US, with different audiences per tier (Rails developers vs engineering managers). Hash inputs let one step cover all of these without forking the class.
 
-The `Types::Hash.schema(...)` form below declares a **typed contract on the input** — `run()` raises `TypeError` if a required key is missing or its value violates the declared type. Use it when the input shape is part of the Step's interface (multi-key inputs, multi-tenant variants); plain `input_type Hash` accepts any hash and is fine for prototypes or when the schema is enforced upstream.
+The `Types::Hash.schema(...)` form below declares a **typed contract on the input** — `run()` returns `status: :input_error` (with the reason in `validation_errors`, e.g. `":article is missing in Hash input"`) if a required key is missing or its value violates the declared type, and no model is called. Use it when the input shape is part of the Step's interface (multi-key inputs, multi-tenant variants); plain `input_type Hash` accepts any hash and is fine for prototypes or when the schema is enforced upstream.
 
 ```ruby
 class SummarizeArticle < RubyLLM::Contract::Step::Base
@@ -54,9 +54,9 @@ class SummarizeArticle < RubyLLM::Contract::Step::Base
 end
 ```
 
-Every `{key}` in a prompt node is pulled from the input hash at run time. Missing keys raise — making wire-up bugs loud, not silent.
+Every `{key}` in a prompt node is pulled from the input hash at run time. A key the input does not have is left in the prompt as literal `{key}` text, so declare the keys in a `Types::Hash.schema(...)` input type when a missing one should stop the call.
 
-> **Not the same as `RubyLLM::Agent.inputs`.** `Step.input_type` is a *runtime type check* on the positional argument passed to `run(input)` — it raises `TypeError` if the input violates the declared shape. `RubyLLM::Agent.inputs` is a list of *named template locals* injected into ERB instructions. They solve different problems (validation vs templating) and can coexist on the same project.
+> **Not the same as `RubyLLM::Agent.inputs`.** `Step.input_type` is a *runtime type check* on the positional argument passed to `run(input)` — a violating input returns `status: :input_error` instead of calling the model. `RubyLLM::Agent.inputs` is a list of *named template locals* injected into ERB instructions. They solve different problems (validation vs templating) and can coexist on the same project.
 
 > **Not the same as `RubyLLM::Agent` ERB templates either.** The `prompt do ... end` DSL above builds a multi-role message list (`system` / `user` / `assistant` / `example` nodes) into a node-AST. `Agent.instructions :name` loads a single-string ERB file from `app/prompts/<agent_path>/<name>.txt.erb` for the system prompt only. Different output shape, different scope. Variable interpolation here uses `{key}` substitution; ERB uses full `<%= ruby %>`.
 

@@ -13,7 +13,7 @@ Both gems sit on top of `ruby_llm`. The space they cover overlaps in vocabulary 
 | Where the output lives at evaluation time | Already in your variable, returned to caller | Still inside the gem's runner, not yet released |
 | What "fail" means | Red test in CI | Trigger retry/escalate on a stronger model, or fail closed |
 | Strongest features | Rich LLM-as-judge (faithful, relevant, hallucination, refusal, bias, toxicity, jailbreak, PII), red-team adversarial prompts, deterministic helpers (`assert_contains`, `assert_levenshtein`, …), RSpec/Minitest matchers, HTML/JUnit/GH reporters | Schema DSL with constraints, `validate` business rules, `retry_policy escalate(...)` model escalation, `max_cost` pre-flight refusal, regression-eval framework (frozen dataset + baseline + min_score gate), pipeline composition |
-| What it does NOT cover | No retry, no model escalation, no pre-flight cost cap, no contract layer between LLM and your code | No 10-judge LLM-as-judge catalog, no red-team generation, no rich deterministic assertion library, no test-framework matchers |
+| What it does NOT cover | No retry, no model escalation, no pre-flight cost cap, no contract layer between LLM and your code | No 10-judge LLM-as-judge catalog, no red-team generation, no rich deterministic assertion library; its test-framework matchers (`satisfy_contract`, `pass_eval`) gate contracts and evals, not individual outputs |
 
 ## Visual: where each gem sits in your call
 
@@ -38,10 +38,10 @@ your code ──► Step.run ──► LLM ──► [schema + validate]
                                                                                  │
                                                               all attempts fail ─┘
                                                                                  ▼
-                                                                  Result(:validation_error)
+                                                                  status: :validation_failed
 ```
 
-The output **never reaches your code** until the contract passes. A failed validation either fixes itself (the retry policy escalates to a stronger model) or fails closed with `Result(:validation_error)` — your call site sees a deterministic failure status, never schema-invalid data.
+The output **never reaches your code** until the contract passes. A failed validation either fixes itself (the retry policy escalates to a stronger model) or fails closed with `status: :validation_failed` — your call site sees a deterministic failure status, never schema-invalid data.
 
 ### Both together (Tribunal in CI → then Contract in prod)
 
@@ -85,7 +85,7 @@ If you specifically need an **LLM-as-judge** (a second LLM grading the first one
   - **You need to iterate the judge prompt** because it over-flags on your data — Tribunal's prompts are fixed per assertion.
 - **Use both** for the same project even when your check is in Tribunal's catalog: Tribunal's `assert_faithful` for spec-time grade on individual responses, plus a calibrated custom judge wired as `evaluator:` in a regression `define_eval` over a frozen dataset for CI merge-gating. They cover different lifecycle stages.
 
-Either way, the **methodology** in [`llm_judge.md`](llm_judge.md) — calibrate the judge against human-labeled production samples before trusting any score, watch for the six anti-patterns, refine the prompt when it over-flags — applies equally to Tribunal's built-ins, Tribunal's custom registered judges, and Contract `Step::Base` judges. Tribunal's `default_threshold = 0.8` is a starting point, not a calibrated bar for your data.
+Either way, the **methodology** in [`llm_judge.md`](llm_judge.md) — calibrate the judge against human-labeled production samples before trusting any score, watch for the five anti-patterns, refine the prompt when it over-flags — applies equally to Tribunal's built-ins, Tribunal's custom registered judges, and Contract `Step::Base` judges. Tribunal's `default_threshold = 0.8` is a starting point, not a calibrated bar for your data.
 
 ## What Tribunal documents — and what it doesn't
 
@@ -111,7 +111,7 @@ These work today without any code changes in either gem — both use plain Ruby 
 class ChatReply < RubyLLM::Contract::Step::Base
   prompt "Answer this question grounded in the docs:\n{input}"
 
-  validate("no PII in answer") do |output, _ctx|
+  validate("no PII in answer") do |output, _input|
     test_case = RubyLLM::Tribunal::TestCase.new(actual_output: output[:answer])
     RubyLLM::Tribunal::Assertions.evaluate(:pii, test_case, {}).first == :pass
   end

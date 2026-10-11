@@ -8,7 +8,8 @@
 
 | What you write | Where it lives |
 |---|---|
-| `model`, `temperature`, `schema`, `instructions`, `tools`, `thinking` | covered by both — same idea, different DSL surface |
+| `model`, `temperature`, `schema`, `instructions`, `thinking` | covered by both — same idea, different DSL surface |
+| `tools` | only in `RubyLLM::Agent` — a Step makes a single call without tools |
 | `validate :rule do ... end` business invariants on output | only in `ruby_llm-contract` |
 | `retry_policy escalate(...)` model escalation on validation failure | only here (different from RubyLLM's network-level retry) |
 | `max_cost` / `max_input` / `max_output` pre-flight refusal | only here |

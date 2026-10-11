@@ -50,7 +50,7 @@
 #     tone:       "negative"
 #
 # See also: examples/06_retry_variants.rb — same-model retry, reasoning_effort
-# escalation, and cross-provider fallback (Ollama → Anthropic → OpenAI).
+# escalation, and cross-provider fallback (OpenAI → Anthropic).
 # =============================================================================
 
 require_relative "../lib/ruby_llm/contract"
