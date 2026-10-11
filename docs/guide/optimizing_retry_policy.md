@@ -30,7 +30,9 @@ rake ruby_llm_contract:optimize \
   CANDIDATES=gpt-4.1-nano,gpt-4.1-mini@low,gpt-4.1-mini,gpt-4.1
 ```
 
-The `@low` (or `@medium`, `@high`) suffix on a candidate is CLI shorthand for `{ model: "gpt-4.1-mini", reasoning_effort: :low }` — saves you constructing hash strings on the command line. Plain model names without `@` use the Step's default thinking config (or none). `@default` runs the candidate with no effort at all, which is what a model without reasoning needs when the Step sets one: `CANDIDATES=gpt-4.1-mini@default,gpt-6-luna@none`.
+The `@low` (or `@medium`, `@high`) suffix on a candidate is CLI shorthand for `{ model: "gpt-4.1-mini", reasoning_effort: :low }` — saves you constructing hash strings on the command line. Plain model names without `@` use the Step's default thinking config (or none). `@default` runs the candidate with no effort at all, which is what a model without reasoning needs when the Step sets one: `CANDIDATES=gpt-6-luna@none,gpt-4.1-mini@default`.
+
+List candidates from the cheapest to the most expensive. The optimizer takes that order as the cost order: the suggested chain tries them in it, and the first candidate that passes every eval is the safe fallback. It does not sort by price.
 
 Offline uses each eval's `sample_response` — zero API calls. **Every candidate gets the same score** because they all receive the canned response. That's fine for a smoke test (verifying evals load, candidates parse, output renders) but it doesn't compare model quality. For real optimization, go live.
 
@@ -136,9 +138,9 @@ Forwarded to `Chat#with_thinking(**)` through the adapter — works provider-agn
 
 ```ruby
 SummarizeArticle.run(text, context: { model: "gpt-4.1-mini", reasoning_effort: :default })
-SummarizeArticle.compare_models("regression", candidates: [{ model: "gpt-4.1-mini", reasoning_effort: :default },
-                                                           { model: "gpt-6-luna" }])
-retry_policy { escalate({ model: "gpt-4.1-mini", reasoning_effort: :default }, { model: "gpt-6-luna" }) }
+SummarizeArticle.compare_models("regression", candidates: [{ model: "gpt-6-luna" },
+                                                           { model: "gpt-4.1-mini", reasoning_effort: :default }])
+retry_policy { escalate({ model: "gpt-6-luna" }, { model: "gpt-4.1-mini", reasoning_effort: :default }) }
 ```
 
 `nil` is not `:default`: a nil effort is ignored and the class one is sent. The gem does not drop an effort by itself based on the model. A chain element without an effort runs with the call's (or the class's), and `trace.attempts[n][:config]` shows the effort each attempt was sent.
