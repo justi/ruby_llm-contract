@@ -1,5 +1,19 @@
 # Changelog
 
+## 1.3.1 (2026-10-11)
+
+### Fixed
+
+- **`Eval::Recommender` priced a call N times too low on a `compare_models(runs: N)`
+  comparison.** With `runs > 1` each report is an `AggregatedReport`: its results
+  hold the cases of all N runs, while `total_cost` is the mean cost of one run. The
+  cost per call divided one run's cost by the cases of every run, so with `runs: 3`
+  a $0.002 call showed as $0.0007. That skewed `best`, the retry chain, the rationale
+  and `savings`, and a candidate measured over more runs looked cheaper than one
+  measured once. Cases are now counted per run. `Step.recommend` always compares
+  with one run, so only a `Recommender` built by hand on a multi-run comparison
+  was affected.
+
 ## 1.3.0 (2026-10-11)
 
 ### Changed - may turn a green CI red

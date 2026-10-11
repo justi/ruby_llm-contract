@@ -40,15 +40,11 @@ module RubyLLM
             report = @comparison.reports[label]
             next nil unless report
 
-            evaluated_count = report.results.count { |r| r.step_status != CaseResult::SKIPPED_STATUS }
-            cases_count = [evaluated_count, 1].max
-            cost_per_call = report.total_cost.to_f / cases_count
-
             {
               label: label,
               config: config,
               score: report.score,
-              cost_per_call: cost_per_call,
+              cost_per_call: cost_per_call(report),
               latency: report.avg_latency_ms || Float::INFINITY,
               pass_rate_ratio: report.pass_rate_ratio,
               total_cost: report.total_cost,
@@ -117,13 +113,18 @@ module RubyLLM
           current_report = @comparison.reports[current_label]
           return {} if current_report.nil? || unknown_cost?(current_report)
 
-          current_evaluated = current_report.results.count { |r| r.step_status != CaseResult::SKIPPED_STATUS }
-          current_cases = [current_evaluated, 1].max
-          current_cost = current_report.total_cost.to_f / current_cases
-          diff = current_cost - best[:cost_per_call]
+          diff = cost_per_call(current_report) - best[:cost_per_call]
           return {} unless diff.positive?
 
           { per_call: diff.round(6), monthly_at: { 10_000 => (diff * 10_000).round(2) } }
+        end
+
+        # An AggregatedReport's results hold the cases of every run while its
+        # total_cost is the mean of one run, so cases are counted per run.
+        def cost_per_call(report)
+          runs = report.respond_to?(:runs) ? report.runs.length : 1
+          evaluated = report.results.count { |r| r.step_status != CaseResult::SKIPPED_STATUS }
+          report.total_cost.to_f * runs / [evaluated, 1].max
         end
 
         # A subtotal over unpriced cases is not a cost to rank by. Zero stays

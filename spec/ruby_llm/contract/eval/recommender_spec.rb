@@ -10,10 +10,10 @@ RSpec.describe RubyLLM::Contract::Eval::Recommender do
         input: "test",
         output: {},
         expected: {},
-        step_status: :ok,
+        step_status: c[:status] || :ok,
         score: c[:passed] ? 1.0 : 0.0,
         passed: c[:passed],
-        cost: c[:cost] || 0.001,
+        cost: c.fetch(:cost, 0.001),
         duration_ms: c[:duration_ms] || 100
       )
     end
@@ -284,6 +284,54 @@ RSpec.describe RubyLLM::Contract::Eval::Recommender do
       rec = described_class.new(comparison: comparison, min_score: 0.95).recommend
 
       expect(rec.savings).to eq({})
+    end
+  end
+
+  # compare_models(runs: N) hands over AggregatedReports: results hold the
+  # cases of all N runs, total_cost is the mean cost of one run.
+  describe "with repeated runs" do
+    def aggregated(cases, runs: 3)
+      RubyLLM::Contract::Eval::AggregatedReport.new(Array.new(runs) { build_report(cases) })
+    end
+
+    def repeated_comparison(cheap_runs:, dear_cost: 0.05)
+      cheap = { model: "gpt-4.1-nano" }
+      dear = { model: "gpt-4.1" }
+      RubyLLM::Contract::Eval::ModelComparison.new(
+        eval_name: "test_eval",
+        reports: { "gpt-4.1-nano" => aggregated([{ passed: true, cost: 0.002 }] * 2, runs: cheap_runs),
+                   "gpt-4.1" => aggregated([{ passed: true, cost: dear_cost }] * 2) },
+        configs: { "gpt-4.1-nano" => cheap, "gpt-4.1" => dear }
+      )
+    end
+
+    it "prices a call as in a single run, whatever the number of runs" do
+      rec = described_class.new(comparison: repeated_comparison(cheap_runs: 3), min_score: 0.95,
+                                current_config: { model: "gpt-4.1" }).recommend
+
+      expect(rec.cost_per_call).to eq(0.002)
+      expect(rec.rationale).to include(start_with("gpt-4.1-nano, score 1.00, at $0.0020/call"),
+                                       start_with("gpt-4.1, score 1.00, at $0.0500/call"))
+      expect(rec.savings[:per_call]).to eq(0.048)
+    end
+
+    it "does not count skipped cases as calls" do
+      skipped = RubyLLM::Contract::Eval::CaseResult::SKIPPED_STATUS
+      report = aggregated([{ passed: true, cost: 0.002 }, { passed: false, cost: nil, status: skipped }])
+      comparison = RubyLLM::Contract::Eval::ModelComparison.new(
+        eval_name: "test_eval", reports: { "gpt-4.1-nano" => report },
+        configs: { "gpt-4.1-nano" => { model: "gpt-4.1-nano" } }
+      )
+
+      expect(described_class.new(comparison: comparison, min_score: 0.0).recommend.cost_per_call).to eq(0.002)
+    end
+
+    it "ranks candidates evaluated with a different number of runs on the same footing" do
+      rec = described_class.new(comparison: repeated_comparison(cheap_runs: 1, dear_cost: 0.005),
+                                min_score: 0.95).recommend
+
+      expect(rec.best).to eq(model: "gpt-4.1-nano")
+      expect(rec.cost_per_call).to eq(0.002)
     end
   end
 end
