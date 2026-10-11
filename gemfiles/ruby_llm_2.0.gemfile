@@ -9,6 +9,7 @@ gemspec path: ".."
 gem "ruby_llm", "2.0.0"
 
 group :development, :test do
+  gem "faraday", ">= 2.14" # see the root Gemfile: faraday-net_http 3.5.0 otherwise resolves to faraday 2.0.0
   gem "railties", ">= 7.1" # boots a throwaway app in spec/integration/railtie_boot_spec.rb
   gem "rake", "~> 13.0"
   gem "rspec", "~> 3.13"
