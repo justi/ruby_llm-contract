@@ -8,7 +8,8 @@
 # not change — same prompt, schema, validates, retry_policy.
 #
 # Requires: gem install ruby_llm; export OPENAI_API_KEY=sk-...
-# (Or an Anthropic / Gemini / Mistral key, or a local Ollama server.)
+# Another provider needs its own key in RubyLLM.configure below (e.g.
+# c.anthropic_api_key = ENV["ANTHROPIC_API_KEY"]) and its models in the step.
 #
 # Run: OPENAI_API_KEY=sk-... ruby examples/02_real_llm_minimal.rb
 # =============================================================================
@@ -43,6 +44,7 @@ puts "TL;DR:       #{result.parsed_output[:tldr]}"
 # Switch provider per call — ruby_llm resolves the provider from the model name.
 # The step's retry_policy chain picks the model of every attempt, so turn it off
 # for the call (retry_policy_override: nil) to run a model of your choice:
+#   (configure c.anthropic_api_key, or c.ollama_api_base for Ollama, first)
 #   SummarizeArticle.run(article, context: { adapter: adapter, model: "claude-sonnet-4-6",
 #                                            retry_policy_override: nil })
 #   SummarizeArticle.run(article, context: { adapter: adapter, model: "gemma3:4b", retry_policy_override: nil,

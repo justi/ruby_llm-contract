@@ -195,8 +195,17 @@ module RubyLLM
             end
           end
 
+          def runtime_policy(context)
+            return retry_policy unless context.key?(:retry_policy_override)
+
+            override = context[:retry_policy_override]
+            return override unless override == RetryPolicy::WITHOUT_MODEL_CHAIN
+
+            retry_policy if retry_policy&.model_list&.empty?
+          end
+
           def runtime_settings(context)
-            policy = context.key?(:retry_policy_override) ? context[:retry_policy_override] : retry_policy
+            policy = runtime_policy(context)
             extra = context.slice(*ADAPTER_CONTEXT_KEYS).merge(merged_provider_options(context))
 
             # Always pass the class-level `thinking` config to the adapter when

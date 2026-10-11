@@ -114,12 +114,12 @@ module RubyLLM
                 "call compare_models with production_mode: on individual Step classes instead."
         end
 
-        # A Step's own retry chain would pick every attempt's model, so a
-        # candidate runs alone, with the production_mode fallback, or with a
-        # retry policy the caller passed for the comparison.
+        # A Step's retry chain would pick every attempt's model, so a candidate
+        # runs without it (same-model retries stay), unless production_mode or
+        # the caller passes a retry policy for the comparison.
         def build_candidate_context(context, config, fallback_config)
-          model_context = isolate_context(context).merge(model: config[:model])
-          model_context[:retry_policy_override] = nil unless context.key?(:retry_policy_override)
+          model_context = { retry_policy_override: Step::RetryPolicy::WITHOUT_MODEL_CHAIN }
+                          .merge(isolate_context(context), model: config[:model])
           model_context[:reasoning_effort] = config[:reasoning_effort] if config[:reasoning_effort]
           return model_context unless fallback_config
 

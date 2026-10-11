@@ -71,7 +71,7 @@ class AccuracyJudge < RubyLLM::Contract::Step::Base
 end
 ```
 
-The `retry_policy` escalates to `gpt-5-mini` if the cheaper `gpt-5-nano` fails schema/validate (e.g., returns malformed JSON) — the judge stays reliable without paying for the bigger model on every call. `max_cost 0.01` bounds each call (with `max_output 2_000`, up to roughly 24k input tokens on `gpt-5-mini`): the judge runs N× per eval suite (one call per case), so capping per-call cost prevents calibration runs from blowing the budget.
+The `retry_policy` escalates to `gpt-5-mini` if the cheaper `gpt-5-nano` fails schema/validate (e.g., returns malformed JSON) — the judge stays reliable without paying for the bigger model on every call. `max_cost 0.01` bounds each attempt (with `max_output 2_000`, up to roughly 24k input tokens on `gpt-5-mini`), so a case that falls back from nano to mini costs at most about $0.012: the judge runs N× per eval suite (one call per case), so capping per-call cost prevents calibration runs from blowing the budget.
 
 This is small on purpose: one boolean, one reason. Easy to read, easy to disagree with.
 

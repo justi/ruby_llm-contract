@@ -169,6 +169,7 @@ r.trace[:cost]       # => sum of per-attempt costs
 # Switch provider per call — ruby_llm resolves the provider from the model name.
 # The retry_policy chain picks the model of every attempt, so turn it off for
 # the call (retry_policy_override: nil) to run a model of your choice:
+#   (configure c.anthropic_api_key, or c.ollama_api_base for Ollama, first)
 #   SummarizeArticleWithRetry.run(article_text, context: { adapter: adapter, model: "claude-sonnet-4-6",
 #                                                          retry_policy_override: nil })
 #   SummarizeArticleWithRetry.run(article_text, context: { adapter: adapter, model: "gemma3:4b",

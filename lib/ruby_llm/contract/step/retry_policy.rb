@@ -15,6 +15,11 @@ module RubyLLM
         # transport retry could not).
         DEFAULT_RETRY_ON = %i[validation_failed parse_error].freeze
 
+        # A `retry_policy_override` that keeps a Step's own policy unless it
+        # picks models: compare_models runs a candidate on its own model, with
+        # the same-model retries the Step would give it.
+        WITHOUT_MODEL_CHAIN = :without_model_chain
+
         def initialize(models: nil, attempts: nil, retry_on: nil, &block)
           @configs = []
           @retryable_statuses = DEFAULT_RETRY_ON.dup

@@ -172,6 +172,29 @@ RSpec.describe "reasoning_effort: :default (HTTP intercepted)" do
       expect(comparison.best_for(min_score: 1.0)).to eq("gpt-5-mini (effort: low)")
     end
 
+    it "keeps a Step's same-model retries for the candidate" do
+      replies << "not json"
+      retrying = Class.new(evaluated) { retry_policy attempts: 2 }
+      retrying.compare_models("smoke", candidates: [no_effort_mini], context: { adapter: adapter })
+
+      expect(sent).to eq([["gpt-4.1-mini", nil], ["gpt-4.1-mini", nil]])
+    end
+
+    it "keeps the same-model retries of a Pipeline's Step" do
+      replies << "not json"
+      retrying = Class.new(evaluated) { retry_policy attempts: 2 }
+      pipeline = Class.new(RubyLLM::Contract::Pipeline::Base) do
+        def self.name = "RetryingPipeline"
+
+        step retrying, as: :summarize
+        define_eval("smoke") { add_case "one", input: "text" }
+      end
+
+      pipeline.compare_models("smoke", candidates: [no_effort_mini], context: { adapter: adapter })
+
+      expect(sent).to eq([["gpt-4.1-mini", nil], ["gpt-4.1-mini", nil]])
+    end
+
     it "keeps a retry policy the caller passes for the comparison" do
       replies << "not json"
       chained = Class.new(evaluated) { retry_policy models: %w[gpt-5-nano gpt-5-mini] }
