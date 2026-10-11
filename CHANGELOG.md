@@ -27,7 +27,9 @@
 - **`production_mode:` skips a fallback that would send the candidate's own request.**
   A fallback without an effort runs with the candidate's, so `{ model: "gpt-4.1-mini",
   reasoning_effort: "low" }` with `fallback: "gpt-4.1-mini"` retried the same call.
-  It now runs single-shot, as a fallback equal to the candidate already did.
+  It now runs single-shot, as a fallback equal to the candidate already did. The
+  comparison counts the effort each would send: inherited from the call or the
+  Step, and none for `:default`.
 
 ## 1.3.1 (2026-10-11)
 

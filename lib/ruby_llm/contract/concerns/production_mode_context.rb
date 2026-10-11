@@ -20,17 +20,23 @@ module RubyLLM
           RubyLLM::Contract.normalize_candidate_config(production_mode[:fallback])
         end
 
-        def production_mode_override(config, fallback_config)
-          return nil if same_candidate?(config, fallback_config)
+        def production_mode_override(config, fallback_config, inherited_effort = nil)
+          return nil if same_request?(config, fallback_config, inherited_effort)
 
           Step::RetryPolicy.new(models: [config, fallback_config])
         end
 
-        # A fallback without an effort inherits the candidate's, so it would
-        # send the very same request.
-        def same_candidate?(candidate, fallback)
-          candidate[:model] == fallback[:model] &&
-            (fallback[:reasoning_effort].nil? || candidate[:reasoning_effort] == fallback[:reasoning_effort])
+        # Compared by what each would send: a candidate without an effort runs
+        # with the call's or the Step's, a fallback without one with the
+        # candidate's, and :default sends none.
+        def same_request?(candidate, fallback, inherited_effort)
+          candidate_effort = sent_effort(candidate[:reasoning_effort] || inherited_effort)
+          fallback_effort = fallback[:reasoning_effort] ? sent_effort(fallback[:reasoning_effort]) : candidate_effort
+          candidate[:model] == fallback[:model] && candidate_effort == fallback_effort
+        end
+
+        def sent_effort(effort)
+          RubyLLM::Contract.normalize_effort(effort) == :default ? nil : effort
         end
       end
     end

@@ -185,5 +185,31 @@ RSpec.describe "reasoning_effort: :default (HTTP intercepted)" do
       expect(sent).to eq([["gpt-4.1-mini", nil]])
       expect(comparison.reports.values.first.production_mode?).to be(false)
     end
+
+    it "takes a fallback without an effort as running with the candidate's" do
+      replies << "not json"
+      evaluated.compare_models("smoke", candidates: [{ model: "gpt-4.1-mini", reasoning_effort: "low" }],
+                                        context: { adapter: adapter }, production_mode: { fallback: "gpt-4.1-mini" })
+
+      expect(sent).to eq([["gpt-4.1-mini", "low"]])
+    end
+
+    it "sees the class effort a candidate inherits when comparing it with the fallback" do
+      replies << "not json"
+      fallback = { model: "gpt-4.1-mini", reasoning_effort: "none" }
+      evaluated.compare_models("smoke", candidates: ["gpt-4.1-mini"], context: { adapter: adapter },
+                                        production_mode: { fallback: fallback })
+
+      expect(sent).to eq([["gpt-4.1-mini", "none"]])
+    end
+
+    it "takes :default on the fallback as the no effort a candidate already sends" do
+      replies << "not json"
+      effortless = Class.new(evaluated) { reasoning_effort :default }
+      effortless.compare_models("smoke", candidates: ["gpt-4.1-mini"], context: { adapter: adapter },
+                                         production_mode: { fallback: no_effort_mini })
+
+      expect(sent).to eq([["gpt-4.1-mini", nil]])
+    end
   end
 end

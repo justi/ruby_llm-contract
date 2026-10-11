@@ -119,7 +119,8 @@ module RubyLLM
           model_context[:reasoning_effort] = config[:reasoning_effort] if config[:reasoning_effort]
           return model_context unless fallback_config
 
-          model_context[:retry_policy_override] = production_mode_override(config, fallback_config)
+          inherited_effort = context[:reasoning_effort] || (thinking[:effort] if respond_to?(:thinking) && thinking)
+          model_context[:retry_policy_override] = production_mode_override(config, fallback_config, inherited_effort)
           model_context
         end
 
