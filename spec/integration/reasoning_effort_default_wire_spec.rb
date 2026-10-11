@@ -180,6 +180,23 @@ RSpec.describe "reasoning_effort: :default (HTTP intercepted)" do
       expect(sent).to eq([["gpt-4.1-mini", nil], ["gpt-4.1-mini", nil]])
     end
 
+    it "keeps the Step's own retry conditions with its same-model retries" do
+      replies << "not json"
+      adapter_errors_only = Class.new(evaluated) { retry_policy attempts: 2, retry_on: :adapter_error }
+      adapter_errors_only.compare_models("smoke", candidates: [no_effort_mini], context: { adapter: adapter })
+
+      expect(sent).to eq([["gpt-4.1-mini", nil]])
+    end
+
+    it "runs a candidate once when the caller passes retry_policy_override: nil" do
+      replies << "not json"
+      retrying = Class.new(evaluated) { retry_policy attempts: 2 }
+      retrying.compare_models("smoke", candidates: [no_effort_mini],
+                                       context: { adapter: adapter, retry_policy_override: nil })
+
+      expect(sent).to eq([["gpt-4.1-mini", nil]])
+    end
+
     it "keeps the same-model retries of a Pipeline's Step" do
       replies << "not json"
       retrying = Class.new(evaluated) { retry_policy attempts: 2 }

@@ -10,10 +10,12 @@
   through the chain) under its own label: the scores and costs were all the
   same model's, and `best_for` and `recommend` could name a model never run.
   A candidate now runs without the chain, on its own model. This also holds
-  for the Steps of a Pipeline compared with `compare_models`. A policy that
-  only sets `attempts` picks no model, so it stays: the candidate keeps its
-  same-model retries, as before. A `retry_policy_override` passed in
-  `context:` is still used as given.
+  for the Steps of a Pipeline compared with `compare_models`. Without
+  `production_mode:`, a policy that only sets `attempts` picks no model, so
+  it stays: the candidate keeps its same-model retries, as before; and a
+  `retry_policy_override` passed in `context:` is still used as given. With
+  `production_mode:`, the candidate-and-fallback policy replaces both, as
+  before.
 - **An `evaluator:` that returns an `EvaluationResult` keeps its score.** The
   result was taken as a truthy value, so every case passed with 1.0 - also one
   the evaluator scored 0.0 with `passed: false`, as a judge built on another gem
