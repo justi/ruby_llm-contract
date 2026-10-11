@@ -1,5 +1,27 @@
 # Changelog
 
+## Unreleased
+
+### Changed - may turn a green CI red
+
+- **A non-null value under `anyOf` / `oneOf` is now validated against the branches.**
+  0.10.3 taught the validator to accept `nil` through a null branch, but a non-null
+  value was never checked at all: the child node carried the composition wrapper,
+  which has no `type` or `properties`, so nothing ran. A nullable object block
+  (`any_of :block do object do ... end; null end`) missing a required field, with
+  a wrong-typed field or with an extra key came back `:ok`. Measured in an adopter:
+  a page-analysis block without `score` was `:ok` and became a 0/10 fail downstream.
+  `anyOf` now passes when at least one branch validates and `oneOf` when exactly one
+  does. When none does, the errors of the one branch whose type fits the value are
+  reported (`missing required field: block.score`); otherwise
+  `block: expected one of object, null, got String`. A `oneOf` value matching two
+  branches fails with `matches 2 oneOf branches, expected exactly 1`. Steps whose
+  model already returns schema-conforming output (OpenAI strict mode) are
+  unaffected; output that slipped through before now fails as `:validation_failed`.
+- **`type` given as an array is checked.** `type: ["string", "null"]` accepted any
+  value; it now accepts a value of any listed type and reports
+  `x: expected string or null, got Integer` otherwise. `"null"` is a known type.
+
 ## 1.2.0 (2026-10-10)
 
 Everything new is opt-in. Two changes under "Changed" can affect existing steps: the temperature fix and `retry_on` rejecting conditions it cannot match.

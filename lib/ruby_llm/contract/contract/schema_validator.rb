@@ -25,8 +25,10 @@ module RubyLLM
         "number" => ->(value) { value.is_a?(Numeric) },
         "boolean" => ->(value) { value.is_a?(TrueClass) || value.is_a?(FalseClass) },
         "array" => ->(value) { value.is_a?(Array) },
-        "object" => ->(value) { value.is_a?(Hash) }
+        "object" => ->(value) { value.is_a?(Hash) },
+        "null" => lambda(&:nil?)
       }.freeze
+      COMPOSITION_KEYWORDS = %i[anyOf oneOf].freeze
 
       def self.validate(parsed_output, schema)
         new(parsed_output, schema).validate
@@ -59,9 +61,50 @@ module RubyLLM
       end
 
       def validate_node(node)
+        return validate_composition(node) if node.composition
+
         @scalar_rules.validate(node)
         @object_rules.validate(node) { |child| validate_node(child) } if node.hash? && node.object_schema?
         validate_array(node) if node.array?
+      end
+
+      # anyOf passes when at least one branch validates, oneOf when exactly one
+      # does. When none does, the errors of the one branch whose type fits the
+      # value are the useful ones; otherwise the value matches no branch type.
+      def validate_composition(node)
+        keyword, branches = node.composition
+        branch_errors = branches.map { |branch| errors_for(node.with_schema(branch)) }
+        passing = branch_errors.count(&:empty?)
+        return if keyword == :anyOf ? passing.positive? : passing == 1
+
+        if passing > 1
+          @errors << "#{node.label}: matches #{passing} oneOf branches, expected exactly 1"
+        else
+          report_no_matching_branch(node, branches, branch_errors)
+        end
+      end
+
+      def report_no_matching_branch(node, branches, branch_errors)
+        fitting = branches.each_index.select { |i| branch_type_fits?(branches[i], node.value) }
+        return @errors.concat(branch_errors[fitting.first]) if fitting.size == 1
+
+        types = branches.flat_map { |branch| branch_types(branch) }.uniq
+        @errors << "#{node.label}: expected one of #{types.join(", ")}, got #{node.value.class}"
+      end
+
+      def errors_for(node)
+        before = @errors.size
+        validate_node(node)
+        @errors.slice!(before..)
+      end
+
+      def branch_type_fits?(branch, value)
+        branch_types(branch).any? { |type| TYPE_CHECKS.fetch(type, ->(_) { true }).call(value) }
+      end
+
+      def branch_types(branch)
+        types = Array(branch[:type]).map(&:to_s)
+        types.empty? && branch.key?(:properties) ? ["object"] : types
       end
 
       def validate_array(node)

@@ -29,6 +29,22 @@ module RubyLLM
           Array(schema[:required]).map(&:to_s)
         end
 
+        def composition
+          SchemaValidator::COMPOSITION_KEYWORDS.each do |keyword|
+            branches = schema[keyword]
+            return [keyword, branches] if branches.is_a?(Array) && !branches.empty?
+          end
+          nil
+        end
+
+        def with_schema(branch_schema)
+          with(schema: branch_schema)
+        end
+
+        def label
+          path || "root"
+        end
+
         def items_schema
           schema[:items]
         end

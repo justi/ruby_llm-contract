@@ -9,12 +9,12 @@ module RubyLLM
         end
 
         def validate(node)
-          expected_type = node.expected_type
+          expected_types = Array(node.schema[:type]).map(&:to_s)
           value = node.value
-          return unless expected_type
-          return if type_valid?(expected_type, value)
+          return if expected_types.empty?
+          return if expected_types.any? { |type| type_valid?(type, value) }
 
-          @errors << "#{node.path}: expected #{expected_type}, got #{value.class}"
+          @errors << "#{node.path}: expected #{expected_types.join(" or ")}, got #{value.class}"
         end
 
         private

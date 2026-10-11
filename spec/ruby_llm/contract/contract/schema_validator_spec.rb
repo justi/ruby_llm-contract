@@ -506,5 +506,111 @@ RSpec.describe RubyLLM::Contract::SchemaValidator do
         expect(errors.first).to match(/w.*expected.*got nil/)
       end
     end
+
+    # ----------------------------------------------------------------
+    # anyOf / oneOf branches were only consulted for nil (0.10.3), so a
+    # non-null value under a composition was never validated: an object
+    # missing its required fields, or with a wrong-typed field, passed as
+    # :ok. Measured in an adopter: an analysis block without `score` was
+    # :ok and became a 0/10 fail downstream.
+    # ----------------------------------------------------------------
+    context "anyOf / oneOf with a non-null value" do
+      let(:nullable_block_schema) do
+        Schematist::Schema.create do
+          any_of :block do
+            object do
+              integer :score
+              string :assessment
+            end
+            null
+          end
+        end
+      end
+
+      def raw_schema(properties, required)
+        double("raw_schema").tap do |s|
+          allow(s).to receive(:respond_to?).with(:to_json_schema).and_return(true)
+          allow(s).to receive(:to_json_schema).and_return({ schema: { type: "object", properties: properties,
+                                                                      required: required } })
+        end
+      end
+
+      it "accepts an object that matches the object branch" do
+        errors = described_class.validate({ block: { score: 7, assessment: "ok" } }, nullable_block_schema)
+        expect(errors).to be_empty
+      end
+
+      it "reports a required field missing inside the object branch" do
+        errors = described_class.validate({ block: { assessment: "ok" } }, nullable_block_schema)
+        expect(errors).to eq(["missing required field: block.score"])
+      end
+
+      it "reports a wrong-typed field inside the object branch" do
+        errors = described_class.validate({ block: { score: "7", assessment: "ok" } }, nullable_block_schema)
+        expect(errors).to eq(["block.score: expected integer, got String"])
+      end
+
+      it "reports an additional property inside the object branch" do
+        errors = described_class.validate({ block: { score: 7, assessment: "ok", extra: 1 } }, nullable_block_schema)
+        expect(errors).to eq(["block.extra: additional property not allowed"])
+      end
+
+      it "rejects a value that fits no branch type" do
+        errors = described_class.validate({ block: "score 7" }, nullable_block_schema)
+        expect(errors).to eq(["block: expected one of object, null, got String"])
+      end
+
+      it "still accepts nil through the null branch" do
+        errors = described_class.validate({ block: nil }, nullable_block_schema)
+        expect(errors).to be_empty
+      end
+
+      it "accepts a value matching any one of several scalar branches" do
+        schema = raw_schema({ v: { anyOf: [{ type: "integer" }, { type: "string", enum: %w[auto] }] } }, ["v"])
+        expect(described_class.validate({ v: 3 }, schema)).to be_empty
+        expect(described_class.validate({ v: "auto" }, schema)).to be_empty
+      end
+
+      it "reports why a value of a matching type still fails, when only one branch has that type" do
+        schema = raw_schema({ v: { anyOf: [{ type: "integer" }, { type: "string", enum: %w[auto] }] } }, ["v"])
+        expect(described_class.validate({ v: "manual" }, schema)).to eq([%(v: "manual" is not in enum ["auto"])])
+      end
+
+      it "validates every item of an array of anyOf items" do
+        schema = raw_schema(
+          { items: { type: "array", items: { anyOf: [{ type: "object", properties: { n: { type: "integer" } },
+                                                       required: ["n"] }, { type: "null" }] } } },
+          ["items"]
+        )
+        expect(described_class.validate({ items: [{ n: 1 }, nil] }, schema)).to be_empty
+        expect(described_class.validate({ items: [{ n: 1 }, {}] },
+                                        schema)).to eq(["missing required field: items[1].n"])
+      end
+
+      it "rejects a oneOf value that matches more than one branch" do
+        schema = raw_schema({ v: { oneOf: [{ type: "number" }, { type: "integer" }] } }, ["v"])
+        expect(described_class.validate({ v: 2 }, schema)).to eq(["v: matches 2 oneOf branches, expected exactly 1"])
+        expect(described_class.validate({ v: 2.5 }, schema)).to be_empty
+      end
+    end
+
+    context "type given as an array" do
+      let(:schema) do
+        double("type_array_schema").tap do |s|
+          allow(s).to receive(:respond_to?).with(:to_json_schema).and_return(true)
+          allow(s).to receive(:to_json_schema).and_return({ schema: { type: "object",
+                                                                      properties: { x: { type: %w[string null] } },
+                                                                      required: ["x"] } })
+        end
+      end
+
+      it "accepts a value of any listed type" do
+        expect(described_class.validate({ x: "a" }, schema)).to be_empty
+      end
+
+      it "rejects a value of an unlisted type" do
+        expect(described_class.validate({ x: 5 }, schema)).to eq(["x: expected string or null, got Integer"])
+      end
+    end
   end
 end
