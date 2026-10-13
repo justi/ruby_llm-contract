@@ -1,5 +1,18 @@
 # Changelog
 
+## Unreleased
+
+### Changed
+
+- **Requires `ruby_llm` 2.1.1 or later in 2.x (was `~> 2.0`).** faraday-net_http
+  3.5.0 (2026-10-11) declares no Faraday dependency, so a fresh install of ruby_llm
+  2.0.0 to 2.1.0 resolves Faraday 2.0.0, which loads no default adapter, and every
+  call fails with `:net_http is not registered on Faraday::Adapter`. ruby_llm 2.1.1
+  excludes Faraday 2.0.0. An app whose lockfile already has a working Faraday ran
+  fine on the older releases, but CI now tests 2.1.1 and the latest 2.x, so the
+  gemspec allows what is tested. Run `bundle update ruby_llm` if you are on an
+  older 2.x. No code changes are needed.
+
 ## 1.4.1 (2026-10-11)
 
 ### Fixed

@@ -24,7 +24,7 @@ RubyLLM::Contract.configure do |c|
 end
 ```
 
-Works with any `ruby_llm` provider (OpenAI, Anthropic, Gemini, etc). Requires `ruby_llm ~> 2.0` and Ruby ≥ 3.2.
+Works with any `ruby_llm` provider (OpenAI, Anthropic, Gemini, etc). Requires `ruby_llm` 2.1.1 or later in 2.x and Ruby ≥ 3.2.
 
 ## Example
 

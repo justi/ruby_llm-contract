@@ -35,7 +35,10 @@ Gem::Specification.new do |spec|
   spec.require_paths = ["lib"]
 
   spec.add_dependency "dry-types", "~> 1.7"
-  spec.add_dependency "ruby_llm", "~> 2.0"
+  # 2.1.1 is the first ruby_llm whose fresh install resolves a working Faraday
+  # (2.0.0 to 2.1.0 pair faraday-net_http 3.5.0 with faraday 2.0.0, which loads
+  # no adapter), and the oldest release CI runs against.
+  spec.add_dependency "ruby_llm", ">= 2.1.1", "< 3"
   # schematist is what ruby_llm-schema became; ruby_llm 2.x depends on it too.
   spec.add_dependency "schematist", "~> 1.1"
 end

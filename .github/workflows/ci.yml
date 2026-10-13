@@ -21,10 +21,11 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # 3.2 is the gemspec floor; 3.4 is current. ruby_llm 2.0.0 is pinned
-        # separately from latest 2.x so upstream drift is attributable.
+        # 3.2 is the gemspec floor; 3.4 is current. ruby_llm 2.1.1, the gemspec
+        # floor, is pinned separately from latest 2.x so upstream drift is
+        # attributable.
         ruby: ["3.2", "3.4"]
-        gemfile: [ruby_llm_2.0, ruby_llm_2.x]
+        gemfile: [ruby_llm_2.1.1, ruby_llm_2.x]
     env:
       BUNDLE_GEMFILE: ${{ github.workspace }}/gemfiles/${{ matrix.gemfile }}.gemfile
     steps:
