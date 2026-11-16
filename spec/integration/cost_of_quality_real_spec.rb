@@ -32,7 +32,7 @@ RSpec.describe "Cost of Quality — real LLM", :online do
     @models = if @provider == :openai
                 %w[gpt-4.1-nano gpt-4.1-mini]
               else
-                %w[claude-haiku-4-5-20251001 claude-sonnet-4-5-20250514]
+                %w[claude-haiku-4-5-20251001 claude-sonnet-4-5-20250929]
               end
   end
 
