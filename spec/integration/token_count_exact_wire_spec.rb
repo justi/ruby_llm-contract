@@ -106,6 +106,31 @@ RSpec.describe "token_count :exact (HTTP intercepted)" do
     expect(a_request(:post, completion_url)).not_to have_been_made
   end
 
+  # The count fails before AdapterCaller runs, so it is not an :adapter_error
+  # and a retry_on naming the network error class does not retry it.
+  it "refuses when the count request gets no answer, without retrying" do
+    stub_request(:post, count_url).to_timeout
+    wraps = Gem::Version.new(RubyLLM::VERSION) >= Gem::Version.new("2.2")
+    error = wraps ? RubyLLM::ConnectionError : Faraday::ConnectionFailed
+    retrying = Class.new(step) do
+      retry_policy do
+        escalate "gpt-4.1-mini", "gpt-4.1"
+        retry_on error
+      end
+    end
+    previous_retries = RubyLLM.config.max_retries
+    RubyLLM.config.max_retries = 0
+
+    result = run(retrying)
+
+    expect(result.status).to eq(:limit_exceeded)
+    expect(result.validation_errors.first).to start_with("token_count :exact: the provider could not count")
+    expect(a_request(:post, count_url)).to have_been_made.once
+    expect(a_request(:post, completion_url)).not_to have_been_made
+  ensure
+    RubyLLM.config.max_retries = previous_retries
+  end
+
   it "refuses when the provider's reply has no count" do
     stub_request(:post, count_url).to_return(status: 200, body: "{}", headers: { "Content-Type" => "application/json" })
 
