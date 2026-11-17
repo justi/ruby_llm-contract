@@ -49,7 +49,7 @@ end
 ```ruby
 # Before
 parsed = ArticleSummaryService.new.call(article_text)
-Article.update!(summary: parsed["tldr"])
+Article.update!(summary: parsed[:tldr])
 
 # After
 result = SummarizeArticle.run(article_text)

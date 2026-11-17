@@ -131,7 +131,7 @@ RubyLLM 2.1 emits its own events and OpenTelemetry spans for every call. To grou
 RubyLLM::Contract.configure { |c| c.workflow_instrumentation = true }
 ```
 
-A pipeline then runs as one `RubyLLM.workflow` named after its class, with each step as `workflow.step(alias)`; a step run on its own is a workflow named after its class. RubyLLM's events carry `workflow_name` and `workflow_step_name`, and a workflow your code opened around the call becomes the parent. Off by default. In a Rails app RubyLLM also records each call in its usage ledger when configured; that figure and `trace[:cost]` are the same RubyLLM price, unless `CostCalculator.register_model` overrides it for the model.
+A pipeline then runs as one `RubyLLM.workflow` named after its class, with each step as `workflow.step(alias)`; a step run on its own is a workflow named after its class. RubyLLM's events carry `workflow_name` and `workflow_step_name`, and a workflow your code opened around the call becomes the parent. Off by default. In a Rails app RubyLLM also records each call in its usage ledger when configured; for a single attempt that figure and `trace[:cost]` (rounded to six decimals) are the same RubyLLM price, unless `CostCalculator.register_model` sets a price for the model and the provider did not report what it billed. With a retry chain each attempt is its own RubyLLM call, while `trace[:cost]` sums the attempts it could price (`trace[:cost_complete]` says whether it priced them all).
 
 ## 5. Testing — RSpec and Minitest
 
@@ -191,7 +191,7 @@ class ArticlesController < ApplicationController
 end
 ```
 
-When `retry_policy` exhausts and all models fail, `result.failed?` is true but `result.parsed_output` still contains the last attempt's output — useful for logging what the model *did* return before the validate rejected it.
+When `retry_policy` exhausts and all models fail, `result.failed?` is true but `result.parsed_output` still contains the last attempt's output when it parsed — useful for logging what the model *did* return before the validate rejected it. After a parse error it is `nil`; `result.raw_output` keeps the text.
 
 ## 7. CI gate — block regressions before merge
 
@@ -217,7 +217,7 @@ Then wire it in GitHub Actions:
   run: bundle exec rake ruby_llm_contract:eval
 ```
 
-The job fails when a previously-passing eval case now fails, when the average score drops below the threshold, or when total cost exceeds the cap. That is the signal that blocks a prompt regression or an accidental model upgrade from shipping.
+The job fails when a previously-passing eval case now fails, when an eval's average score drops below `minimum_score`, or when total cost exceeds the cap. The first needs a baseline: with `save_baseline = false` the task creates none, so save one (`report.save_baseline!`, or a run with `save_baseline = true`) and commit it. That is the signal that blocks a prompt regression or an accidental model upgrade from shipping.
 
 **Two practical notes:**
 

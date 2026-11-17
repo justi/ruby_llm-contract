@@ -71,7 +71,7 @@ class AccuracyJudge < RubyLLM::Contract::Step::Base
 end
 ```
 
-The `retry_policy` escalates to `gpt-5-mini` if the cheaper `gpt-5-nano` fails schema/validate (e.g., returns malformed JSON) — the judge stays reliable without paying for the bigger model on every call. `max_cost 0.01` bounds each attempt (with `max_output 2_000`, up to roughly 24k input tokens on `gpt-5-mini`), so a case that falls back from nano to mini costs at most about $0.012: the judge runs N× per eval suite (one call per case), so capping per-call cost prevents calibration runs from blowing the budget.
+The `retry_policy` escalates to `gpt-5-mini` if the cheaper `gpt-5-nano` fails schema/validate (e.g., returns malformed JSON) — the judge stays reliable without paying for the bigger model on every call. `max_cost 0.01` bounds each attempt's estimated cost (with `max_output 2_000`, up to roughly 24k input tokens on `gpt-5-mini`; the input side is a heuristic estimate, not the billed amount), so a case that falls back from nano to mini is estimated at no more than about $0.012: the judge runs N× per eval suite (one call per case), so capping per-call cost prevents calibration runs from blowing the budget.
 
 This is small on purpose: one boolean, one reason. Easy to read, easy to disagree with.
 
@@ -147,9 +147,9 @@ Only now, after the judge has earned trust on real data, do you use it as the or
 - `output` — `parsed_output` of the Step under test. Here `output[:tldr]` is the summary `SummarizeArticle` produced (the same field declared in its `output_schema`).
 - `input` — whatever you passed to `add_case input:`. Here it's the original article string.
 
-The lambda must return a `Float` in `[0.0, 1.0]` — the eval framework averages per-case scores into the suite score. Map `true → 1.0`, `false → 0.0`, or use weighted partial scores if your judge returns gradations.
+Return a `Float` in `[0.0, 1.0]` — the eval framework averages per-case scores into the suite score, clamping a number outside that range, and a number of 0.5 or more passes the case. `true` and `false` count as 1.0 and 0.0, and an `EvaluationResult` is used as returned; use weighted partial scores if your judge returns gradations.
 
-> ⚠️ **Heads-up before you copy the snippet below.** Smoke evals on `SummarizeArticle` (per [Getting Started](getting_started.md)) typically run with `RubyLLM::Contract::Adapters::Test` for determinism — canned summaries, no API calls. **The `AccuracyJudge.run(...)` inside the evaluator does NOT inherit that Test adapter.** Each Step picks its adapter independently (from `context: { adapter: }`, or the `default_adapter` set in `RubyLLM::Contract.configure`). Run accuracy-regression evals live (an explicit `context:` or a configured default adapter), and rely on `max_cost` on the judge to bound the bill.
+> ⚠️ **Heads-up before you copy the snippet below.** Smoke evals on `SummarizeArticle` (per [Getting Started](getting_started.md)) typically run with `RubyLLM::Contract::Adapters::Test` for determinism — canned summaries, no API calls. **The `AccuracyJudge.run(...)` inside the evaluator does NOT inherit that Test adapter.** Each Step picks its adapter independently (from `context: { adapter: }`, or the `default_adapter` set in `RubyLLM::Contract.configure`). Run accuracy-regression evals live (an explicit `context:` or a configured default adapter), and rely on `max_cost` on the judge to bound each call's estimated cost.
 >
 > This is intentional: the judge IS the oracle, so faking its verdicts would defeat the purpose. Keep the Test-adapter smoke evals for schema/wiring checks only.
 

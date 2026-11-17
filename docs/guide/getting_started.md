@@ -27,7 +27,7 @@ class SummarizeArticle < RubyLLM::Contract::Step::Base
     string :tone, enum: %w[neutral positive negative analytical]
   end
 
-  # 3. Business rules — things JSON Schema cannot express
+  # 3. Business rules - checks this schema does not make
   validate("TL;DR fits the card")  { |o, _| o[:tldr].length <= 200 }
   validate("takeaways are unique") { |o, _| o[:takeaways] == o[:takeaways].uniq }
 
@@ -45,7 +45,7 @@ Each `validate` block receives `(parsed_output, input)` — the convention `|o, 
 
 ## Validation and retry behavior
 
-When the cheap model returns output that fails a `validate` block (status `:validation_failed`) or can't be parsed as JSON (status `:parse_error`), retry falls back to the next model in `models:` and tries again. Transport errors (timeouts, 5xx) retry independently via Faraday, not via `retry_policy`. See [Optimizing retry_policy](optimizing_retry_policy.md) for tuning the chain.
+When the cheap model returns output that fails a `validate` block (status `:validation_failed`) or can't be parsed as JSON (status `:parse_error`), retry falls back to the next model in `models:` and tries again. Transport errors (timeouts, 5xx) retry inside RubyLLM, and by default not via `retry_policy`; to retry them there too, name them in `retry_on` (see below). See [Optimizing retry_policy](optimizing_retry_policy.md) for tuning the chain.
 
 ```ruby
 result = SummarizeArticle.run(article_text)
@@ -76,7 +76,7 @@ retry_policy do
 end
 ```
 
-A class matches its subclasses; `:adapter_error` in the list retries every adapter error. As with statuses, the list replaces the defaults. Switching to a fallback model on transport errors inside one call is RubyLLM's `chat.with_fallbacks`; the contract's adapter does not call it, so fallbacks across models belong in `escalate`.
+A class matches its subclasses; `:adapter_error` in the list retries every adapter error. A network failure (refused connection, timeout) is `RubyLLM::ConnectionError` on `ruby_llm` 2.2; 2.1 raised the Faraday error itself (`Faraday::ConnectionFailed`, `Faraday::TimeoutError`), so a `retry_on` naming a Faraday class stops matching after the upgrade. A provider or network error while `token_count :exact` counts the input is not an adapter error: the Step ends as `:limit_exceeded`, so a `retry_on` naming an error class does not retry it. As with statuses, the list replaces the defaults. Switching to a fallback model on transport errors inside one call is RubyLLM's `chat.with_fallbacks`; the contract's adapter does not call it, so fallbacks across models belong in `escalate`.
 
 ### Responses cut off by a token limit
 
@@ -152,7 +152,7 @@ SummarizeArticle.define_eval("regression") do
 end
 ```
 
-`expected:` is treated as a partial match against `parsed_output` — extra output keys are ignored, listed keys must equal. So this case passes whenever the model produces `tone: "analytical"`, regardless of `tldr` content. To assert on multiple keys, list them all in `expected`.
+`expected:` is treated as a partial match against `parsed_output` — extra output keys are ignored, listed keys must equal (a Regexp or Range in `expected` matches instead). So the first case passes whenever the step's own schema and `validate` rules pass and the model produces `tone: "analytical"`, regardless of `tldr` content. To assert on multiple keys, list them all in `expected`.
 
 Gate CI on score and cost thresholds:
 
@@ -173,11 +173,11 @@ report.save_baseline!
 expect(SummarizeArticle).to pass_eval("regression").without_regressions
 ```
 
-`without_regressions` fails the build only if a previously-passing case now fails — a new model version, a prompt tweak, or an upstream change that silently lowered quality. A previously-passing case that was skipped this run (no adapter configured) also fails the gate, listed as `SKIPPED` rather than as a regression.
+`pass_eval` always requires the eval to pass (every case that ran, or the score set by `with_minimum_score`; a case skipped for want of an adapter does not count, but at least one case must run). `without_regressions` adds a check against the saved baseline: it also fails the build if a previously-passing case now fails — a new model version, a prompt tweak, or an upstream change that silently lowered quality — or was removed from the eval. A previously-passing case that was skipped this run (no adapter configured) also fails the gate, listed as `SKIPPED` rather than as a regression.
 
 ## Budget caps
 
-`max_input`, `max_output`, and `max_cost` are preflight checks — the LLM is never called if an estimate exceeds the limit. Zero tokens spent, zero cost.
+`max_input` and `max_cost` are preflight checks: an attempt whose estimate exceeds the limit is never sent, so it generates nothing and costs nothing. `max_output` caps the reply at the provider and is the output side of the `max_cost` estimate. With `token_count :exact` the provider counts the input before the check, and in a retry chain a refused attempt does not undo the attempts before it.
 
 ```ruby
 result = SummarizeArticle.run(forty_page_report)   # ~128k characters
@@ -201,7 +201,7 @@ max_cost 0.01, on_unknown_pricing: :warn
 
 Default is `:refuse`. Use `:warn` only when you accept running without a cost ceiling (fine-tuned models you trust, private endpoints).
 
-The eval-level gates - `with_maximum_cost` on `pass_eval`, `maximum_cost` on the rake task, and `maximum_cost:` on `assert_eval_passes` - follow the same rule since 1.1.0. A report's total counts a case it cannot price as $0, so when any case ran on a model without pricing data the gate fails and names the cases instead of comparing an undercounted total. Opt out with `.on_unknown_pricing(:warn)`, `t.on_unknown_pricing = :warn` or `on_unknown_pricing: :warn`, which checks the budget against the priced cases and prints a warning. Offline runs (`sample_response`, a `Test` adapter without `usage:`) report zero tokens, cost $0 with or without pricing, and are never flagged. Since 1.1.2 a real call whose provider sent no token counts is flagged too, instead of passing as a free zero-token run.
+The eval-level gates - `with_maximum_cost` on `pass_eval`, `maximum_cost` on the rake task, and `maximum_cost:` on `assert_eval_passes` - follow the same rule since 1.1.0. A report's total leaves out what it cannot price (a case with no priced attempt counts as $0), so when any case ran on a model without pricing data the gate fails and names the cases instead of comparing an undercounted total. Opt out with `.on_unknown_pricing(:warn)`, `t.on_unknown_pricing = :warn` or `on_unknown_pricing: :warn`, which checks the budget against the priced costs and prints a warning. Offline runs (`sample_response`, a `Test` adapter without `usage:`) report zero tokens, cost $0 with or without pricing, and are never flagged. Since 1.1.2 a real call whose provider sent no token counts is flagged too, instead of passing as a free zero-token run.
 
 ### What a trace's usage and cost count
 
@@ -230,7 +230,7 @@ class SummarizeArticle < RubyLLM::Contract::Step::Base
 end
 ```
 
-The count comes from RubyLLM's `chat.count_tokens` (OpenAI Responses, Anthropic, Gemini, Vertex AI, Bedrock Converse) and covers the prompt and attachments, so `attachment_token_estimate` is not needed. What else a provider counts is its own: OpenAI's and Anthropic's counts include the output schema, Gemini's leaves it out. It costs one extra request per attempt, and RubyLLM leaves `provider_options` out of it. Where no count can be had - a provider without the endpoint (Ollama, for one), a failed request, or an adapter without `count_tokens` - the call is refused as `:limit_exceeded` with the reason, never measured with the heuristic under the name "exact". The `Test` adapter counts with the heuristic, since it has no provider to ask. The output side of `max_cost` is still an estimate (`max_output`, or the input size without one).
+The count comes from RubyLLM's `chat.count_tokens` (OpenAI Responses, Anthropic, Gemini, Vertex AI, Bedrock Converse) and covers the prompt and attachments, so `attachment_token_estimate` is not needed. What else a provider counts is its own: OpenAI's and Anthropic's counts include the output schema, Gemini's leaves it out. It costs one extra request per attempt, and RubyLLM leaves `provider_options` out of it. Where no count can be had - a provider without the endpoint (Ollama, for one), a request that fails with a RubyLLM or Faraday error, or an adapter without `count_tokens` - the call is refused as `:limit_exceeded` with the reason, never measured with the heuristic under the name "exact". The `Test` adapter counts with the heuristic, since it has no provider to ask. The output side of `max_cost` is still an estimate (`max_output`, or the input size without one).
 
 ### Local and custom models
 
@@ -262,7 +262,7 @@ SummarizeArticle.estimate_eval_cost("regression",
 # => { "gpt-4.1-nano" => 0.003207, "gpt-4.1-mini" => 0.012829, "gpt-4.1" => 0.064142 }
 ```
 
-`estimate_cost` returns `nil` when pricing isn't registered. `estimate_eval_cost` silently treats unknown-pricing cases as `$0.00` and sums the rest — it does **not** fail closed the way `max_cost` does. Treat its output as a floor, not a guarantee; register pricing via `CostCalculator.register_model` before relying on it for budget decisions.
+`estimate_cost` returns `nil` when it does not know the model, and a hash with `estimated_cost: nil` when it knows the model but not its price. `estimate_eval_cost` silently treats unknown-pricing cases as `$0.00` and sums the rest — it does **not** fail closed the way `max_cost` does. Treat its output as a floor, not a guarantee; register pricing via `CostCalculator.register_model` before relying on it for budget decisions.
 
 ## Provider options
 

@@ -1,6 +1,6 @@
 # Examples
 
-Seven runnable examples, every one using the `SummarizeArticle` step from the [README](../README.md) — a Rails app turning article text into a UI card with TL;DR, takeaways, and tone. Zero API keys (Test adapter is the default). Only `02_real_llm_minimal.rb` needs a provider key.
+Seven runnable examples, every one using the `SummarizeArticle` step from the [README](../README.md) — a Rails app turning article text into a UI card with TL;DR, takeaways, and tone. Zero API keys (the offline examples use the Test adapter). Only `02_real_llm_minimal.rb` needs a provider key.
 
 Pedagogical order: hook → activation → evolution → composition → quality → advanced.
 
@@ -27,6 +27,6 @@ ruby examples/04_summarize_and_translate.rb
 ruby examples/05_eval_dataset.rb
 ruby examples/06_retry_variants.rb
 
-# Real LLM — requires a provider API key or a local Ollama server:
+# Real LLM — requires OPENAI_API_KEY (comments at its end show Anthropic and Ollama):
 ruby examples/02_real_llm_minimal.rb
 ```

@@ -34,7 +34,7 @@ SummarizeArticle.define_eval("regression") do
 end
 ```
 
-"Partial match" means `expected` is treated as a subset of `parsed_output` — each key in `expected` must equal the corresponding key in the output, but extra keys in the output are ignored. So the `ruby release` case passes whenever the model produces `tone: "analytical"`, regardless of what shows up in `tldr` or `takeaways`. To assert on multiple keys, list them all in `expected`.
+"Partial match" means `expected` is treated as a subset of `parsed_output` — each key in `expected` must equal the corresponding key in the output, but extra keys in the output are ignored. A Regexp in `expected` matches the value as a string, a Range must include it, and a key whose output value is `nil` counts as missing. So the `ruby release` case passes whenever the step's own schema and `validate` rules pass and the model produces `tone: "analytical"`, regardless of what shows up in `tldr` or `takeaways`. To assert on multiple keys, list them all in `expected`.
 
 Only after the eval exists, touch the prompt-shaping building blocks of the Step: `system`, `rule`, and `example` (blocks inside `prompt do`), `validate` (class-level invariant checks that run after the model returns), or the prompt version itself. See [Getting Started](getting_started.md) for the DSL surface.
 
@@ -88,7 +88,7 @@ diff = SummarizeArticleV2.compare_with(
   context: { retry_policy_override: nil }   # run mini, not the step's retry chain
 )
 
-diff.safe_to_switch?  # => true if no cases regressed
+diff.safe_to_switch?  # => true when both ran the same cases and none scored lower
 ```
 
 This is the cleanest eval-first move: same eval, same cases, two prompt versions, one answer.
@@ -152,7 +152,7 @@ SummarizeArticle.estimate_eval_cost("regression",
 # => { "gpt-4.1-nano" => 0.003207, "gpt-4.1-mini" => 0.012829, "gpt-4.1" => 0.064142 }
 ```
 
-Use it in CI to decide which models are worth running regression on, or to cap worst-case spend per build.
+Use it in CI to decide which models are worth running regression on, or to budget a build. It is a floor, not a worst case: it counts one attempt per case, `max_output` (or 256) output tokens, and $0 for a model it cannot price.
 
 ## Team workflow
 
@@ -184,7 +184,8 @@ Don't optimize cost before you stabilize quality:
 ```ruby
 comparison = SummarizeArticle.compare_models(
   "regression",
-  candidates: [{ model: "gpt-4.1-nano" }, { model: "gpt-4.1-mini" }, { model: "gpt-4.1" }]
+  candidates: [{ model: "gpt-4.1-nano" }, { model: "gpt-4.1-mini" }, { model: "gpt-4.1" }],
+  context: { adapter: RubyLLM::Contract::Adapters::RubyLLM.new } # live; without it a sample_response answers
 )
 
 comparison.best_for(min_score: 0.95)
@@ -202,7 +203,7 @@ comparison.best_for(min_score: 0.95)
 
 1. Write `define_eval` before touching the prompt.
 2. Treat `sample_response` as smoke only.
-3. Use `run_eval("name", context: { model: "..." })` for real quality measurement.
+3. Use `run_eval("name", context: { adapter: RubyLLM::Contract::Adapters::RubyLLM.new, model: "..." })` for real quality measurement — a `model:` alone keeps the canned `sample_response`, and a Step with a retry chain needs `retry_policy_override: nil` too, or the chain picks the model.
 4. Use `compare_with` for every serious prompt change.
 5. Gate merges with `pass_eval`.
 6. Feed every production miss back into the dataset.

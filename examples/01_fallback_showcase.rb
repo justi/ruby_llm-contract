@@ -204,5 +204,7 @@ puts
 #
 # Replace the Test adapter with Adapters::RubyLLM (see Step 8 in
 # examples/00_basics.rb for the one-liner) and this exact same code runs
-# against a real provider or a local Ollama server.
+# against a real provider. A local Ollama model is not a tier of this GPT
+# chain: run it with provider: :ollama and retry_policy_override: nil, as
+# Step 8 shows.
 # =============================================================================

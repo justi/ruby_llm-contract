@@ -39,9 +39,14 @@ puts "Final model: #{result.trace[:model]}"          # => "gpt-5-nano" (or mini/
 puts "Latency:     #{result.trace[:latency_ms]}ms"   # real network time
 puts "Tokens:      #{result.trace[:usage]}"          # real usage
 puts "Cost:        $#{result.trace[:cost]}"          # sum across retries
-puts "TL;DR:       #{result.parsed_output[:tldr]}"
+if result.ok?
+  puts "TL;DR:       #{result.parsed_output[:tldr]}"
+else
+  puts "Errors:      #{result.validation_errors.inspect}" # inspect escapes control characters in provider text
+end
 
-# Switch provider per call — ruby_llm resolves the provider from the model name.
+# Switch provider per call — ruby_llm resolves the provider from the model
+# name (from 2.2 it prefers the providers you configured).
 # The step's retry_policy chain picks the model of every attempt, so turn it off
 # for the call (retry_policy_override: nil) to run a model of your choice:
 #   (configure c.anthropic_api_key, or c.ollama_api_base for Ollama, first)

@@ -10,7 +10,7 @@ Below are four failure modes teams actually hit. If one looks familiar, the gem 
 
 A `SummarizeArticle` step produces `{ tldr: "...", takeaways: [...], tone: "analytical" }`. Schema passes. The TL;DR is 520 characters long and overflows the UI card. Or the takeaways are all variations of the same sentence. Or the article was a service-outage complaint and `tone` came back `"analytical"` instead of `"negative"` — so customer success's "critical feedback" filter never sees it.
 
-JSON schema enforces **shape**. It cannot enforce *length fits the card*, *takeaways are distinct*, or *tone matches content*. Those are business rules, and without them you find out from a Slack thread or a support ticket.
+A schema that checks only **shape** misses *length fits the card*, *takeaways are distinct*, and *tone matches content*. A length cap can go into the schema too (`max_length: 200`); the others are business rules, and without them you find out from a Slack thread or a support ticket.
 
 ```ruby
 validate("TL;DR fits the card")  { |o, _| o[:tldr].length <= 200 }
@@ -21,7 +21,7 @@ validate("negative tone requires concrete risk") do |o, _|
 end
 ```
 
-Wrong output never reaches `Article.update!` — the contract refuses before it persists.
+Wrong output comes back as a failed result, so a caller that checks `result.ok?` before `Article.update!` never persists it.
 
 ## Failure 2 — Silent prompt regression
 
@@ -62,7 +62,7 @@ Nano misclassifies the tone on the first attempt → contract rejects → mini g
 
 **See it in 30 seconds:** `ruby examples/01_fallback_showcase.rb` — zero API keys required. The Test adapter simulates a tone/takeaways mismatch on the first attempt and a consistent sample on the retry, then prints the per-attempt trace.
 
-`retry_policy` has three other shapes beyond cross-model escalation — same-model `attempts: 3` (absorbs sampling variance without paying for a stronger tier), `reasoning_effort` escalation (low → medium → high on one model), and cross-provider fallback (OpenAI → Anthropic — ruby_llm picks the provider from the model name; a local Ollama model needs `provider: :ollama` for the whole call, so it cannot be one tier of such a chain). `examples/06_retry_variants.rb` runs all three through the Test adapter with the trace printed.
+`retry_policy` has three other shapes beyond cross-model escalation — same-model `attempts: 3` (absorbs sampling variance without paying for a stronger tier), `reasoning_effort` escalation (low → medium → high on one model), and cross-provider fallback (OpenAI → Anthropic — ruby_llm picks the provider from the model name, from 2.2 preferring the providers you configured; a local Ollama model needs `provider: :ollama` for the whole call, so it cannot be one tier of such a chain). `examples/06_retry_variants.rb` runs all three through the Test adapter with the trace printed.
 
 ## Failure 4 — Runaway cost and no fallback policy
 
@@ -92,7 +92,7 @@ The 40-page PDF returns `status: :limit_exceeded` — zero tokens spent. The 80/
 | Schema-valid but logically wrong output | `validate(...) { |o, i| ... }` with 2-arity for cross-checks |
 | Silent prompt regression after a tweak | `define_eval` + `pass_eval(...).without_regressions` in CI |
 | Sampling variance on fixed-temperature models (gpt-5 / o-series) | Cross-field `validate(...)` + `retry_policy models: [...]` |
-| Runaway cost on pathological inputs | `max_input`, `max_output`, `max_cost` preflight |
+| Runaway cost on pathological inputs | `max_input`, `max_cost` preflight + `max_output` reply cap |
 | 80/20 traffic paying the premium model rate | `retry_policy` + `optimize_retry_policy` |
 | Leaked placeholder / input echo / tone drift | `validate` with content and cross-input checks |
 

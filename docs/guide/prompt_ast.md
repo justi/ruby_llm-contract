@@ -23,7 +23,7 @@ Or just a plain string (wraps as a single user message):
 prompt "Summarize this article for a UI card. {input}"
 ```
 
-The AST is immutable, diffable, and hashable. Useful for snapshot testing and auditing prompt changes.
+The AST is frozen, diffable, and compares by value with `==`. Useful for snapshot testing and auditing prompt changes.
 
 ## Hash inputs with variable interpolation
 
@@ -54,7 +54,7 @@ class SummarizeArticle < RubyLLM::Contract::Step::Base
 end
 ```
 
-Every `{key}` in a prompt node is pulled from the input hash at run time. A key the input does not have is left in the prompt as literal `{key}` text, so declare the keys in a `Types::Hash.schema(...)` input type when a missing one should stop the call.
+Every `{key}` in a node's text (a `section`'s body, not its name) is pulled from the input hash at run time. A key the input does not have is left in the prompt as literal `{key}` text, so declare the keys in a `Types::Hash.schema(...)` input type when a missing one should stop the call.
 
 > **Not the same as `RubyLLM::Agent.inputs`.** `Step.input_type` is a *runtime type check* on the positional argument passed to `run(input)` — a violating input returns `status: :input_error` instead of calling the model. `RubyLLM::Agent.inputs` is a list of *named template locals* injected into ERB instructions. They solve different problems (validation vs templating) and can coexist on the same project.
 

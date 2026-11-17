@@ -6,7 +6,7 @@ You defined `SummarizeArticle` in [Getting Started](getting_started.md) with `re
 
 ## Requirements
 
-- **`SummarizeArticle` already has `retry_policy`.** If your step has none, add one first ([getting started](getting_started.md)).
+- **A `retry_policy` is optional.** The optimizer runs each candidate without the Step's own chain, and the DSL it prints is the policy to add.
 - **2–3 evals per step.** One eval optimizes for one scenario; with only `smoke`, you get a recommendation that passes smoke but may miss production edge cases. See [eval-first](eval_first.md).
 - **Rake task `ruby_llm_contract:optimize` is registered when `lib/ruby_llm/contract/rake_task.rb` is loaded.** In Rails apps the railtie auto-loads it lazily during `rake` invocation — no manual setup needed. In non-Rails projects, add `require "ruby_llm/contract/rake_task"` to your `Rakefile` (or any file under `lib/tasks/`) and set `EVAL_DIRS=...` on the command line.
 
@@ -32,9 +32,9 @@ rake ruby_llm_contract:optimize \
 
 The `@low` (or `@medium`, `@high`) suffix on a candidate is CLI shorthand for `{ model: "gpt-5-mini", reasoning_effort: "low" }` — saves you constructing hash strings on the command line. Plain model names without `@` use the Step's default thinking config (or none). `@default` runs the candidate with no effort at all, which is what a model without reasoning needs when the Step sets one: `CANDIDATES=gpt-6-luna@none,gpt-4.1-mini@default`.
 
-List candidates from the cheapest to the most expensive. The optimizer takes that order as the cost order: the suggested chain tries them in it, and the first candidate that passes every eval is the safe fallback. It does not sort by price.
+List candidates from the cheapest to the most expensive. The optimizer takes that order as the cost order: the suggested chain tries them in it, and the first candidate that passes every eval is the safe fallback. It does not sort by price. A candidate passes an eval when it scores at least `MIN_SCORE`, 0.95 by default; set `MIN_SCORE=1` to require full scores.
 
-Offline uses each eval's `sample_response` — zero API calls. **Every candidate gets the same score** because they all receive the canned response. That's fine for a smoke test (verifying evals load, candidates parse, output renders) but it doesn't compare model quality. For real optimization, go live.
+Offline, each eval with a `sample_response` uses it — zero API calls. An eval without one runs on the default adapter, which `RubyLLM::Contract.configure` sets up, so it calls the provider; give every eval a `sample_response` for a fully offline run. **When every eval has one, every candidate receives the same canned response.** That's fine for a smoke test (verifying evals load, candidates parse, output renders) but it doesn't compare model quality. For real optimization, go live.
 
 ## Optimize against real models
 
@@ -75,23 +75,24 @@ SummarizeArticle — fallback list optimization
 ```
 
 Reading the table:
-- **`←` marks scores below threshold in the hardest eval.** Not a selection hint — just "this candidate fails the row that matters most".
+- **`←` marks scores below 1.0 in the hardest eval.** Not a selection hint — just "this candidate fails the row that matters most".
 - **Hardest eval** = the one that forces the strong fallback. Here, `critical_tone` demands `gpt-5-mini` at its default effort.
-- **Suggested fallback list** = the shortest chain where each step covers more evals, built greedy-cheapest-first. Stops when all evals pass. Order matters: `gpt-5-nano` is tried first; on validation failure, the gem falls back to `gpt-5-mini` at low effort, then at its default.
+- **Suggested fallback list** = a greedy chain, not a searched-for shortest one: walking the candidates cheapest first, it keeps each one that passes an eval no earlier candidate passed, and ends on the first candidate that passes every eval. Order matters: `gpt-5-nano` is tried first; on validation failure, the gem falls back to `gpt-5-mini` at low effort, then at its default. Retry fires on `:validation_failed` and `:parse_error`, not on a low eval score, so a cheaper candidate's eval failures must be ones your `validate` rules catch, or the fallback never runs for them.
 
 Copy the DSL, paste into your step, verify with `rake ruby_llm_contract:eval` (defined by `RubyLLM::Contract::RakeTask.new`, see [Rails integration](rails_integration.md#7-ci-gate--block-regressions-before-merge)). You just dropped `gpt-5` from the chain — most requests finish on nano, mini handles what nano misses, and the strong model was never needed.
 
 ## Measure effective cost before shipping
 
-`optimize` shows **first-attempt** cost. In production, a candidate whose validator rejects 20% of outputs actually costs `first_try_cost + fallback_cost × 0.20` per successful output. The first-attempt number hides this.
+`optimize` shows scores, not cost, and `compare_models` on its own reports what each candidate's run cost with no fallback (its same-model retries included). In production, a candidate whose validator rejects 20% of outputs actually costs about `first_try_cost + fallback_cost × 0.20` per request. A run without the fallback hides this.
 
-`production_mode:` is an optional `compare_models` kwarg. With `{ fallback: "model" }` it runs each candidate with a runtime `[candidate, fallback]` chain and reports **effective cost** (first-try + fallback cost weighted by rejection rate). Without it, you get only first-attempt metrics (the default). A fallback without a `reasoning_effort` runs with the candidate's, so a fallback naming the candidate's model sends the same request and is skipped; `{ model: "...", reasoning_effort: :default }` falls back with no effort.
+`production_mode:` is an optional `compare_models` kwarg. With `{ fallback: "model" }` it runs each candidate with a runtime `[candidate, fallback]` chain and reports **effective cost**: the eval's total, every first attempt plus every fallback that ran. Without it, you get only first-attempt metrics (the default). A fallback without a `reasoning_effort` runs with the candidate's, so a fallback naming the candidate's model sends the same request and is skipped; `{ model: "...", reasoning_effort: :default }` falls back with no effort.
 
 ```ruby
 SummarizeArticle.compare_models(
   "dense_article",
   candidates: [{ model: "gpt-5-nano" }, { model: "gpt-5-mini", reasoning_effort: "low" }, { model: "gpt-5" }],
-  production_mode: { fallback: "gpt-5" }
+  production_mode: { fallback: "gpt-5" },
+  context: { adapter: RubyLLM::Contract::Adapters::RubyLLM.new } # live; without it a sample_response answers
 ).print_summary
 ```
 
@@ -110,9 +111,9 @@ dense_article — model comparison
   Cheapest at 100%: gpt-5-mini (effort: low)
 ```
 
-- **first-attempt** — cost of the first run alone.
-- **fallback %** — fraction of cases where the validator rejected and the fallback ran.
-- **effective cost** — total per successful output including retries.
+- **first-attempt** — cost of the first attempts alone, summed over the eval's cases.
+- **fallback %** - fraction of cases that needed more than one attempt, so the fallback ran.
+- **effective cost** — total over the eval's cases, fallbacks included.
 - **`—`** — the fallback would send the candidate's own request, so the candidate runs alone and there is no chain to observe.
 
 Run this before finalizing: a candidate saving 3× on first-attempt but falling back 60% of the time may save only 1.2× in production.
@@ -123,7 +124,7 @@ Run this before finalizing: a candidate saving 3× on first-attempt but falling 
 
 - **"No viable chain" from a single live run.** Re-run with `RUNS=3`. If scores jump, the first run was noise. Never trust single-run results with gpt-5 / o-series in the pool — `temperature=1.0` is server-enforced.
 - **Every candidate fails the same eval**, including the strongest. The eval is rejecting correct answers. Run the step directly (`context: { retry_policy_override: nil, model: "gpt-4.1" }`), inspect the output, compare with the `verify` block. Loosen the eval if the output is correct but not one of the accepted values.
-- **Testing one specific hypothesis.** (e.g. "does `mini@medium` help on `critical_tone`?") Use `SummarizeArticle.compare_models("critical_tone", candidates: [{ model: "gpt-5-mini", reasoning_effort: "medium" }], runs: 3)` directly — three calls instead of rerunning the whole optimize pass.
+- **Testing one specific hypothesis.** (e.g. "does `mini@medium` help on `critical_tone`?") Use `SummarizeArticle.compare_models("critical_tone", candidates: [{ model: "gpt-5-mini", reasoning_effort: "medium" }], runs: 3, context: { adapter: RubyLLM::Contract::Adapters::RubyLLM.new })` directly — three calls instead of rerunning the whole optimize pass.
 
 ## Programmatic API names
 
@@ -131,7 +132,7 @@ Metrics exposed on `Report` / `AggregatedReport` keep their original names: `sin
 
 ## thinking DSL note
 
-Set the default reasoning effort once on the Step class — mirrors `RubyLLM::Agent.thinking` exactly:
+Set the default reasoning effort once on the Step class, with the `effort:` and `budget:` of `RubyLLM::Agent.thinking` (not its other options):
 
 ```ruby
 class SummarizeArticle < RubyLLM::Contract::Step::Base
@@ -153,4 +154,4 @@ SummarizeArticle.compare_models("regression", candidates: [{ model: "gpt-6-luna"
 retry_policy { escalate({ model: "gpt-6-luna" }, { model: "gpt-4.1-mini", reasoning_effort: :default }) }
 ```
 
-`nil` is not `:default`: a nil effort is ignored and the class one is sent. The gem does not drop an effort by itself based on the model. A chain element without an effort runs with the call's (or the class's), and `trace.attempts[n][:config]` shows the effort each attempt was sent.
+`nil` is not `:default`: a nil effort is ignored and the class one is sent. The gem does not drop an effort by itself based on the model. A chain element without an effort runs with the call's (or the class's), and `trace.attempts[n][:config]` shows the effort an attempt was sent; it is absent when the attempt was sent no effort.

@@ -2,7 +2,7 @@
 
 > Read this when your contract needs to send a PDF, image, or audio file to the LLM — not just text.
 
-`ruby_llm-contract` 0.10.0+ routes attachments through the contract layer, so `max_cost`, `validate`, `retry_policy escalate(...)`, and trace observability still apply. The gem does **not** ship its own multimodal API — it forwards `with:` to `RubyLLM::Chat#ask`, which RubyLLM normalises per provider (Anthropic, OpenAI, Gemini).
+`ruby_llm-contract` 0.10.0+ routes attachments through the contract layer, so `max_cost`, `validate`, `retry_policy { escalate ... }`, and trace observability still apply. The gem does **not** ship its own multimodal API — it forwards `with:` to `RubyLLM::Chat#ask`, which RubyLLM normalises per provider (Anthropic, OpenAI, Gemini).
 
 ## Minimal example
 
@@ -48,7 +48,7 @@ result.trace[:cost]   # => 0.0042  (total across attempts)
 
 1. **Input vs attachment.** The `input` argument to `Step.run` is the text prompt. The attachment travels via `context: { attachment: ... }` — opaque to the contract layer, forwarded to the adapter.
 2. **Adapter forwards `with:`.** `RubyLLM::Contract::Adapters::RubyLLM` reads `options[:attachment]` and passes it to `chat.ask(content, with: attachment)`. RubyLLM picks the right wire format per provider.
-3. **Multi-attachment supported.** `with: [pdf1, pdf2]` or `with: { images: [...], pdfs: [...] }` works natively (`RubyLLM::Content#process_attachments`).
+3. **Multi-attachment supported.** `with: [pdf1, pdf2]` or `with: { images: [...], pdfs: [...] }` works natively; RubyLLM groups the attachments itself.
 4. **`with: nil` is a no-op.** Text-only contracts unaffected — the kwarg defaults to nil.
 
 ## Cost: `attachment_token_estimate` is required
@@ -70,7 +70,7 @@ The same estimate applies to:
 
 ### Fail-closed without estimate
 
-If your contract has `max_cost` or `max_input` set, receives an attachment, and `attachment_token_estimate` is **not declared**, the call fails with `:limit_exceeded` — the gem refuses to spend money on cost it cannot bound.
+If your contract has `max_cost` or `max_input` set, receives an attachment, and `attachment_token_estimate` is **not declared**, the call fails with `:limit_exceeded` — the gem refuses to spend money on cost it cannot bound. This applies to the default heuristic count; with `token_count :exact` the provider counts the attachment instead, and the call fails closed only when it cannot.
 
 ```ruby
 class MyContract < RubyLLM::Contract::Step::Base
@@ -103,6 +103,7 @@ end
 ```ruby
 ExtractInvoiceData.estimate_cost(
   input: "Look for vendor, amount...",
+  model: "gpt-4.1-mini",   # estimate_cost does not read the retry chain
   attachment: "tmp/invoice.pdf"
 )
 # => { model: "gpt-4.1-mini",
@@ -138,9 +139,9 @@ A Step is single-turn: each `run` sends its prompt with the attachment and keeps
 
 - **OpenAI** — PDFs sent as `type: 'file'` with `file_data` (base64). Images as `image_url`. Audio as `input_audio`. Vision pricing varies by image detail; check the model card.
 - **Anthropic** — PDFs sent as `type: 'document'` with `source.type: 'base64'` or `'url'` (auto-selected). Images same. Page limit ~100 per call.
-- **Gemini** — Everything via `inline_data` with `mime_type`. Multimodal token counting is unified.
+- **Gemini** — Media sent inline via `inline_data` with `mime_type`; a file already uploaded to the provider goes as `file_data`. Multimodal token counting is unified.
 
-RubyLLM dispatches on `attachment.type` (`:image`, `:pdf`, `:audio`, `:text`, `:unknown`). Tempfiles must have the right extension (`.pdf`, `.png`, etc.) — RubyLLM detects MIME from the filename; an unsuffixed tempfile becomes `:unknown` and is rejected by the provider.
+RubyLLM dispatches on `attachment.type` (`:image`, `:pdf`, `:audio`, `:video`, `:text`, `:document`, `:unknown`). Give tempfiles the right extension (`.pdf`, `.png`, etc.): RubyLLM detects the MIME type from the filename or the content, and a file it cannot place becomes `:unknown`, which the provider rejects.
 
 ## Testing contracts with attachments
 
@@ -152,7 +153,7 @@ RSpec.describe ExtractInvoiceData do
     expect_any_instance_of(RubyLLM::Chat).to receive(:ask)
       .with(anything, with: "fixtures/invoice.pdf")
       .and_return(RubyLLM::Message.new(role: :assistant, content: '{"vendor":"X","invoice_number":"1","total_amount":10,"currency":"EUR"}',
-                                       model_id: "gpt-4.1-mini",
+                                       model: "gpt-4.1-mini",
                                        input_tokens: 200, output_tokens: 50))
 
     result = described_class.run("extract", context: { attachment: "fixtures/invoice.pdf" })

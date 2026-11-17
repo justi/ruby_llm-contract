@@ -42,7 +42,7 @@ class GenerateHashtags < RubyLLM::Contract::Step::Base
 
   prompt do
     rule "Preserve tldr / takeaways / tone exactly as given."
-    user "Article summary: {tldr}\nTone: {tone}\nGenerate 2 to 5 concise hashtags."
+    user "Article summary: {tldr}\nTakeaways: {takeaways}\nTone: {tone}\nGenerate 2 to 5 concise hashtags."
   end
 
   validate("tone preserved") { |o, input| o[:tone] == input[:tone] }
@@ -101,13 +101,14 @@ adapter = RubyLLM::Contract::Adapters::Test.new(response: {
 
 result = ArticleCardPipeline.run("article text", context: { adapter: adapter })
 result.failed?        # => true
-result.failed_step    # => :summarize (validate rejected; retries exhausted)
+result.failed_step    # => :summarize (validate rejected; no retry_policy, so one attempt)
 # tag and card never run — no downstream tokens spent on garbage
 ```
 
 ## Per-step model override
 
 ```ruby
+# In the pipeline's definition: `step` appends, so reopening the class would add three more steps.
 class ArticleCardPipeline < RubyLLM::Contract::Pipeline::Base
   step SummarizeArticle, as: :summarize, model: "gpt-4.1-mini"
   step GenerateHashtags, as: :tag,       model: "gpt-4.1-nano"
@@ -123,13 +124,14 @@ result = ArticleCardPipeline.run(article_text, timeout_ms: 30_000)
 
 ## Pipeline eval
 
-Pipeline `run_eval` matches only the **final step's output** against `expected:` (`BuildArticleCard` here). Intermediate step outputs (`SummarizeArticle`, `GenerateHashtags`) are not routed through `expected:` — assertions on `:tone` or `:hashtags` here would silently never match. For per-step assertions, run evals on each step individually.
+Pipeline `run_eval` matches only the **final step's output** against `expected:` (`BuildArticleCard` here). Intermediate step outputs (`SummarizeArticle`, `GenerateHashtags`) are not routed through `expected:` — an assertion on `:tone` there would silently never match, and one on `:hashtags` would check the card's hashtags, not `GenerateHashtags`'. For per-step assertions, use `step_expectations:`, keyed by the step's alias, or run evals on each step individually.
 
 ```ruby
 ArticleCardPipeline.define_eval("e2e") do
   add_case "ruby 3.4 release",
     input: "Ruby 3.4 ships with frozen string literals by default and better YJIT...",
-    expected: { sentiment_icon: "🧠" }
+    expected: { sentiment_icon: "🧠" },
+    step_expectations: { summarize: { tone: "analytical" } }
 end
 
 report = ArticleCardPipeline.run_eval("e2e", context: { model: "gpt-4.1-mini" })

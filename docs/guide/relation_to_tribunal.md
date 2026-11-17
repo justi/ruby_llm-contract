@@ -12,7 +12,7 @@ Both gems sit on top of `ruby_llm`. The space they cover overlaps in vocabulary 
 | When it runs | After the LLM call returns, typically in a spec | Before the LLM result reaches your code |
 | Where the output lives at evaluation time | Already in your variable, returned to caller | Still inside the gem's runner, not yet released |
 | What "fail" means | Red test in CI | Trigger retry/escalate on a stronger model, or fail closed |
-| Strongest features | Rich LLM-as-judge (faithful, relevant, hallucination, refusal, bias, toxicity, jailbreak, PII), red-team adversarial prompts, deterministic helpers (`assert_contains`, `assert_levenshtein`, …), RSpec/Minitest matchers, HTML/JUnit/GH reporters | Schema DSL with constraints, `validate` business rules, `retry_policy escalate(...)` model escalation, `max_cost` pre-flight refusal, regression-eval framework (frozen dataset + baseline + min_score gate), pipeline composition |
+| Strongest features | Rich LLM-as-judge (faithful, relevant, hallucination, refusal, bias, toxicity, jailbreak, PII), red-team adversarial prompts, deterministic helpers (`assert_contains`, `assert_levenshtein`, …), RSpec/Minitest matchers, HTML/JUnit/GH reporters | Schema DSL with constraints, `validate` business rules, `retry_policy { escalate ... }` model escalation, `max_cost` pre-flight refusal, regression-eval framework (frozen dataset + baseline + min_score gate), pipeline composition |
 | What it does NOT cover | No retry, no model escalation, no pre-flight cost cap, no contract layer between LLM and your code | No 10-judge LLM-as-judge catalog, no red-team generation, no rich deterministic assertion library; its test-framework matchers (`satisfy_contract`, `pass_eval`) gate contracts and evals, not individual outputs |
 
 ## Visual: where each gem sits in your call
@@ -41,7 +41,7 @@ your code ──► Step.run ──► LLM ──► [schema + validate]
                                                                   status: :validation_failed
 ```
 
-The output **never reaches your code** until the contract passes. A failed validation either fixes itself (the retry policy escalates to a stronger model) or fails closed with `status: :validation_failed` — your call site sees a deterministic failure status, never schema-invalid data.
+The output reaches your code **as a passing result** only once the contract passes. A failed validation either fixes itself (a retry policy escalates to a stronger model) or the call fails closed with the last attempt's status, such as `:validation_failed` — your call site sees a deterministic failure status. Check `result.ok?` before using the output: a failed result still carries it in `parsed_output` and `raw_output`, for logging.
 
 ### Both together (Tribunal in CI → then Contract in prod)
 
@@ -67,7 +67,7 @@ Tribunal grades **a fixed set of cases on every PR** to catch quality regression
 
 ## When to use which
 
-**Just Contract.** You ship LLM features whose output drives downstream code, money, or user trust. You need the bad-output-doesn't-reach-prod guarantee, retry escalation, and budget refusal. You are happy to write your own `validate` blocks for content checks; you don't need a 10-judge catalog yet.
+**Just Contract.** You ship LLM features whose output drives downstream code, money, or user trust. You need a failure status instead of bad output (your code checks `result.ok?`), retry escalation, and budget refusal. You are happy to write your own `validate` blocks for content checks; you don't need a 10-judge catalog yet.
 
 **Just Tribunal.** You have a stable production path you don't want to wrap, but you want a CI safety net that grades LLM output for faithfulness, hallucination, PII, jailbreak resistance, etc. You're testing a RAG pipeline or chatbot whose runtime is owned by other code.
 
@@ -111,6 +111,14 @@ These work today without any code changes in either gem — both use plain Ruby 
 class ChatReply < RubyLLM::Contract::Step::Base
   prompt "Answer this question grounded in the docs:\n{input}"
 
+  output_schema do
+    string :answer
+  end
+
+  retry_policy do
+    escalate "gpt-4.1-mini", "gpt-4.1"
+  end
+
   validate("no PII in answer") do |output, _input|
     test_case = RubyLLM::Tribunal::TestCase.new(actual_output: output[:answer])
     RubyLLM::Tribunal::Assertions.evaluate(:pii, test_case, {}).first == :pass
@@ -131,14 +139,17 @@ ChatReply.define_eval "rag_regression" do
         actual_output: output[:answer],
         context: ["Returns accepted within 30 days with receipt."]
       )
-      result = RubyLLM::Tribunal::Assertions.evaluate(:faithful, tc, {})
-      score = result.last[:score] || 0.0
-      RubyLLM::Contract::Eval::EvaluationResult.new(score: score, passed: result.first == :pass)
+      status, details = RubyLLM::Tribunal::Assertions.evaluate(:faithful, tc, {})
+      if status == :error # the judge could not grade; details is the reason
+        RubyLLM::Contract::Eval::EvaluationResult.new(score: 0.0, passed: false, details: details)
+      else
+        RubyLLM::Contract::Eval::EvaluationResult.new(score: details[:score] || 0.0, passed: status == :pass)
+      end
     }
 end
 ```
 
-Each case is graded by a Tribunal judge; baseline + min_score gate then fails the build on regression. You write the judge once, get the regression gate for free.
+Each case whose Step passes is graded by a Tribunal judge (a failed Step fails the case without grading); with a saved baseline and `pass_eval(...).without_regressions` (or a rake task with `fail_on_regression`), a case the judge passed before and fails now fails the build. A lower score on a case that still passes does not; add `with_minimum_score` for a score floor. You write the judge once, get the regression gate for free.
 
 ### Contract `Step` as Tribunal's `opts[:llm]` injection
 
@@ -157,7 +168,7 @@ This is a recipe, not a shipped adapter. Tribunal's `opts[:llm]` API is at v0.x 
 Three questions, three owners:
 
 - **"Is this output good?"** — Tribunal, in CI, on outputs you already hold.
-- **"What do we do when it isn't?"** — Contract, at runtime, before outputs reach your code (retry/escalate, or fail-closed with `Result(:validation_failed)`).
+- **"What do we do when it isn't?"** — Contract, at runtime, before your code treats an output as good (retry/escalate, or fail-closed with `Result(:validation_failed)`).
 - **"What do we do when it _is_ good?"** — your application code. Once Contract returns `:ok`, you persist, render, hand off downstream. The gem deliberately doesn't touch the happy path; it owns failure semantics, not domain logic.
 
 Use Tribunal, Contract, or both — whichever questions your application needs to answer.

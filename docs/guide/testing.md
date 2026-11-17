@@ -112,13 +112,16 @@ stub_steps(
   SummarizeArticle => { response: { tldr: "...", takeaways: %w[a b c], tone: "neutral" } },
   GenerateHashtags => { response: { tldr: "...", takeaways: %w[a b c],
                                     tone: "neutral",
-                                    hashtags: %w[#ruby #release] } }
+                                    hashtags: %w[#ruby #release] } },
+  BuildArticleCard => { response: { headline: "...", summary: "...",
+                                    hashtags: %w[#ruby #release],
+                                    sentiment_icon: "😐" } }
 ) do
   result = ArticleCardPipeline.run("article text")
 end
 ```
 
-**Global stub for all steps** — every Step in the example process returns the same canned hash regardless of its `output_schema`. Useful for high-level integration specs where step output content doesn't matter; use `stub_steps` instead when you need per-step shapes.
+**Global stub for all steps** - it replaces the default adapter, so every Step that runs on it returns the same canned hash regardless of its `output_schema`. A run given its own `adapter:` and a Step stubbed with `stub_step` keep theirs. Useful for high-level integration specs where step output content doesn't matter; use `stub_steps` instead when you need per-step shapes.
 
 ```ruby
 stub_all_steps(response: { default: true })
@@ -171,8 +174,8 @@ Evals run in one of two modes depending on how they're defined and what context 
 | Has `sample_response`? | `adapter:` in context? | Mode | API calls |
 |---|---|---|---|
 | Yes | No | **Offline** — uses `sample_response` as canned answer (a `model:` alone does not change that) | Zero |
-| Yes | Yes | **Online** — ignores `sample_response`, calls real LLM | Real |
-| No | Yes | **Online** — calls real LLM | Real |
+| Yes | Yes | **Online** — ignores `sample_response`, calls the adapter you pass (a real LLM for `Adapters::RubyLLM`) | Real (zero with `Adapters::Test`) |
+| No | Yes | **Online** — calls the adapter you pass | Real (zero with `Adapters::Test`) |
 | No | No | **Online** with the default adapter, which `RubyLLM::Contract.configure` sets up; **Skipped** (`:skipped`, excluded from score) only when no adapter is configured | Real / Zero |
 
 Default is offline. To force online, pass an adapter in context:
@@ -235,7 +238,7 @@ result.observations  # => [{ description: "scores should differ", passed: false 
 
 `observe` runs only after validation passes. Failed observations are logged via the logger set in `RubyLLM::Contract.configure` (`c.logger`) — useful for "I want to know this happened without blocking the response".
 
-> **Not the same as `Chat#on_end_message` / `on_tool_call`.** RubyLLM exposes anonymous, global callbacks attached to a chat instance — they receive the raw `Message` and have no inherent pass/fail concept. `Step.observe` is per-step, named with a description, runs against `parsed_output` (already JSON-parsed and schema-validated), and the pass/fail outcome is recorded in `result.observations`. The two can coexist: use Chat callbacks for transport/tool tracing, use `observe` for domain assertions you want captured in the step trace.
+> **Not the same as `Chat#after_message` / `before_tool_call`.** RubyLLM exposes anonymous callbacks attached to a chat instance — `after_message` receives the raw `Message`, `before_tool_call` the tool call — and they have no inherent pass/fail concept. `Step.observe` is per-step, named with a description, runs against `parsed_output` (already JSON-parsed and schema-validated), and the pass/fail outcome is recorded in `result.observations`. The two can coexist: use Chat callbacks for transport/tool tracing, use `observe` for domain assertions you want captured in `result.observations`.
 
 ## Asserting on `around_call`
 

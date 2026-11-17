@@ -9,13 +9,13 @@
 | What you write | Where it lives |
 |---|---|
 | `model`, `temperature`, `schema`, `instructions`, `thinking` | covered by both — same idea, different DSL surface |
-| `tools` | only in `RubyLLM::Agent` — a Step makes a single call without tools |
+| `tools` | only in `RubyLLM::Agent` - each Step attempt is one call without tools |
 | `validate :rule do ... end` business invariants on output | only in `ruby_llm-contract` |
-| `retry_policy escalate(...)` model escalation on validation failure | only here (different from RubyLLM's network-level retry) |
-| `max_cost` / `max_input` / `max_output` pre-flight refusal | only here |
+| `retry_policy { escalate ... }` model escalation on validation failure | only here (different from RubyLLM's network-level retry) |
+| `max_cost` / `max_input` pre-flight refusal, `max_output` reply cap | only here |
 | `define_eval` + baseline regression + `compare_models` + `optimize_retry_policy` | only here; RubyLLM 2.1's `RubyLLM::Evaluation` grades answers (see below) but keeps no baseline and has no cost gate |
 | Pipeline composition with `step SomeStep, as: :alias` | only here; `RubyLLM.workflow` (2.1) groups calls for tracing, without typed step outputs, fail-fast or budgets |
-| `around_call`, named `observe` hooks with pass/fail recorded in trace | only here |
+| `around_call`, named `observe` hooks with pass/fail recorded in `result.observations` | only here |
 
 ## Runtime relationship
 
@@ -50,7 +50,7 @@ A common pattern: simple ad-hoc prompts as `Agent`, contracts on the LLM feature
 
 ## On retry strategies
 
-The retry-strategy framing in this gem favours `retry_policy escalate(model_2, ...)` (model escalation, addresses model bias) over same-model `retry_policy attempts: N` (variance retry).
+The retry-strategy framing in this gem favours `retry_policy { escalate model_1, model_2 }` (model escalation, addresses model bias) over same-model `retry_policy attempts: N` (variance retry).
 
 This is grounded in empirical comparison across PDF quiz generation, GSM8K math (n=30 + n=120), and multi-constraint schedule generation: same-model retry produced no useful lift for nano-class models on tasks with clear correctness criteria. Model escalation did move the needle when same-model retry could not.
 

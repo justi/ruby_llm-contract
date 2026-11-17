@@ -26,6 +26,8 @@ end
 
 Works with any `ruby_llm` provider (OpenAI, Anthropic, Gemini, etc). Requires `ruby_llm` 2.1.1 or later in 2.x and Ruby ≥ 3.2.
 
+A call takes its model from the retry chain, then `context: { model: }`, then the Step's `model`, then `default_model` here. With none of these it goes to `ruby_llm`'s own `RubyLLM.config.default_model`, which `ruby_llm` 2.2 changed from `gpt-5.6` to `gpt-6.1-sol` unless you set it. A Step with `max_cost` refuses such a call with `:limit_exceeded`, since it cannot price a model it does not know; with `on_unknown_pricing: :warn` it sends it with a warning and no cost limit. Set `default_model` to keep the model you tested.
+
 ## Example
 
 A Rails app takes article text extracted from a user-submitted URL and wants to show a summary card: a short TL;DR, 3–5 key takeaways, and a tone label. The output has to fit the UI (TL;DR under 200 chars) and the schema has to be strict enough to render without conditionals.
@@ -115,7 +117,7 @@ end
 expect(SummarizeArticle).to pass_eval("regression").without_regressions
 ```
 
-A bad prompt edit or model swap that drops accuracy on the frozen dataset → red CI, blocked merge. Save a baseline once (`report.save_baseline!`, or `t.save_baseline = true` in the rake task); until one exists, `without_regressions` has nothing to compare against and passes. Every production miss should become the next `add_case`. See [Prevent silent prompt regressions](docs/guide/eval_first.md) for the full flywheel.
+A bad prompt edit or model swap that drops accuracy on the frozen dataset → red CI, blocked merge. Save a baseline once (`report.save_baseline!`, or `t.save_baseline = true` in the rake task); until one exists, `without_regressions` has nothing to compare against, and the matcher checks only that the eval passes. Every production miss should become the next `add_case`. See [Prevent silent prompt regressions](docs/guide/eval_first.md) for the full flywheel.
 
 ## Do I need this?
 
@@ -144,7 +146,7 @@ Also supports [multi-step pipelines](docs/guide/pipeline.md) with fail-fast and 
 
 ## Relation to `RubyLLM::Agent`
 
-`Step::Base` and `RubyLLM::Agent` (since RubyLLM 1.12) are **siblings** targeting the same niche: reusable, class-based prompts. Both call into `RubyLLM::Chat` directly - Step does not wrap Agent. Step adds the contract layer: `validate` (business invariants), `retry_policy escalate(...)` (model escalation on validation failure), `max_cost` pre-flight refusal, regression-eval framework, pipeline composition. RubyLLM 2.1's `RubyLLM::Evaluation` grades answers; `define_eval` guards against regressions and cost in CI - the mapping covers both. **[Full feature mapping →](docs/guide/relation_to_agent.md)**
+`Step::Base` and `RubyLLM::Agent` (since RubyLLM 1.12) are **siblings** targeting the same niche: reusable, class-based prompts. Both call into `RubyLLM::Chat` directly - Step does not wrap Agent. Step adds the contract layer: `validate` (business invariants), `retry_policy { escalate ... }` (model escalation on validation failure), `max_cost` pre-flight refusal, regression-eval framework, pipeline composition. RubyLLM 2.1's `RubyLLM::Evaluation` grades answers; `define_eval` guards against regressions and cost in CI - the mapping covers both. **[Full feature mapping →](docs/guide/relation_to_agent.md)**
 
 ## Relation to `ruby_llm-tribunal`
 

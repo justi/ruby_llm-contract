@@ -111,8 +111,9 @@ print_trace("reasoning escalation", SummarizeArticleReasoningEscalation.run("art
 # VARIANT C — cross-provider fallback (OpenAI → Anthropic)
 #
 # When to use: the cheap tiers live on one provider and the last resort on
-# another. ruby_llm detects the provider from the model name, so a chain of
-# models from its registry can cross providers.
+# another. ruby_llm picks the provider from the model name (from 2.2 it
+# prefers the providers you configured), so a chain of models from its
+# registry can cross providers.
 #
 # To run against real backends: configure ruby_llm for both providers
 # (openai_api_key + anthropic_api_key) and swap the Test adapter for
@@ -146,6 +147,7 @@ print_trace("cross-provider", SummarizeArticleCrossProvider.run("article", conte
 # 3. Cross-provider retry uses the same DSL — ruby_llm resolves the provider
 #    from the model name. Start cheapest, end on the most accurate model,
 #    whichever provider hosts it.
-# 4. The per-attempt trace (model, config, status, cost) is identical across
+# 4. The per-attempt trace (model, status, cost, and config when an effort
+#    was sent) has the same shape across
 #    variants — your logging does not care which retry shape you picked.
 # =============================================================================

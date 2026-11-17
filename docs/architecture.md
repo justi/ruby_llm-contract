@@ -9,7 +9,7 @@ RubyLLM::Contract::Step::Base       # single contracted step
   ├── Step::Dsl                  # DSL macros (prompt, validate, output_schema, etc.)
   ├── Step::RetryPolicy          # attempts, models, reasoning_effort, retry_on
   ├── Step::RetryExecutor        # retry loop driven by RetryPolicy
-  ├── Step::LimitChecker         # preflight cost / input / output checks
+  ├── Step::LimitChecker         # preflight cost / input checks (max_output feeds the cost estimate)
   ├── Step::Runner               # runtime flow (single attempt)
   ├── Step::Result               # status + outputs + errors + trace
   ├── Step::Trace                # model, latency, tokens, cost, attempts
@@ -33,13 +33,13 @@ RubyLLM::Contract::Eval             # quality measurement
   ├── Eval::Dataset              # test cases
   ├── Eval::Runner               # sequential or concurrent execution
   ├── Eval::Report               # score, pass_rate, per-case results
-  ├── Eval::AggregatedReport     # merged reports across models or runs
+  ├── Eval::AggregatedReport     # one candidate's repeated runs (runs: N), averaged
   ├── Eval::CaseResult           # value object (name, passed?, output, expected, mismatches, cost)
   ├── Eval::ExpectationEvaluator # expected / expected_traits / evaluator proc
   ├── Eval::ModelComparison      # compare_models result (table, best_for, candidate configs)
   ├── Eval::Recommender          # model recommendation algorithm (candidates → optimal config)
   ├── Eval::Recommendation       # recommendation result (best, retry_chain, savings, to_dsl)
-  ├── Eval::RetryOptimizer       # optimize_retry_policy result (per-eval breakdown, fallback list)
+  ├── Eval::RetryOptimizer       # optimize_retry_policy; its Result has the per-eval breakdown, fallback list
   ├── Eval::BaselineDiff         # save_baseline! + without_regressions comparison
   ├── Eval::PromptDiffComparator # compare_with prompt A/B diff
   └── Eval::EvalHistory          # time-series view across saved reports

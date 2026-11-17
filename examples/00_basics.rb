@@ -55,7 +55,7 @@ r.status        # => :ok
 r.parsed_output # => {tldr: "...", takeaways: [...], tone: "analytical"}
 
 # =============================================================================
-# STEP 2 — Add a business rule (validate) that schema cannot express
+# STEP 2 - Add a business rule (validate) the schema above does not express
 # Schema says "takeaways is an array of 3–5 strings". Nothing there says
 # "uniqueness" or "TL;DR fits the card". That is what validate blocks are for.
 # =============================================================================
