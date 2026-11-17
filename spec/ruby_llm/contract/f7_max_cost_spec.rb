@@ -27,6 +27,20 @@ RSpec.describe "F7: max_cost fail closed + CostCalculator.register_model" do
       expect(result.validation_errors.first).to include("CostCalculator.register_model")
     end
 
+    it "says no model is set when none is, instead of naming an empty one" do
+      step = Class.new(RubyLLM::Contract::Step::Base) do
+        prompt "Analyze {input}"
+        max_cost 0.05
+      end
+
+      result = step.run("hello", context: { adapter: test_adapter })
+
+      expect(result.status).to eq(:limit_exceeded)
+      expect(result.validation_errors.first).to start_with("max_cost is set but no model is set for this Step")
+      expect(result.validation_errors.first).to include("Set default_model in RubyLLM::Contract.configure")
+      expect(result.validation_errors.first).not_to include("''")
+    end
+
     it "does not call the adapter when pricing is unknown" do
       adapter_called = false
       spy_adapter = Class.new(RubyLLM::Contract::Adapters::Base) do
@@ -71,6 +85,19 @@ RSpec.describe "F7: max_cost fail closed + CostCalculator.register_model" do
       expect_any_instance_of(RubyLLM::Contract::Step::Runner).to receive(:warn)
         .with(/no pricing data/)
       step.run("hello", context: { adapter: test_adapter, model: "ft:custom-unknown-model" })
+    end
+
+    it "sends a call with no model, warning that no model is set" do
+      step = Class.new(RubyLLM::Contract::Step::Base) do
+        prompt "Analyze {input}"
+        max_cost 0.05, on_unknown_pricing: :warn
+      end
+
+      expect_any_instance_of(RubyLLM::Contract::Step::Runner).to receive(:warn)
+        .with(/max_cost is configured but no model is set/)
+      result = step.run("hello", context: { adapter: test_adapter })
+
+      expect(result.status).to eq(:ok)
     end
   end
 

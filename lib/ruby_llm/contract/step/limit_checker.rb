@@ -119,13 +119,24 @@ module RubyLLM
         end
 
         def handle_unknown_pricing(errors)
+          problem, fix = unknown_pricing_reason
           if on_unknown_pricing == :warn
-            warn "[ruby_llm-contract] max_cost is configured but model '#{model_name}' " \
-                 "has no pricing data — cost limit not enforced"
+            warn "[ruby_llm-contract] max_cost is configured but #{problem} — cost limit not enforced"
           else
-            errors << "max_cost is set but model '#{model_name}' has no pricing data. " \
-                      "Register pricing via CostCalculator.register_model or set " \
+            errors << "max_cost is set but #{problem}. #{fix} or set " \
                       "on_unknown_pricing: :warn to proceed without cost checks."
+          end
+        end
+
+        # With no model the call would run RubyLLM's own default, which the
+        # contract does not read (RubyLLM.config.default_model does not count),
+        # so there is no price to check.
+        def unknown_pricing_reason
+          if model_name
+            ["model '#{model_name}' has no pricing data", "Register pricing via CostCalculator.register_model"]
+          else
+            ["no model is set for this Step, so the call has no known price",
+             "Set default_model in RubyLLM::Contract.configure, a model on the Step, or context: { model: }"]
           end
         end
 
