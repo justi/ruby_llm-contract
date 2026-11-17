@@ -1,5 +1,54 @@
 # Changelog
 
+## 1.5.1 (2026-11-17)
+
+### Changed
+
+- **Checked against `ruby_llm` 2.2.2.** The offline suite and the live specs
+  pass on it, and no code changes are needed: the gemspec already allows it.
+  Run `bundle update ruby_llm` to pick it up. Two things change with the
+  upgrade itself, below.
+- **With no model set anywhere, `ruby_llm` 2.2 runs `gpt-6.1-sol`.** A call
+  takes its model from the retry chain, then `context: { model: }`, then the
+  Step's `model`, then `default_model` in `RubyLLM::Contract.configure`. With
+  none of these the adapter passes no model, and `ruby_llm` uses
+  `RubyLLM.config.default_model`, which 2.2 changed from `gpt-5.6` to
+  `gpt-6.1-sol` unless you set it. A Step with `max_cost` refuses such a call
+  with `:limit_exceeded`, as before, since it cannot price a model it does not
+  know; with `on_unknown_pricing: :warn` it sends it with a warning and no cost
+  limit. Set `default_model` to keep the model you tested.
+- **On `ruby_llm` 2.2 a network failure is a `RubyLLM::ConnectionError`.**
+  2.1 raised the Faraday error itself (`Faraday::ConnectionFailed`,
+  `Faraday::TimeoutError`); 2.2 wraps it, with the Faraday error as its
+  `cause`. A failed completion request still returns `:adapter_error`, but
+  `trace[:error_class]` changes, and a `retry_on` that names a Faraday class
+  no longer matches. Name `RubyLLM::ConnectionError` instead after upgrading.
+  A provider or network error while `token_count :exact` counts the input
+  ends as `:limit_exceeded`, as before, so a `retry_on` naming an error class
+  does not retry it.
+
+### Fixed
+
+- **A `max_cost` refusal with no model says no model is set.** It read
+  `model '' has no pricing data` and advised registering pricing. It now says
+  `no model is set for this Step` and advises setting `default_model` in
+  `RubyLLM::Contract.configure`, a model on the Step, or `context: { model: }`
+  (`RubyLLM.config.default_model` does not count). The
+  `on_unknown_pricing: :warn` warning also says no model is set.
+- **The guides match the code again.** Among others: the RubyLLM chat
+  callbacks are `after_message` and `before_tool_call` (`testing.md` named
+  methods that do not exist); measuring quality with `run_eval` needs an
+  explicit adapter, since a `model:` alone keeps the `sample_response`
+  (`eval_first.md`); `max_output` caps the reply rather than refusing a call;
+  `optimize` shows scores, not cost, and builds its chain greedily; a
+  pipeline eval can assert on intermediate steps with `step_expectations:`;
+  `estimate_cost` does not read the retry chain; `RubyLLM::Message.new` takes
+  `model:`, not `model_id:`; and `retry_policy` takes `escalate` in a block.
+- **The live `compare_models` specs name a Sonnet model that exists.** They
+  used `claude-sonnet-4-5-20250514`, which no `ruby_llm` registry lists, so
+  with `ANTHROPIC_API_KEY` set the three of them raised `ModelNotFoundError`.
+  They now use `claude-sonnet-4-5-20250929`.
+
 ## 1.5.0 (2026-10-13)
 
 ### Changed

@@ -7,10 +7,10 @@ module RubyLLM
     module Step
       class AdapterCaller
         # Exceptions treated as :adapter_error (retryable when explicitly opted in).
-        # RubyLLM::Error covers provider-semantic errors (auth, bad request,
-        # rate limit, server error, context length). Faraday::Error covers
-        # transport failures that escape ruby_llm's Faraday retry middleware
-        # after exhaustion (Faraday::TimeoutError, Faraday::ConnectionFailed).
+        # RubyLLM::Error covers provider errors (auth, bad request, rate limit,
+        # server error, context length) and, from ruby_llm 2.2, network failures
+        # that outlast its retries (RubyLLM::ConnectionError). ruby_llm 2.1
+        # raises those as Faraday::Error (TimeoutError, ConnectionFailed).
         # Anything else (NoMethodError, programmer ArgumentError from adapter
         # code, etc.) propagates — those are bugs, not retry candidates.
         ADAPTER_ERRORS = [::RubyLLM::Error, ::Faraday::Error].freeze
